@@ -1,4 +1,4 @@
-"""FastAPI application exposing risk scoring endpoints."""
+"""FastAPI application — REST scoring endpoints + interactive web frontend."""
 
 from __future__ import annotations
 
@@ -6,8 +6,10 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse
+import yfinance as yf
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, PlainTextResponse
 from loguru import logger
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
@@ -21,9 +23,77 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
 scorer = RiskScorer()
 monitor = ModelMonitor(settings.monitoring_log_dir)
 
+_WEB_DIR = Path(__file__).parent.parent.parent.parent / "ui" / "web"
+
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(str(_WEB_DIR / "index.html"))
+
+
+# ── Search ────────────────────────────────────────────────────────────────────
+
+@app.get("/api/search")
+def api_search(q: str = Query(..., min_length=1, description="Ticker or company name")):
+    """Search Yahoo Finance for matching equity/ETF symbols."""
+    try:
+        results = yf.Search(q, max_results=8).quotes
+        return [
+            {
+                "symbol": r["symbol"],
+                "name": r.get("shortname") or r.get("longname") or r["symbol"],
+                "exchange": r.get("exchDisp", ""),
+                "type": r.get("typeDisp", ""),
+            }
+            for r in results
+            if r.get("quoteType") in ("EQUITY", "ETF")
+        ][:6]
+    except Exception as exc:
+        logger.warning(f"Search error for '{q}': {exc}")
+        return []
+
+
+# ── Scoring ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/score/{ticker}")
+def api_score(ticker: str, period: str = "2y"):
+    """Return a full risk scorecard for *ticker*."""
+    try:
+        result = scorer.score(ticker.upper(), period=period)
+        monitor.record(result)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception(f"Error scoring {ticker}: {exc}")
+        raise HTTPException(status_code=500, detail="Internal scoring error")
+
+
+@app.get("/api/score/{ticker}/timeseries")
+def api_timeseries(ticker: str, period: str = "6mo"):
+    """Return daily risk score + direction probabilities for the selected period."""
+    try:
+        return scorer.score_timeseries(ticker.upper(), period=period)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception(f"Timeseries error for {ticker}: {exc}")
+        raise HTTPException(status_code=500, detail="Internal error")
+
+
+# ── Legacy endpoints (keep for Prometheus / Streamlit compat) ─────────────────
 
 @app.get("/health")
 def health():
@@ -39,7 +109,6 @@ def get_score(ticker: str, period: str = "2y"):
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
-        logger.exception(f"Error scoring {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal scoring error")
 
 
@@ -50,7 +119,7 @@ def get_score_history(ticker: str, limit: int = 100):
         raise HTTPException(status_code=404, detail=f"No history found for {ticker}")
     with open(log_path) as f:
         lines = f.readlines()[-limit:]
-    return [json.loads(l) for l in lines]
+    return [json.loads(line) for line in lines]
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
