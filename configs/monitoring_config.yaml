@@ -1,0 +1,18 @@
+drift:
+  psi_threshold: 0.2
+  ks_alpha: 0.05
+  check_features:
+    - rsi_14
+    - vol_21d
+    - vol_63d
+    - bb_pct
+    - var_95_21d
+    - max_drawdown_63d
+
+alerting:
+  risk_score_high_threshold: 75
+  risk_score_extreme_threshold: 90
+
+schedule:
+  monitor_interval_seconds: 3600
+  retrain_interval_days: 30

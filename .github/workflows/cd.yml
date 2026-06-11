@@ -1,0 +1,22 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t stock-risk:${{ github.ref_name }} .
+
+      - name: Run smoke test
+        run: |
+          docker run -d -p 8000:8000 --name smoke stock-risk:${{ github.ref_name }}
+          sleep 5
+          curl -f http://localhost:8000/health
+          docker stop smoke

@@ -1,0 +1,31 @@
+volatility_model:
+  type: garch
+  p: 1
+  q: 1
+  rescale: 100.0
+
+downside_risk_model:
+  type: xgboost
+  n_estimators: 300
+  max_depth: 5
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  horizon_days: 21
+  feature_groups:
+    momentum: [rsi_14, dist_ema_20, dist_ema_50, bb_pct, volume_ratio]
+    volatility: [vol_21d, vol_63d, var_95_21d, cvar_95_21d, max_drawdown_63d, atr_14, skew_63d, kurt_63d]
+    quality: [sharpe_63d, sortino_63d]
+
+training:
+  default_tickers:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - TSLA
+    - NVDA
+    - META
+    - JPM
+  lookback_days: 730
+  validation_split: 0.2
