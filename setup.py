@@ -13,7 +13,7 @@ setup(
         "scikit-learn>=1.4",
         "xgboost>=2.0",
         "arch>=6.3",
-        "pandas-ta>=0.3.14b",
+        "ta>=0.11.0",
         "fastapi>=0.111",
         "uvicorn[standard]>=0.29",
         "pydantic>=2.7",
