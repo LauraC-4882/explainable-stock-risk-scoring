@@ -1,57 +1,28 @@
-"""XGBoost downside risk scoring model with sklearn ColumnTransformer pipeline."""
+"""XGBoost drawdown-event risk model with sklearn ColumnTransformer pipeline."""
 
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 import pandas as pd
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from xgboost import XGBRegressor
+from xgboost import XGBClassifier
 from loguru import logger
 
 from .base import BaseRiskModel
-
-# Momentum / oscillator features — benefit from standardisation
-MOMENTUM_COLS = ["rsi_14", "dist_ema_20", "dist_ema_50", "bb_pct", "volume_ratio"]
-
-# Volatility / risk measure features — already in comparable units but still scaled
-VOLATILITY_COLS = [
-    "vol_21d", "vol_63d", "var_95_21d", "cvar_95_21d",
-    "max_drawdown_63d", "atr_14", "skew_63d", "kurt_63d",
-]
-
-# Return-quality features
-QUALITY_COLS = ["sharpe_63d", "sortino_63d"]
-
-ALL_FEATURE_COLS = MOMENTUM_COLS + VOLATILITY_COLS + QUALITY_COLS
-
-
-def _scaled_branch(cols: list[str]) -> Pipeline:
-    return Pipeline([
-        ("impute", SimpleImputer(strategy="median")),
-        ("scale", StandardScaler()),
-    ])
-
-
-def _build_preprocessor() -> ColumnTransformer:
-    return ColumnTransformer(
-        transformers=[
-            ("momentum", _scaled_branch(MOMENTUM_COLS), MOMENTUM_COLS),
-            ("volatility", _scaled_branch(VOLATILITY_COLS), VOLATILITY_COLS),
-            ("quality", _scaled_branch(QUALITY_COLS), QUALITY_COLS),
-        ],
-        remainder="drop",
-    )
+from .feature_sets import ALL_FEATURE_COLS, build_preprocessor, build_drawdown_labels
 
 
 class DownsideRiskModel(BaseRiskModel):
-    """Predicts a 0–100 downside risk score using XGBoost + sklearn ColumnTransformer.
+    """Predicts a 0-100 downside risk score = P(max drawdown <= threshold within
+    `horizon` trading days) x 100, via an XGBoost classifier inside a sklearn
+    ColumnTransformer pipeline (per-group median imputation + scaling).
 
-    Target: forward 21-day maximum drawdown (sign-flipped so higher = more risk).
-    The ColumnTransformer handles NaN imputation and per-group scaling independently,
-    keeping volatility features from dominating momentum ones.
+    When the training window contains no drawdown events at all (common for a
+    single calm ticker over a short lookback), XGBoost cannot fit a
+    single-class target — the model falls back to a constant base-rate score
+    instead of raising.
     """
 
     model_name = "downside_risk_xgb"
@@ -64,54 +35,72 @@ class DownsideRiskModel(BaseRiskModel):
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
     ):
+        self._params = dict(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            subsample=subsample,
+            colsample_bytree=colsample_bytree,
+        )
+        self.pipeline: Optional[Pipeline] = None
+        self._fallback_rate: Optional[float] = None
+
+    def fit(self, df: pd.DataFrame, horizon: int = 20, threshold: float = -0.10) -> "DownsideRiskModel":
+        """Convenience fit on a single ticker's dataframe."""
+        y = build_drawdown_labels(df, horizon=horizon, threshold=threshold)
+        valid = df[ALL_FEATURE_COLS].join(y.rename("target")).dropna()
+        return self.fit_dataset(valid[ALL_FEATURE_COLS], valid["target"])
+
+    def fit_dataset(self, X: pd.DataFrame, y: pd.Series) -> "DownsideRiskModel":
+        """Fit on a pre-built (X, y) pair, e.g. pooled across tickers via
+        `feature_sets.build_dataset` (labels already computed per-ticker to
+        avoid cross-ticker leakage in the forward-looking window)."""
+        if len(y) == 0:
+            self._fallback_rate = 0.0
+            logger.warning("DownsideRiskModel: no valid training rows after dropping NaNs — using 0.0 fallback score")
+            return self
+        if y.nunique() < 2:
+            self._fallback_rate = float(y.mean())
+            logger.warning(
+                f"DownsideRiskModel: no class variation in training data "
+                f"(base rate={self._fallback_rate:.3f}) — using constant fallback score"
+            )
+            return self
+
+        pos, neg = (y == 1).sum(), (y == 0).sum()
+        scale_pos_weight = neg / max(pos, 1)
+
         self.pipeline = Pipeline([
-            ("preprocessor", _build_preprocessor()),
-            ("xgb", XGBRegressor(
-                n_estimators=n_estimators,
-                max_depth=max_depth,
-                learning_rate=learning_rate,
-                subsample=subsample,
-                colsample_bytree=colsample_bytree,
-                objective="reg:squarederror",
+            ("preprocessor", build_preprocessor()),
+            ("xgb", XGBClassifier(
+                **self._params,
+                objective="binary:logistic",
+                eval_metric="aucpr",
+                scale_pos_weight=scale_pos_weight,
                 random_state=42,
                 n_jobs=-1,
                 verbosity=0,
             )),
         ])
-
-    def _build_target(self, df: pd.DataFrame, horizon: int = 21) -> pd.Series:
-        """Forward maximum drawdown over *horizon* days (positive = worse)."""
-        fwd_max_dd = (
-            df["close"]
-            .shift(-horizon)
-            .rolling(horizon)
-            .min()
-            .div(df["close"])
-            .sub(1)
-            .mul(-1)
-        )
-        return fwd_max_dd
-
-    def fit(self, df: pd.DataFrame, horizon: int = 21) -> "DownsideRiskModel":
-        y_raw = self._build_target(df, horizon)
-        valid = df[ALL_FEATURE_COLS].join(y_raw.rename("target")).dropna(subset=["target"])
-        X = valid[ALL_FEATURE_COLS]
-        y = np.clip(valid["target"].values, 0, 1)
-
         self.pipeline.fit(X, y)
-        logger.info(f"DownsideRiskModel (XGBoost) fitted on {len(X)} samples")
+        logger.info(f"DownsideRiskModel (XGBoost) fitted on {len(X)} samples ({int(pos)} events)")
         return self
 
     def predict(self, df: pd.DataFrame) -> pd.Series:
-        """Return a 0–100 downside risk score for the latest row in *df*."""
+        """Return a 0-100 downside risk score for the latest row in *df*."""
         feat = df[ALL_FEATURE_COLS].tail(1)
-        raw = self.pipeline.predict(feat)[0]
-        score = float(np.clip(raw * 100, 0, 100))
+        if self.pipeline is None:
+            score = (self._fallback_rate or 0.0) * 100
+        else:
+            proba = self.pipeline.predict_proba(feat)[0, 1]
+            score = float(np.clip(proba * 100, 0, 100))
         return pd.Series({"downside_risk_score": score})
 
     def feature_importance(self) -> pd.Series:
         """Return XGBoost feature importances as a named Series."""
-        xgb: XGBRegressor = self.pipeline.named_steps["xgb"]
-        preprocessor: ColumnTransformer = self.pipeline.named_steps["preprocessor"]
+        if self.pipeline is None:
+            raise RuntimeError("Model has no fitted XGBoost estimator (fallback/base-rate mode).")
+        xgb: XGBClassifier = self.pipeline.named_steps["xgb"]
+        preprocessor = self.pipeline.named_steps["preprocessor"]
         feature_names = preprocessor.get_feature_names_out()
         return pd.Series(xgb.feature_importances_, index=feature_names).sort_values(ascending=False)

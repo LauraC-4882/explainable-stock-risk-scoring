@@ -36,6 +36,24 @@ class RiskMetrics:
         df["drawdown"] = (df["close"] - roll_max) / roll_max
         df["max_drawdown_63d"] = df["drawdown"].rolling(63).min()
 
+        # Drawdown duration: consecutive trading days since the last peak
+        in_drawdown = df["drawdown"] < 0
+        streak_id = (~in_drawdown).cumsum()
+        df["drawdown_duration"] = np.where(
+            in_drawdown, in_drawdown.groupby(streak_id).cumcount() + 1, 0
+        )
+
+        # EWMA volatility (RiskMetrics-style, lambda=0.94) — reacts faster than fixed windows
+        ewma_var = r.pow(2).ewm(alpha=1 - 0.94, adjust=False).mean()
+        df["ewma_vol"] = np.sqrt(ewma_var) * np.sqrt(self.TRADING_DAYS)
+
+        # Downside deviation (semi-deviation of negative returns only)
+        def _downside_dev(x: np.ndarray) -> float:
+            neg = np.minimum(x, 0.0)
+            return np.sqrt(np.mean(neg ** 2)) * np.sqrt(self.TRADING_DAYS)
+
+        df["downside_dev_63d"] = r.rolling(63).apply(_downside_dev, raw=True)
+
         # Sharpe & Sortino (annualised, zero risk-free approximation for simplicity)
         def _sortino(x: np.ndarray) -> float:
             neg = x[x < 0]
@@ -59,6 +77,15 @@ class RiskMetrics:
         # Skewness and kurtosis (tail risk indicators)
         df["skew_63d"] = r.rolling(63).skew()
         df["kurt_63d"] = r.rolling(63).kurt()
+
+        # Liquidity: dollar volume, volume volatility, Amihud illiquidity
+        dollar_vol = df["close"] * df["volume"]
+        df["dollar_volume_21d"] = dollar_vol.rolling(21).mean()
+        df["volume_vol_21d"] = (
+            df["volume"].rolling(21).std() / df["volume"].rolling(21).mean()
+        )
+        illiq = r.abs() / dollar_vol.reindex(r.index) * 1e6
+        df["amihud_illiq_21d"] = illiq.rolling(21).mean()
 
         return df
 

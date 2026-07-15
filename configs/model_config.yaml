@@ -5,13 +5,14 @@ volatility_model:
   rescale: 100.0
 
 downside_risk_model:
-  type: xgboost
+  type: xgboost_classifier
   n_estimators: 300
   max_depth: 5
   learning_rate: 0.05
   subsample: 0.8
   colsample_bytree: 0.8
-  horizon_days: 21
+  horizon_days: 20
+  drawdown_threshold: -0.10  # label=1 if forward max drawdown <= -10% within horizon_days
   feature_groups:
     momentum: [rsi_14, dist_ema_20, dist_ema_50, bb_pct, volume_ratio]
     volatility: [vol_21d, vol_63d, var_95_21d, cvar_95_21d, max_drawdown_63d, atr_14, skew_63d, kurt_63d]

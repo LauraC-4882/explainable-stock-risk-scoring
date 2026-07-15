@@ -14,13 +14,13 @@ DataPreprocessor          ← gap-fill, outlier removal, log/pct returns
 TechnicalFeatures         ← RSI, MACD, Bollinger Bands, ATR, OBV, EMA
        │
        ▼
-RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, beta
+RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, liquidity, beta
        │
-       ├──► XGBoost (ColumnTransformer sklearn Pipeline)  ← DownsideRiskModel
-       └──► GARCH(1,1)                                    ← VolatilityModel
+       ├──► risk_categories.py  (percentile composite)  ← primary, explainable risk_score
+       └──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) ← secondary ml_drawdown_probability
                 │
                 ▼
-          Risk Scorecard (0–100 + label)
+          Risk Scorecard (0–100 + label + category breakdown)
                 │
        ┌────────┴────────┐
        ▼                 ▼
@@ -35,9 +35,11 @@ RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, beta
 | `data/fetcher.py` | Fetches OHLCV, fundamentals, and options IV via **yfinance** |
 | `data/preprocessor.py` | Business-day alignment, 6σ outlier removal, log/pct returns |
 | `features/technical.py` | RSI, MACD, Bollinger Bands, ATR, OBV, EMA 20/50/200 via **pandas-ta** |
-| `features/risk_metrics.py` | Rolling VaR, CVaR, Sharpe, Sortino, drawdown, skew, kurtosis, beta |
+| `features/risk_metrics.py` | Rolling VaR, CVaR, Sharpe, Sortino, drawdown, skew, kurtosis, EWMA vol, liquidity, beta |
+| `scoring/risk_categories.py` | Percentile-based composite score across 5 risk categories (explainable baseline) |
 | `models/volatility.py` | GARCH(1,1) volatility forecasting via **arch** |
-| `models/downside_risk.py` | **XGBoost** regressor inside **sklearn ColumnTransformer** pipeline |
+| `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline |
+| `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison (Precision/Recall/F1/ROC-AUC/PR-AUC) |
 | `scoring/scorer.py` | End-to-end orchestration: fetch → preprocess → engineer → score |
 | `monitoring/drift.py` | PSI + KS-test feature drift detection |
 | `monitoring/metrics.py` | Prometheus gauges and JSONL score logging |
@@ -85,17 +87,21 @@ df  = RiskMetrics().compute(df)                            # risk metrics
 
 ## Model Training
 
-The downside risk model uses an **XGBoost regressor** wrapped in a **scikit-learn pipeline** with a `ColumnTransformer` that applies median imputation + `StandardScaler` independently to three feature groups (momentum, volatility, quality):
+The primary risk score (`risk_score` in the API response) is a **percentile-based composite** over five categories — volatility, tail, drawdown, market sensitivity, liquidity — computed relative to each stock's own historical distribution (see `scoring/risk_categories.py`). It requires no training and is fully explainable via `risk_breakdown`.
+
+A secondary, ML-derived signal (`ml_drawdown_probability`) is produced by an **XGBoost classifier** wrapped in a **scikit-learn pipeline** with a `ColumnTransformer` that applies median imputation + `StandardScaler` independently to three feature groups (momentum, volatility, quality). Its target is binary: did the stock's max drawdown breach -10% within the next 20 trading days?
 
 ```python
 from stock_risk.models.downside_risk import DownsideRiskModel
 
 model = DownsideRiskModel(n_estimators=300, max_depth=5)
-model.fit(df)            # target = forward 21-day max drawdown
-score = model.predict(df)["downside_risk_score"]   # 0–100
+model.fit(df)             # label = forward 20-day max drawdown <= -10%
+score = model.predict(df)["downside_risk_score"]   # P(event) x 100
 ```
 
-Feature importances are accessible via `model.feature_importance()`.
+Falls back to a constant base-rate score (instead of raising) when the training window has no drawdown events at all, since XGBoost can't fit a single-class target.
+
+Feature importances are accessible via `model.feature_importance()`. `scripts/train.py` also runs `models/evaluation.py::compare_classifiers`, which benchmarks Logistic Regression / Random Forest / XGBoost on a chronological (never random) train/test split and reports Precision/Recall/F1/ROC-AUC/PR-AUC/confusion-matrix — accuracy alone is misleading here since drawdown events are a rare minority class.
 
 ## FastAPI Endpoints
 
@@ -114,6 +120,15 @@ Feature importances are accessible via `model.feature_importance()`.
   "timestamp": "2026-06-11T10:30:00Z",
   "risk_score": 72.4,
   "risk_label": "HIGH",
+  "risk_note": "Score reflects this stock's risk relative to its own historical distribution ...",
+  "risk_breakdown": {
+    "volatility": {"score": 81.2, "weight": 0.25, "metrics": {"vol_21d": 88.4, "vol_63d": 79.1, "downside_dev_63d": 76.0}},
+    "tail": {"score": 74.5, "weight": 0.25, "metrics": {"cvar_95_21d": 80.2, "var_95_21d": 71.0, "skew_63d": 65.8, "kurt_63d": 79.3}},
+    "drawdown": {"score": 69.8, "weight": 0.20, "metrics": {"max_drawdown_63d": 75.1, "drawdown": 63.4, "drawdown_duration": 60.2}},
+    "sensitivity": {"score": 88.0, "weight": 0.15, "metrics": {"beta_63d": 88.0}},
+    "liquidity": {"score": 45.3, "weight": 0.15, "metrics": {"amihud_illiq_21d": 40.1, "volume_vol_21d": 51.2, "dollar_volume_21d": 55.0}}
+  },
+  "ml_drawdown_probability": 66.1,
   "volatility_30d": 0.48,
   "var_95": -0.034,
   "cvar_95": -0.052,

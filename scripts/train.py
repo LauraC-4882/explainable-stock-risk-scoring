@@ -16,15 +16,17 @@ from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
 from stock_risk.models.volatility import VolatilityModel
 from stock_risk.models.downside_risk import DownsideRiskModel
+from stock_risk.models.feature_sets import build_dataset
+from stock_risk.models.evaluation import compare_classifiers
 
 
-def train(tickers: list[str], lookback: int, model_dir: Path):
+def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20, threshold: float = -0.10):
     fetcher = MarketDataFetcher()
     preprocessor = DataPreprocessor()
     tech = TechnicalFeatures()
     risk = RiskMetrics()
 
-    combined_dfs = []
+    per_ticker_dfs = {}
     for ticker in tickers:
         try:
             period = f"{lookback // 365}y" if lookback >= 365 else f"{lookback}d"
@@ -32,25 +34,39 @@ def train(tickers: list[str], lookback: int, model_dir: Path):
             df = preprocessor.process(raw)
             df = tech.compute(df)
             df = risk.compute(df)
-            combined_dfs.append(df)
+            per_ticker_dfs[ticker] = df
             logger.info(f"Processed {ticker}: {len(df)} rows")
         except Exception as exc:
             logger.warning(f"Skipping {ticker}: {exc}")
 
-    if not combined_dfs:
+    if not per_ticker_dfs:
         raise RuntimeError("No valid data to train on")
 
     import pandas as pd
-    all_data = pd.concat(combined_dfs, ignore_index=True)
+    all_data = pd.concat(per_ticker_dfs.values(), ignore_index=True)
     logger.info(f"Total training rows: {len(all_data)}")
 
     vol_model = VolatilityModel()
     vol_model.fit(all_data)
     vol_model.save(model_dir)
 
+    # Build (X, y) per ticker *before* pooling — a forward-looking drawdown
+    # label must never be computed across a ticker boundary.
+    dataset = build_dataset(per_ticker_dfs, horizon=horizon, threshold=threshold)
+    X = pd.concat([x for x, _ in dataset.values()])
+    y = pd.concat([y_ for _, y_ in dataset.values()])
+    logger.info(f"Drawdown-event target: {int(y.sum())}/{len(y)} positive ({y.mean():.1%})")
+
     dr_model = DownsideRiskModel()
-    dr_model.fit(all_data)
+    dr_model.fit_dataset(X, y)
     dr_model.save(model_dir)
+
+    logger.info("Comparing classifier baselines (Logistic Regression / Random Forest / XGBoost)...")
+    try:
+        comparison = compare_classifiers(per_ticker_dfs, horizon=horizon, threshold=threshold)
+        logger.info("\n" + comparison.to_string())
+    except ValueError as exc:
+        logger.warning(f"Skipped classifier comparison: {exc}")
 
     logger.info("Training complete")
 
