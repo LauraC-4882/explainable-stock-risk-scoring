@@ -44,6 +44,7 @@ yfinance news ──► llm/news_risk.py (schema + prompt ready; extraction call
 | `models/volatility.py` | GARCH(1,1) volatility forecasting via **arch** |
 | `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline |
 | `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison (Precision/Recall/F1/ROC-AUC/PR-AUC) |
+| `models/explain.py` | **SHAP** attribution for the XGBoost classifier — which features drove `ml_drawdown_probability` |
 | `llm/news_risk.py` | News event extraction schema + prompt (Claude structured outputs) — extraction call is mocked until wired |
 | `scoring/scorer.py` | End-to-end orchestration: fetch → preprocess → engineer → score |
 | `monitoring/drift.py` | PSI + KS-test feature drift detection |
@@ -106,6 +107,8 @@ score = model.predict(df)["downside_risk_score"]   # P(event) x 100
 
 Falls back to a constant base-rate score (instead of raising) when the training window has no drawdown events at all, since XGBoost can't fit a single-class target.
 
+`ml_drawdown_probability` is otherwise a black box, so `models/explain.py` attaches a **SHAP** (`TreeExplainer`) attribution alongside it as `ml_drawdown_explanation` — the top features pushing that probability up or down, in log-odds units (additive: `base_probability`'s log-odds + every feature's `shap_contribution` = `predicted_probability`'s log-odds). `None` when the model is in fallback mode. Requires `xgboost<3.0` — `shap` 0.49.1 can't parse XGBoost 3.x's `base_score` serialization format.
+
 Feature importances are accessible via `model.feature_importance()`. `scripts/train.py` also runs `models/evaluation.py::compare_classifiers`, which benchmarks Logistic Regression / Random Forest / XGBoost on a chronological (never random) train/test split and reports Precision/Recall/F1/ROC-AUC/PR-AUC/confusion-matrix — accuracy alone is misleading here since drawdown events are a rare minority class.
 
 ## News / Event Risk Layer (schema ready, LLM call mocked)
@@ -142,6 +145,16 @@ Design rationale: the same headline should map to the same classification regard
     "liquidity": {"score": 45.3, "weight": 0.15, "metrics": {"amihud_illiq_21d": 40.1, "volume_vol_21d": 51.2, "dollar_volume_21d": 55.0}}
   },
   "ml_drawdown_probability": 66.1,
+  "ml_drawdown_explanation": {
+    "base_probability": 0.08,
+    "predicted_probability": 0.661,
+    "top_features": [
+      {"feature": "volatility__vol_21d", "raw_value": 0.62, "shap_contribution": 1.42},
+      {"feature": "volatility__max_drawdown_63d", "raw_value": -0.24, "shap_contribution": 0.87},
+      {"feature": "momentum__rsi_14", "raw_value": 71.2, "shap_contribution": 0.31}
+    ],
+    "note": "shap_contribution is in log-odds units ..."
+  },
   "garch_volatility_forecast": {"vol_1d": 0.031, "vol_30d": 0.51},
   "news_risk": {
     "llm_configured": false,

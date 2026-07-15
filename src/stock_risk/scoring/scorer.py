@@ -17,6 +17,7 @@ from ..features.technical import TechnicalFeatures
 from ..features.risk_metrics import RiskMetrics
 from ..models.downside_risk import DownsideRiskModel
 from ..models.volatility import VolatilityModel
+from ..models.explain import explain_prediction
 from ..llm.news_risk import extract_news_risk, summarize_news_risk
 from . import risk_categories
 
@@ -90,13 +91,15 @@ class RiskScorer:
         composite_score = scorecard["composite_score"]
 
         ml_drawdown_probability = None
+        ml_drawdown_explanation = None
         if self._dr_model is not None:
             try:
                 ml_drawdown_probability = round(
                     float(self._dr_model.predict(df)["downside_risk_score"]), 1
                 )
+                ml_drawdown_explanation = explain_prediction(self._dr_model, df)
             except Exception as exc:
-                logger.warning(f"DownsideRiskModel prediction failed for {ticker}: {exc}")
+                logger.warning(f"DownsideRiskModel prediction/explanation failed for {ticker}: {exc}")
 
         # GARCH is fit live on this ticker's own return series — unlike the
         # pretrained XGBoost classifier, volatility clustering parameters are
@@ -127,6 +130,7 @@ class RiskScorer:
             "risk_note": RISK_NOTE,
             "risk_breakdown": scorecard["categories"],
             "ml_drawdown_probability": ml_drawdown_probability,
+            "ml_drawdown_explanation": ml_drawdown_explanation,
             "garch_volatility_forecast": garch_volatility_forecast,
             "news_risk": news_risk,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
