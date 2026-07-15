@@ -17,7 +17,8 @@ TechnicalFeatures         ← RSI, MACD, Bollinger Bands, ATR, OBV, EMA
 RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, liquidity, beta
        │
        ├──► risk_categories.py  (percentile composite)  ← primary, explainable risk_score
-       └──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) ← secondary ml_drawdown_probability
+       ├──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) ← secondary ml_drawdown_probability
+       └──► GARCH(1,1), fit live per ticker              ← secondary garch_volatility_forecast
                 │
                 ▼
           Risk Scorecard (0–100 + label + category breakdown)
@@ -129,6 +130,7 @@ Feature importances are accessible via `model.feature_importance()`. `scripts/tr
     "liquidity": {"score": 45.3, "weight": 0.15, "metrics": {"amihud_illiq_21d": 40.1, "volume_vol_21d": 51.2, "dollar_volume_21d": 55.0}}
   },
   "ml_drawdown_probability": 66.1,
+  "garch_volatility_forecast": {"vol_1d": 0.031, "vol_30d": 0.51},
   "volatility_30d": 0.48,
   "var_95": -0.034,
   "cvar_95": -0.052,

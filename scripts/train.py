@@ -14,7 +14,6 @@ from stock_risk.data.fetcher import MarketDataFetcher
 from stock_risk.data.preprocessor import DataPreprocessor
 from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
-from stock_risk.models.volatility import VolatilityModel
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.feature_sets import build_dataset
 from stock_risk.models.evaluation import compare_classifiers
@@ -43,12 +42,11 @@ def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20,
         raise RuntimeError("No valid data to train on")
 
     import pandas as pd
-    all_data = pd.concat(per_ticker_dfs.values(), ignore_index=True)
-    logger.info(f"Total training rows: {len(all_data)}")
+    logger.info(f"Total training rows: {sum(len(df) for df in per_ticker_dfs.values())}")
 
-    vol_model = VolatilityModel()
-    vol_model.fit(all_data)
-    vol_model.save(model_dir)
+    # GARCH volatility is fit live per-ticker in scorer.py (volatility
+    # clustering parameters are instrument-specific), so there's nothing to
+    # pretrain/save here.
 
     # Build (X, y) per ticker *before* pooling — a forward-looking drawdown
     # label must never be computed across a ticker boundary.

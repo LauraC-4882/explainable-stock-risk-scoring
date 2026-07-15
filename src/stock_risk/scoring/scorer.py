@@ -16,6 +16,7 @@ from ..data.preprocessor import DataPreprocessor
 from ..features.technical import TechnicalFeatures
 from ..features.risk_metrics import RiskMetrics
 from ..models.downside_risk import DownsideRiskModel
+from ..models.volatility import VolatilityModel
 from . import risk_categories
 
 BENCHMARK_TICKER = "SPY"
@@ -96,6 +97,20 @@ class RiskScorer:
             except Exception as exc:
                 logger.warning(f"DownsideRiskModel prediction failed for {ticker}: {exc}")
 
+        # GARCH is fit live on this ticker's own return series — unlike the
+        # pretrained XGBoost classifier, volatility clustering parameters are
+        # instrument-specific and can't be learned once and reused cross-sectionally.
+        garch_volatility_forecast = None
+        try:
+            garch = VolatilityModel().fit(df)
+            forecast = garch.predict(df)
+            garch_volatility_forecast = {
+                "vol_1d": round(float(forecast["garch_vol_1d"]), 4),
+                "vol_30d": round(float(forecast["garch_vol_30d"]), 4),
+            }
+        except Exception as exc:
+            logger.warning(f"GARCH volatility forecast failed for {ticker}: {exc}")
+
         return {
             "ticker": ticker.upper(),
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -104,6 +119,7 @@ class RiskScorer:
             "risk_note": RISK_NOTE,
             "risk_breakdown": scorecard["categories"],
             "ml_drawdown_probability": ml_drawdown_probability,
+            "garch_volatility_forecast": garch_volatility_forecast,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
             "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),
             "cvar_95": round(float(latest.get("cvar_95_21d", np.nan)), 4),
