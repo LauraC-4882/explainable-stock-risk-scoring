@@ -17,6 +17,7 @@ from ..features.technical import TechnicalFeatures
 from ..features.risk_metrics import RiskMetrics
 from ..models.downside_risk import DownsideRiskModel
 from ..models.volatility import VolatilityModel
+from ..llm.news_risk import extract_news_risk, summarize_news_risk
 from . import risk_categories
 
 BENCHMARK_TICKER = "SPY"
@@ -111,6 +112,13 @@ class RiskScorer:
         except Exception as exc:
             logger.warning(f"GARCH volatility forecast failed for {ticker}: {exc}")
 
+        # News/event risk layer: real headlines via yfinance, but extraction is
+        # currently a labeled mock (no live LLM call wired in — see llm/news_risk.py)
+        news_articles = self.fetcher.fetch_news(ticker)
+        news_extractions = [extract_news_risk(a) for a in news_articles]
+        news_risk = summarize_news_risk(news_extractions)
+        news_risk["llm_configured"] = False
+
         return {
             "ticker": ticker.upper(),
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -120,6 +128,7 @@ class RiskScorer:
             "risk_breakdown": scorecard["categories"],
             "ml_drawdown_probability": ml_drawdown_probability,
             "garch_volatility_forecast": garch_volatility_forecast,
+            "news_risk": news_risk,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
             "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),
             "cvar_95": round(float(latest.get("cvar_95_21d", np.nan)), 4),

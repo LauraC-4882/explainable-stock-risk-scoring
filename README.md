@@ -19,6 +19,9 @@ RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, li
        ├──► risk_categories.py  (percentile composite)  ← primary, explainable risk_score
        ├──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) ← secondary ml_drawdown_probability
        └──► GARCH(1,1), fit live per ticker              ← secondary garch_volatility_forecast
+
+yfinance news ──► llm/news_risk.py (schema + prompt ready; extraction call is
+                  currently a labeled mock — see news_risk section below)  ── secondary news_risk
                 │
                 ▼
           Risk Scorecard (0–100 + label + category breakdown)
@@ -41,6 +44,7 @@ RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, li
 | `models/volatility.py` | GARCH(1,1) volatility forecasting via **arch** |
 | `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline |
 | `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison (Precision/Recall/F1/ROC-AUC/PR-AUC) |
+| `llm/news_risk.py` | News event extraction schema + prompt (Claude structured outputs) — extraction call is mocked until wired |
 | `scoring/scorer.py` | End-to-end orchestration: fetch → preprocess → engineer → score |
 | `monitoring/drift.py` | PSI + KS-test feature drift detection |
 | `monitoring/metrics.py` | Prometheus gauges and JSONL score logging |
@@ -104,6 +108,14 @@ Falls back to a constant base-rate score (instead of raising) when the training 
 
 Feature importances are accessible via `model.feature_importance()`. `scripts/train.py` also runs `models/evaluation.py::compare_classifiers`, which benchmarks Logistic Regression / Random Forest / XGBoost on a chronological (never random) train/test split and reports Precision/Recall/F1/ROC-AUC/PR-AUC/confusion-matrix — accuracy alone is misleading here since drawdown events are a rare minority class.
 
+## News / Event Risk Layer (schema ready, LLM call mocked)
+
+`data/fetcher.py::fetch_news` pulls real recent headlines per ticker via yfinance's built-in news (no extra API key). Each headline is run through `llm/news_risk.py::extract_news_risk`, which classifies it into a fixed taxonomy (`event_type`, `risk_category`, `sentiment`, `severity` 0–5, `time_horizon`, `confidence`, `evidence`) using Claude's structured-outputs contract (`output_config.format` + a JSON schema) — the LLM never computes a risk score itself, only extracts structured fields from a single headline.
+
+**The actual Claude API call is not wired in yet** — `extract_news_risk()` returns a clearly-labeled stub (`"source": "mock"`, `severity: 0`) so the fetch → extract → aggregate pipeline runs end-to-end without spending API credits. The `news_risk.llm_configured` field in the API response is `false` until this is activated. To activate: `pip install anthropic`, set `ANTHROPIC_API_KEY`, and pass `llm.news_risk.call_claude_news_extractor` as the `call_llm` argument wherever `extract_news_risk()` is called in `scoring/scorer.py`.
+
+Design rationale: the same headline should map to the same classification regardless of phrasing, so determinism comes from the fixed JSON schema (not from a `temperature` parameter — current Claude models don't accept one) plus a low `effort` setting for this simple classification task.
+
 ## FastAPI Endpoints
 
 | Method | Endpoint | Description |
@@ -131,6 +143,15 @@ Feature importances are accessible via `model.feature_importance()`. `scripts/tr
   },
   "ml_drawdown_probability": 66.1,
   "garch_volatility_forecast": {"vol_1d": 0.031, "vol_30d": 0.51},
+  "news_risk": {
+    "llm_configured": false,
+    "max_severity": 0,
+    "negative_count": 0,
+    "articles": [
+      {"event_type": "none", "risk_category": "none", "sentiment": "neutral", "severity": 0,
+       "time_horizon": "unknown", "confidence": 0.0, "evidence": [], "title": "...", "source": "mock"}
+    ]
+  },
   "volatility_30d": 0.48,
   "var_95": -0.034,
   "cvar_95": -0.052,

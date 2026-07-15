@@ -60,6 +60,33 @@ class MarketDataFetcher:
         ]
         return {k: info.get(k) for k in keys}
 
+    def fetch_news(self, ticker: str, limit: int = 8) -> list[dict]:
+        """Return recent news headlines for *ticker* via yfinance (no API key required)."""
+        logger.info(f"Fetching news for {ticker}")
+        try:
+            tk = yf.Ticker(ticker)
+            items = tk.news or []
+        except Exception as exc:
+            logger.warning(f"Could not fetch news for {ticker}: {exc}")
+            return []
+
+        articles = []
+        for item in items[:limit]:
+            content = item.get("content", item)  # yfinance nests fields under "content"
+            title = content.get("title")
+            if not title:
+                continue
+            articles.append({
+                "title": title,
+                "summary": content.get("summary") or content.get("description") or "",
+                "publisher": (content.get("provider") or {}).get("displayName")
+                    if isinstance(content.get("provider"), dict) else content.get("publisher"),
+                "published_at": content.get("pubDate") or content.get("providerPublishTime"),
+                "link": (content.get("canonicalUrl") or {}).get("url")
+                    if isinstance(content.get("canonicalUrl"), dict) else content.get("link"),
+            })
+        return articles
+
     def fetch_options_iv(self, ticker: str) -> Optional[float]:
         """Return the nearest-expiry at-the-money implied volatility, or None."""
         try:
