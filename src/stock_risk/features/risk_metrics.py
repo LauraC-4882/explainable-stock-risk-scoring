@@ -43,9 +43,30 @@ class RiskMetrics:
             in_drawdown, in_drawdown.groupby(streak_id).cumcount() + 1, 0
         )
 
+        # Drawdown acceleration: current drawdown relative to its own 60d average.
+        # >1 means the current drawdown is deeper than typical for this stock
+        # recently; guarded against near-zero averages (e.g. a 60d run of new highs).
+        avg_dd_60d = df["drawdown"].rolling(60).mean()
+        df["drawdown_acceleration"] = np.where(
+            avg_dd_60d.abs() > 1e-6, df["drawdown"] / avg_dd_60d, np.nan
+        )
+
         # EWMA volatility (RiskMetrics-style, lambda=0.94) — reacts faster than fixed windows
         ewma_var = r.pow(2).ewm(alpha=1 - 0.94, adjust=False).mean()
         df["ewma_vol"] = np.sqrt(ewma_var) * np.sqrt(self.TRADING_DAYS)
+
+        # Short vs long EWMA vol ratio ("volatility regime change"): >1 means
+        # short-term vol is accelerating relative to the longer-run baseline.
+        df["ewma_vol_20"] = np.sqrt(
+            r.pow(2).ewm(span=20, adjust=False).mean()
+        ) * np.sqrt(self.TRADING_DAYS)
+        df["ewma_vol_60"] = np.sqrt(
+            r.pow(2).ewm(span=60, adjust=False).mean()
+        ) * np.sqrt(self.TRADING_DAYS)
+        df["vol_regime_change"] = df["ewma_vol_20"] / df["ewma_vol_60"]
+
+        # Vol-of-vol: how unstable the realised-vol estimate itself has been recently.
+        df["vol_of_vol_20"] = df["vol_21d"].rolling(20).std()
 
         # Downside deviation (semi-deviation of negative returns only)
         def _downside_dev(x: np.ndarray) -> float:
@@ -77,6 +98,12 @@ class RiskMetrics:
         # Skewness and kurtosis (tail risk indicators)
         df["skew_63d"] = r.rolling(63).skew()
         df["kurt_63d"] = r.rolling(63).kurt()
+
+        # Skew momentum: is the tail getting more negative recently (20d) vs the
+        # longer-run baseline (63d)? A more negative skew_momentum means the
+        # left tail is fattening faster than the stock's own recent history.
+        df["skew_20d"] = r.rolling(20).skew()
+        df["skew_momentum"] = df["skew_20d"] - df["skew_63d"]
 
         # Liquidity: dollar volume, volume volatility, Amihud illiquidity
         dollar_vol = df["close"] * df["volume"]

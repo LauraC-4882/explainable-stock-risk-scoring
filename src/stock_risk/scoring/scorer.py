@@ -84,10 +84,18 @@ class RiskScorer:
 
         latest = df.iloc[-1]
 
+        # VIX-threshold regime weighting: panic/elevated markets lean the
+        # composite toward tail risk over day-to-day volatility (see
+        # risk_categories.REGIME_WEIGHTS). Falls back to the base weights if
+        # VIX is unavailable.
+        vix = self.fetcher.fetch_vix()
+        regime = risk_categories.regime_for_vix(vix)
+        weights = risk_categories.regime_adjusted_weights(vix)
+
         # Percentile-based composite score across volatility/tail/drawdown/
         # sensitivity/liquidity categories (see risk_categories.py) — the
         # explainable baseline. XGBoost is a secondary, ML-derived signal.
-        scorecard = risk_categories.composite_score(df)
+        scorecard = risk_categories.composite_score(df, weights=weights)
         composite_score = scorecard["composite_score"]
 
         ml_drawdown_probability = None
@@ -122,6 +130,14 @@ class RiskScorer:
         news_risk = summarize_news_risk(news_extractions)
         news_risk["llm_configured"] = False
 
+        # Free alt-data via yfinance: analyst rating changes + insider transactions.
+        # Informational for now — not folded into risk_score (see risk_categories.py's
+        # calibrated weights); surfaced so the report can point to a concrete signal.
+        alt_data = {
+            "analyst_activity": self.fetcher.fetch_analyst_activity(ticker),
+            "insider_activity": self.fetcher.fetch_insider_activity(ticker),
+        }
+
         return {
             "ticker": ticker.upper(),
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -129,10 +145,12 @@ class RiskScorer:
             "risk_label": _label(composite_score),
             "risk_note": RISK_NOTE,
             "risk_breakdown": scorecard["categories"],
+            "market_regime": {"vix": vix, "regime": regime},
             "ml_drawdown_probability": ml_drawdown_probability,
             "ml_drawdown_explanation": ml_drawdown_explanation,
             "garch_volatility_forecast": garch_volatility_forecast,
             "news_risk": news_risk,
+            "alt_data": alt_data,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
             "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),
             "cvar_95": round(float(latest.get("cvar_95_21d", np.nan)), 4),

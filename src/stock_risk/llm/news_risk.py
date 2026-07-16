@@ -6,10 +6,15 @@ drawdown, or the composite risk score, and it never freely narrates a risk
 verdict — every call is forced into a fixed JSON schema via Claude's
 structured-outputs contract (`output_config.format`), so the same headline
 always maps to the same field set regardless of phrasing. Determinism is
-enforced by that schema plus a low `effort` setting rather than a
-`temperature` parameter — `temperature` is not accepted on current Claude
-models (Opus 4.7+/Sonnet 5 family) and was never a reliable determinism
+enforced by that schema, not a `temperature` parameter — `temperature` is
+not accepted on current Claude models and was never a reliable determinism
 lever to begin with.
+
+Model choice: Claude Haiku 4.5, not the usual Opus default. This is a
+high-volume, low-stakes classification task (one call per headline, output
+already constrained by the schema) — Opus's extra reasoning capability isn't
+load-bearing here, and Haiku is ~5x cheaper per token. Note Haiku 4.5 does
+NOT support the `effort` parameter (it 400s), unlike Opus/Sonnet 5 — omit it.
 
 To wire up a live call: pass `call_claude_news_extractor` as the `call_llm`
 argument to `extract_news_risk()` (requires `pip install anthropic` and
@@ -23,7 +28,7 @@ from __future__ import annotations
 import json
 from typing import Callable, Optional
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-haiku-4-5"
 
 # Fixed taxonomy — do not let the model invent new categories; "none" is the
 # explicit no-signal case so severity=0 is distinguishable from "not classified".
@@ -99,10 +104,8 @@ def call_claude_news_extractor(prompt: str) -> dict:
         model=MODEL,
         max_tokens=512,
         system=SYSTEM_PROMPT,
-        output_config={
-            "format": {"type": "json_schema", "schema": NEWS_RISK_SCHEMA},
-            "effort": "low",  # cheap classification task, no need for deep reasoning
-        },
+        # No `effort` here — unlike Opus/Sonnet 5, Haiku 4.5 doesn't accept it (400s).
+        output_config={"format": {"type": "json_schema", "schema": NEWS_RISK_SCHEMA}},
         messages=[{"role": "user", "content": prompt}],
     )
     text = next(b.text for b in response.content if b.type == "text")

@@ -17,6 +17,9 @@ MOMENTUM_COLS = ["rsi_14", "dist_ema_20", "dist_ema_50", "bb_pct", "volume_ratio
 VOLATILITY_COLS = [
     "vol_21d", "vol_63d", "var_95_21d", "cvar_95_21d",
     "max_drawdown_63d", "atr_14", "skew_63d", "kurt_63d",
+    # Cross/momentum features on top of the raw metrics above — e.g. vol_regime_change
+    # flags accelerating volatility that a snapshot vol_21d/vol_63d pair alone would miss.
+    "vol_regime_change", "vol_of_vol_20", "drawdown_acceleration", "skew_momentum",
 ]
 
 QUALITY_COLS = ["sharpe_63d", "sortino_63d"]

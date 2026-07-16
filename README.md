@@ -14,14 +14,15 @@ DataPreprocessor          ← gap-fill, outlier removal, log/pct returns
 TechnicalFeatures         ← RSI, MACD, Bollinger Bands, ATR, OBV, EMA
        │
        ▼
-RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, liquidity, beta
-       │
-       ├──► risk_categories.py  (percentile composite)  ← primary, explainable risk_score
-       ├──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) ← secondary ml_drawdown_probability
+RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, liquidity, beta,
+       │                     vol_regime_change, vol_of_vol, drawdown_acceleration, skew_momentum
+       ├──► risk_categories.py  (percentile composite, VIX-regime-weighted) ← primary risk_score
+       ├──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) + SHAP  ← secondary ml_drawdown_probability
        └──► GARCH(1,1), fit live per ticker              ← secondary garch_volatility_forecast
 
-yfinance news ──► llm/news_risk.py (schema + prompt ready; extraction call is
-                  currently a labeled mock — see news_risk section below)  ── secondary news_risk
+yfinance news        ──► llm/news_risk.py (schema+prompt ready, Haiku 4.5; call mocked) ─ news_risk
+yfinance analyst/insider ──────────────────────────────────────────────────────────────── alt_data
+^VIX                 ──► risk_categories.regime_adjusted_weights ─────────────── market_regime
                 │
                 ▼
           Risk Scorecard (0–100 + label + category breakdown)
@@ -39,8 +40,8 @@ yfinance news ──► llm/news_risk.py (schema + prompt ready; extraction call
 | `data/fetcher.py` | Fetches OHLCV, fundamentals, and options IV via **yfinance** |
 | `data/preprocessor.py` | Business-day alignment, 6σ outlier removal, log/pct returns |
 | `features/technical.py` | RSI, MACD, Bollinger Bands, ATR, OBV, EMA 20/50/200 via **pandas-ta** |
-| `features/risk_metrics.py` | Rolling VaR, CVaR, Sharpe, Sortino, drawdown, skew, kurtosis, EWMA vol, liquidity, beta |
-| `scoring/risk_categories.py` | Percentile-based composite score across 5 risk categories (explainable baseline) |
+| `features/risk_metrics.py` | Rolling VaR, CVaR, Sharpe, Sortino, drawdown, skew, kurtosis, EWMA vol, liquidity, beta, + vol-regime/vol-of-vol/drawdown-acceleration/skew-momentum cross features |
+| `scoring/risk_categories.py` | Percentile-based composite score across 5 risk categories, VIX-threshold regime-weighted (explainable baseline) |
 | `models/volatility.py` | GARCH(1,1) volatility forecasting via **arch** |
 | `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline |
 | `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison (Precision/Recall/F1/ROC-AUC/PR-AUC) |
@@ -117,7 +118,14 @@ Feature importances are accessible via `model.feature_importance()`. `scripts/tr
 
 **The actual Claude API call is not wired in yet** — `extract_news_risk()` returns a clearly-labeled stub (`"source": "mock"`, `severity: 0`) so the fetch → extract → aggregate pipeline runs end-to-end without spending API credits. The `news_risk.llm_configured` field in the API response is `false` until this is activated. To activate: `pip install anthropic`, set `ANTHROPIC_API_KEY`, and pass `llm.news_risk.call_claude_news_extractor` as the `call_llm` argument wherever `extract_news_risk()` is called in `scoring/scorer.py`.
 
-Design rationale: the same headline should map to the same classification regardless of phrasing, so determinism comes from the fixed JSON schema (not from a `temperature` parameter — current Claude models don't accept one) plus a low `effort` setting for this simple classification task.
+Model: **Claude Haiku 4.5**, not the usual Opus default — this is a high-volume, low-stakes classification task with output already constrained by the schema, so Opus's extra reasoning isn't load-bearing and Haiku is ~5x cheaper per token. Determinism comes from the fixed JSON schema, not a `temperature` parameter (current Claude models don't accept one).
+
+### Free alt-data (analyst ratings, insider transactions, VIX regime)
+
+No paid data vendor required — all via yfinance:
+
+- `fetch_analyst_activity` / `fetch_insider_activity` — recent analyst downgrade/upgrade counts and insider sale/purchase counts, surfaced as `alt_data` in the API response. Informational only for now (not folded into `risk_score`'s calibrated weights).
+- `fetch_vix` + `risk_categories.regime_adjusted_weights` — a rule-based (not HMM) regime switch: VIX ≥ 30 ("panic") shifts weight from day-to-day volatility toward tail risk (25/25/20/15/15 → 20/40/15/10/15); VIX ≥ 20 ("elevated") shifts partway there; below 20 ("calm") uses the base weights. Surfaced as `market_regime` in the API response.
 
 ## FastAPI Endpoints
 
@@ -144,6 +152,7 @@ Design rationale: the same headline should map to the same classification regard
     "sensitivity": {"score": 88.0, "weight": 0.15, "metrics": {"beta_63d": 88.0}},
     "liquidity": {"score": 45.3, "weight": 0.15, "metrics": {"amihud_illiq_21d": 40.1, "volume_vol_21d": 51.2, "dollar_volume_21d": 55.0}}
   },
+  "market_regime": {"vix": 22.4, "regime": "elevated"},
   "ml_drawdown_probability": 66.1,
   "ml_drawdown_explanation": {
     "base_probability": 0.08,
@@ -164,6 +173,10 @@ Design rationale: the same headline should map to the same classification regard
       {"event_type": "none", "risk_category": "none", "sentiment": "neutral", "severity": 0,
        "time_horizon": "unknown", "confidence": 0.0, "evidence": [], "title": "...", "source": "mock"}
     ]
+  },
+  "alt_data": {
+    "analyst_activity": {"downgrade_count": 2, "upgrade_count": 0},
+    "insider_activity": {"sale_count": 3, "purchase_count": 0, "net_transaction_count": -3}
   },
   "volatility_30d": 0.48,
   "var_95": -0.034,

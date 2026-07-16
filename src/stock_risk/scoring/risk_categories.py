@@ -54,7 +54,37 @@ CATEGORY_WEIGHTS: dict[str, float] = {
     "liquidity": 0.15,
 }
 
+# VIX-threshold regime weights: crude but transparent alternative to a
+# learned/HMM-based regime model. Same five categories, different emphasis —
+# a panic market (VIX >= 30) makes tail risk and liquidity dry-up matter more
+# than day-to-day volatility; an elevated-vol market (VIX >= 20) leans
+# somewhat further toward tail risk without fully abandoning the base mix.
+REGIME_WEIGHTS: dict[str, dict[str, float]] = {
+    "calm": dict(CATEGORY_WEIGHTS),
+    "elevated": {"volatility": 0.25, "tail": 0.30, "drawdown": 0.20, "sensitivity": 0.10, "liquidity": 0.15},
+    "panic": {"volatility": 0.20, "tail": 0.40, "drawdown": 0.15, "sensitivity": 0.10, "liquidity": 0.15},
+}
+
 _MIN_HISTORY = 20  # minimum non-NaN observations before a percentile is trusted
+
+
+def regime_for_vix(vix: Optional[float]) -> str:
+    """Classify the current VIX level into a coarse market regime."""
+    if vix is None:
+        return "calm"
+    if vix >= 30:
+        return "panic"
+    if vix >= 20:
+        return "elevated"
+    return "calm"
+
+
+def regime_adjusted_weights(vix: Optional[float]) -> dict[str, float]:
+    """Return category weights for the market regime implied by *vix*.
+
+    Falls back to the base CATEGORY_WEIGHTS when vix is None (unavailable).
+    """
+    return dict(REGIME_WEIGHTS[regime_for_vix(vix)])
 
 
 def _historical_percentile(series: pd.Series, current: float, direction: int) -> Optional[float]:
@@ -97,17 +127,21 @@ def category_score(df: pd.DataFrame, category: str) -> tuple[Optional[float], di
     return weighted_sum / weight_total, percentiles
 
 
-def composite_score(df: pd.DataFrame) -> dict:
+def composite_score(df: pd.DataFrame, weights: Optional[dict[str, float]] = None) -> dict:
     """Compute the percentile-based composite risk scorecard for the latest row of *df*.
+
+    *weights* defaults to CATEGORY_WEIGHTS; pass `regime_adjusted_weights(vix)`
+    to shift emphasis for the current VIX regime instead.
 
     Categories with no available metrics are excluded and the remaining
     category weights are renormalised, so partial data degrades gracefully
     instead of silently biasing the score toward zero.
     """
+    weights = weights or CATEGORY_WEIGHTS
     categories: dict[str, dict] = {}
     weighted_sum = 0.0
     weight_total = 0.0
-    for cat, weight in CATEGORY_WEIGHTS.items():
+    for cat, weight in weights.items():
         score, percentiles = category_score(df, cat)
         categories[cat] = {
             "score": round(score, 1) if score is not None else None,

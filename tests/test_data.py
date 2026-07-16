@@ -62,3 +62,48 @@ def test_fetch_news_returns_empty_list_on_error():
     with patch("stock_risk.data.fetcher.yf.Ticker", side_effect=RuntimeError("boom")):
         articles = MarketDataFetcher().fetch_news("XYZ")
     assert articles == []
+
+
+def test_fetch_analyst_activity_counts_recent_actions_only():
+    now = pd.Timestamp.now()
+    idx = pd.DatetimeIndex(
+        [now - pd.Timedelta(days=5), now - pd.Timedelta(days=10), now - pd.Timedelta(days=200)],
+        name="GradeDate",
+    )
+    df = pd.DataFrame({"Firm": ["A", "B", "C"], "Action": ["downgrade", "upgrade", "downgrade"]}, index=idx)
+    mock_ticker = MagicMock()
+    mock_ticker.upgrades_downgrades = df
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        result = MarketDataFetcher().fetch_analyst_activity("XYZ", lookback_days=90)
+    # the 200-day-old downgrade falls outside the lookback window
+    assert result == {"downgrade_count": 1, "upgrade_count": 1}
+
+
+def test_fetch_analyst_activity_empty_dataframe():
+    mock_ticker = MagicMock()
+    mock_ticker.upgrades_downgrades = pd.DataFrame()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        result = MarketDataFetcher().fetch_analyst_activity("XYZ")
+    assert result == {"downgrade_count": 0, "upgrade_count": 0}
+
+
+def test_fetch_insider_activity_counts_transactions():
+    df = pd.DataFrame({"Transaction": ["Sale", "Sale", "Purchase", "Option Exercise"]})
+    mock_ticker = MagicMock()
+    mock_ticker.insider_transactions = df
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        result = MarketDataFetcher().fetch_insider_activity("XYZ")
+    assert result == {"sale_count": 2, "purchase_count": 1, "net_transaction_count": -1}
+
+
+def test_fetch_vix_returns_float():
+    mock_ticker = MagicMock()
+    mock_ticker.fast_info.last_price = 18.5
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        vix = MarketDataFetcher().fetch_vix()
+    assert vix == 18.5
+
+
+def test_fetch_vix_returns_none_on_error():
+    with patch("stock_risk.data.fetcher.yf.Ticker", side_effect=RuntimeError("boom")):
+        assert MarketDataFetcher().fetch_vix() is None

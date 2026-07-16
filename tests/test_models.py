@@ -9,6 +9,7 @@ from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.evaluation import compare_classifiers
+from stock_risk.models.feature_sets import ALL_FEATURE_COLS
 
 
 def _ohlcv(n: int, seed: int, vol: float = 0.01, drift: float = 0.0002, stress_tail: bool = False) -> pd.DataFrame:
@@ -65,13 +66,7 @@ def test_downside_risk_model_fit_dataset_empty_falls_back_to_zero():
     produce a NaN fallback score."""
     model = DownsideRiskModel(n_estimators=10)
     model.fit_dataset(pd.DataFrame(columns=["a"]), pd.Series(dtype=float))
-    result = model.predict(pd.DataFrame({c: [0.0] for c in ["a"]}).assign(**{
-        c: 0.0 for c in [
-            "rsi_14", "dist_ema_20", "dist_ema_50", "bb_pct", "volume_ratio",
-            "vol_21d", "vol_63d", "var_95_21d", "cvar_95_21d", "max_drawdown_63d",
-            "atr_14", "skew_63d", "kurt_63d", "sharpe_63d", "sortino_63d",
-        ]
-    }))
+    result = model.predict(pd.DataFrame({c: [0.0] for c in ALL_FEATURE_COLS}))
     assert result["downside_risk_score"] == 0.0
 
 

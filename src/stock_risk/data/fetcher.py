@@ -87,6 +87,75 @@ class MarketDataFetcher:
             })
         return articles
 
+    def fetch_analyst_activity(self, ticker: str, lookback_days: int = 90) -> dict:
+        """Recent analyst rating-change counts via yfinance (no extra API key).
+
+        Downgrades are a forward-looking risk signal — analysts often move
+        ahead of a drawdown, not just react to one.
+        """
+        logger.info(f"Fetching analyst activity for {ticker}")
+        empty = {"downgrade_count": 0, "upgrade_count": 0}
+        try:
+            df = yf.Ticker(ticker).upgrades_downgrades
+        except Exception as exc:
+            logger.warning(f"Could not fetch analyst activity for {ticker}: {exc}")
+            return empty
+
+        if df is None or df.empty:
+            return empty
+
+        df = df.reset_index()
+        date_col = next((c for c in df.columns if "date" in c.lower()), None)
+        if date_col is not None:
+            try:
+                dates = pd.to_datetime(df[date_col], utc=True).dt.tz_localize(None)
+                cutoff = pd.Timestamp.now() - pd.Timedelta(days=lookback_days)
+                df = df[dates >= cutoff]
+            except Exception:
+                df = df.head(20)  # date parsing failed — fall back to "most recent N rows"
+        else:
+            df = df.head(20)
+
+        action_col = next((c for c in df.columns if c.lower() == "action"), None)
+        if action_col is None:
+            return empty
+
+        actions = df[action_col].astype(str).str.lower()
+        return {
+            "downgrade_count": int(actions.eq("downgrade").sum()),
+            "upgrade_count": int(actions.eq("upgrade").sum()),
+        }
+
+    def fetch_insider_activity(self, ticker: str) -> dict:
+        """Recent insider transaction summary via yfinance (no extra API key)."""
+        logger.info(f"Fetching insider activity for {ticker}")
+        empty = {"sale_count": 0, "purchase_count": 0, "net_transaction_count": 0}
+        try:
+            df = yf.Ticker(ticker).insider_transactions
+        except Exception as exc:
+            logger.warning(f"Could not fetch insider transactions for {ticker}: {exc}")
+            return empty
+
+        if df is None or df.empty or "Transaction" not in df.columns:
+            return empty
+
+        transaction = df["Transaction"].astype(str).str.lower()
+        sale_count = int(transaction.str.contains("sale").sum())
+        purchase_count = int(transaction.str.contains("purchase").sum())
+        return {
+            "sale_count": sale_count,
+            "purchase_count": purchase_count,
+            "net_transaction_count": purchase_count - sale_count,
+        }
+
+    def fetch_vix(self) -> Optional[float]:
+        """Return the latest CBOE VIX index level, or None on failure."""
+        try:
+            return float(yf.Ticker("^VIX").fast_info.last_price)
+        except Exception as exc:
+            logger.warning(f"Could not fetch VIX: {exc}")
+            return None
+
     def fetch_options_iv(self, ticker: str) -> Optional[float]:
         """Return the nearest-expiry at-the-money implied volatility, or None."""
         try:

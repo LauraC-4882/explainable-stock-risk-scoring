@@ -32,3 +32,19 @@ def test_risk_metrics_vol_positive():
     result = RiskMetrics().compute(df)
     vols = result["vol_21d"].dropna()
     assert (vols >= 0).all()
+
+
+def test_risk_metrics_cross_features_present_and_sane():
+    df = _base_df()
+    result = RiskMetrics().compute(df)
+
+    for col in ["ewma_vol_20", "ewma_vol_60", "vol_regime_change", "vol_of_vol_20",
+                "drawdown_acceleration", "skew_20d", "skew_momentum"]:
+        assert col in result.columns
+
+    assert (result["ewma_vol_20"].dropna() >= 0).all()
+    assert (result["ewma_vol_60"].dropna() >= 0).all()
+    assert (result["vol_regime_change"].dropna() >= 0).all()
+    assert (result["vol_of_vol_20"].dropna() >= 0).all()
+    # drawdown is always <= 0, so drawdown / avg_drawdown_60d is always >= 0
+    assert (result["drawdown_acceleration"].dropna() >= 0).all()
