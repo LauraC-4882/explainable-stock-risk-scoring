@@ -24,6 +24,7 @@ RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, li
 yfinance news        ──► llm/news_risk.py (schema+prompt ready, Haiku 4.5; call mocked) ─ news_risk
 yfinance analyst/insider ──────────────────────────────────────────────────────────────── alt_data
 ^VIX                 ──► risk_categories.regime_adjusted_weights ─────────────── market_regime
+2008/2020/2022 scenarios ──► stress_test.py (percentile score only, beta-scaled shocks) ─ stress_test
                 │
                 ▼
           Risk Scorecard (0–100 + label + category breakdown)
@@ -45,6 +46,7 @@ yfinance analyst/insider ──────────────────�
 | `features/technical.py` | RSI, MACD, Bollinger Bands, ATR, OBV, EMA 20/50/200 via **pandas-ta** |
 | `features/risk_metrics.py` | Rolling VaR, CVaR, Sharpe, Sortino, drawdown, skew, kurtosis, EWMA vol, liquidity, beta, + vol-regime/vol-of-vol/drawdown-acceleration/skew-momentum cross features |
 | `scoring/risk_categories.py` | Percentile-based composite score across 5 risk categories, VIX-threshold regime-weighted (explainable baseline) |
+| `scoring/stress_test.py` | Historical-scenario (2008/2020/2022) stress test on the percentile composite, beta-scaled shocks |
 | `models/volatility.py` | GARCH(1,1) volatility forecasting via **arch** |
 | `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline, isotonic-calibrated for production via `fit_calibrated` |
 | `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison, plus a per-ticker `TimeSeriesSplit` walk-forward backtest with calibration (Precision/Recall/F1/ROC-AUC/PR-AUC/Brier score per fold) |
@@ -140,6 +142,30 @@ An uncalibrated XGBoost probability isn't trustworthy at face value — "P=0.7" 
 
 The production model uses the same calibration path: `scripts/train.py` calls `DownsideRiskModel.fit_calibrated(...)` (not the plain `fit`/`fit_dataset`), so `ml_drawdown_probability` in the API response is the calibrated estimate. Because isotonic calibration is a post-hoc, non-smooth remap with no SHAP decomposition of its own, `models/explain.py`'s SHAP breakdown still explains the *raw* pre-calibration model — `ml_drawdown_explanation.predicted_probability` (raw) and `.calibrated_probability` (what's actually served) are both reported when a model is calibrated, so the two never get silently conflated.
 
+## Historical-Scenario Stress Testing
+
+`scoring/stress_test.py` answers "if 2008/2020/2022 conditions recurred, where would this stock's risk score land?" — scoped deliberately to `risk_categories.py`'s percentile composite only, **not** the XGBoost leg. XGBoost's momentum features (RSI, Bollinger %B, distance-from-moving-average) have no defensible "shock" mapping — there's no established rule for "VIX→80 means RSI→X" — and inventing one would undermine the credibility a stress test is supposed to add.
+
+Three built-in scenarios carry real, approximate historical magnitudes (S&P 500 peak-to-trough drawdown, a realized/implied-vol multiplier) sourced from public market history:
+
+| Scenario | Market drawdown | Vol multiplier |
+|---|---|---|
+| `2008_financial_crisis` | −50% | 3.5× |
+| `2020_covid_crash` | −34% | 4.0× |
+| `2022_rate_hike_selloff` | −25% | 1.8× |
+
+Each metric is shocked with an actual rationale, not a guess: volatility/VaR/CVaR/kurtosis scale multiplicatively with the vol multiplier (they move roughly linearly with the vol regime); drawdown gets a **CAPM-style beta-scaled shock** (`beta × market_drawdown` — a low-beta utility and a high-beta growth stock don't fall the same amount under the same market move); liquidity metrics scale by a liquidity multiplier; **beta itself is left unchanged** (it measures sensitivity — a scenario doesn't shock the thing that determines its own propagation). Shocked values are ranked against the stock's own real historical distribution using the *same* percentile machinery the live score uses (`risk_categories.composite_score(df, latest=shocked_row)`), not a separately fit model.
+
+```python
+from stock_risk.scoring.stress_test import run_stress_test
+
+result = run_stress_test(df, beta=1.8)
+result["scenarios"]["2020_covid_crash"]["narrative"]
+# "If 2020 COVID-19 Crash conditions recurred, this stock's risk score would move from 67.1 to 92.9 (+25.8)."
+```
+
+Baseline and stressed scores within one scenario always use the *same* category weights (that scenario's regime-implied weights), so the reported `delta` reflects only the shock — comparing against a differently-weighted live score would silently mix in a regime-reweighting effect. This also makes `stressed_score >= baseline_score` a mathematical guarantee per scenario, not an empirical tendency. Known limitation: once a shocked value already exceeds the stock's *entire* historical range, its percentile saturates near 100 regardless of how much further it's pushed — so a more severe scenario (2008) is not guaranteed to score strictly higher than a milder one (2022) for the same stock; both can saturate at the same ceiling. This is an inherent property of percentile-based scoring, not a bug — the underlying shocked values themselves remain correctly ordered by severity.
+
 ## News / Event Risk Layer (schema ready, LLM call mocked)
 
 `data/fetcher.py::fetch_news` pulls real recent headlines per ticker via yfinance's built-in news (no extra API key). Each headline is run through `llm/news_risk.py::extract_news_risk`, which classifies it into a fixed taxonomy (`event_type`, `risk_category`, `sentiment`, `severity` 0–5, `time_horizon`, `confidence`, `evidence`) using Claude's structured-outputs contract (`output_config.format` + a JSON schema) — the LLM never computes a risk score itself, only extracts structured fields from a single headline.
@@ -206,6 +232,18 @@ No paid data vendor required — all via yfinance:
   "alt_data": {
     "analyst_activity": {"downgrade_count": 2, "upgrade_count": 0},
     "insider_activity": {"sale_count": 3, "purchase_count": 0, "net_transaction_count": -3}
+  },
+  "stress_test": {
+    "live_score": 72.4,
+    "scenarios": {
+      "2008_financial_crisis": {
+        "label": "2008 Global Financial Crisis", "baseline_score": 67.1, "stressed_score": 92.9,
+        "delta": 25.8, "narrative": "If 2008 Global Financial Crisis conditions recurred, this stock's risk score would move from 67.1 to 92.9 (+25.8).",
+        "stressed_categories": { "...": "..." }
+      },
+      "2020_covid_crash": { "...": "..." },
+      "2022_rate_hike_selloff": { "...": "..." }
+    }
   },
   "volatility_30d": 0.48,
   "var_95": -0.034,

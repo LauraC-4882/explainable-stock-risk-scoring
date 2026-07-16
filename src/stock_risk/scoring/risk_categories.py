@@ -109,13 +109,20 @@ def _historical_percentile(series: pd.Series, current: float, direction: int) ->
     return float(stats.percentileofscore(hist * direction, current * direction, kind="mean"))
 
 
-def category_score(df: pd.DataFrame, category: str) -> tuple[Optional[float], dict[str, float]]:
+def category_score(
+    df: pd.DataFrame, category: str, latest: Optional[pd.Series] = None
+) -> tuple[Optional[float], dict[str, float]]:
     """Return (0-100 category score, {metric: percentile}) for *category*.
+
+    *latest* defaults to df.iloc[-1] (the real current row); pass a modified
+    Series — e.g. scoring/stress_test.py's shocked feature values — to rank
+    *those* values against the stock's own real historical distribution
+    instead, without duplicating the percentile-ranking logic.
 
     Missing metrics/columns are skipped and the remaining weights renormalised.
     Returns (None, {}) if none of the category's metrics are available.
     """
-    latest = df.iloc[-1]
+    latest = df.iloc[-1] if latest is None else latest
     percentiles: dict[str, float] = {}
     weighted_sum = 0.0
     weight_total = 0.0
@@ -133,11 +140,16 @@ def category_score(df: pd.DataFrame, category: str) -> tuple[Optional[float], di
     return weighted_sum / weight_total, percentiles
 
 
-def composite_score(df: pd.DataFrame, weights: Optional[dict[str, float]] = None) -> dict:
+def composite_score(
+    df: pd.DataFrame,
+    weights: Optional[dict[str, float]] = None,
+    latest: Optional[pd.Series] = None,
+) -> dict:
     """Compute the percentile-based composite risk scorecard for the latest row of *df*.
 
     *weights* defaults to CATEGORY_WEIGHTS; pass `regime_adjusted_weights(vix)`
-    to shift emphasis for the current VIX regime instead.
+    to shift emphasis for the current VIX regime instead. *latest* is forwarded
+    to category_score — see its docstring for the stress-test reuse case.
 
     Categories with no available metrics are excluded and the remaining
     category weights are renormalised, so partial data degrades gracefully
@@ -148,7 +160,7 @@ def composite_score(df: pd.DataFrame, weights: Optional[dict[str, float]] = None
     weighted_sum = 0.0
     weight_total = 0.0
     for cat, weight in weights.items():
-        score, percentiles = category_score(df, cat)
+        score, percentiles = category_score(df, cat, latest=latest)
         categories[cat] = {
             "score": round(score, 1) if score is not None else None,
             "weight": weight,

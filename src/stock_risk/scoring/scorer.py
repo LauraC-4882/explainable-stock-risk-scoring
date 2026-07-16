@@ -20,6 +20,7 @@ from ..models.downside_risk import DownsideRiskModel
 from ..models.explain import explain_prediction
 from ..models.volatility import VolatilityModel
 from . import risk_categories
+from .stress_test import run_stress_test
 
 BENCHMARK_TICKER = "SPY"
 
@@ -164,6 +165,15 @@ class RiskScorer:
             "insider_activity": self.fetcher.fetch_insider_activity(ticker),
         }
 
+        # Historical-scenario stress test on the explainable percentile score
+        # only (not the XGBoost leg) — see stress_test.py's module docstring
+        # for why, and for the shock-propagation rationale per metric.
+        stress_test = None
+        try:
+            stress_test = run_stress_test(df, beta=info.get("beta"))
+        except Exception as exc:
+            logger.warning(f"Stress test failed for {ticker}: {exc}")
+
         return {
             "ticker": ticker.upper(),
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -177,6 +187,7 @@ class RiskScorer:
             "garch_volatility_forecast": garch_volatility_forecast,
             "news_risk": news_risk,
             "alt_data": alt_data,
+            "stress_test": stress_test,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
             "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),
             "cvar_95": round(float(latest.get("cvar_95_21d", np.nan)), 4),

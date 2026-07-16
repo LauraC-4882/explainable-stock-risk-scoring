@@ -65,3 +65,23 @@ def test_composite_score_accepts_custom_weights():
     assert panic["categories"]["tail"]["weight"] == risk_categories.REGIME_WEIGHTS["panic"]["tail"]
     assert 0 <= base["composite_score"] <= 100
     assert 0 <= panic["composite_score"] <= 100
+
+
+def test_composite_score_accepts_latest_override():
+    """A modified `latest` row (e.g. a stress-test shock) must be ranked
+    against the *same* historical distribution as the real row, via the same
+    percentile machinery — this is what stress_test.py relies on."""
+    df = _stressed_df(seed=2)
+    real_latest = df.iloc[-1]
+    baseline = risk_categories.composite_score(df)
+
+    shocked = real_latest.copy()
+    shocked["vol_21d"] = real_latest["vol_21d"] * 10  # push far outside the stock's own history
+    shocked_result = risk_categories.composite_score(df, latest=shocked)
+
+    shocked_vol_score = shocked_result["categories"]["volatility"]["score"]
+    baseline_vol_score = baseline["categories"]["volatility"]["score"]
+    assert shocked_vol_score >= baseline_vol_score
+    # explicitly passing the real row must reproduce the default-latest result
+    identical = risk_categories.composite_score(df, latest=real_latest)
+    assert identical["composite_score"] == baseline["composite_score"]
