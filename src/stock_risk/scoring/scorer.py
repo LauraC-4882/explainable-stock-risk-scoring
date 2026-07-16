@@ -13,12 +13,12 @@ from loguru import logger
 from ..config import settings
 from ..data.fetcher import MarketDataFetcher
 from ..data.preprocessor import DataPreprocessor
-from ..features.technical import TechnicalFeatures
 from ..features.risk_metrics import RiskMetrics
-from ..models.downside_risk import DownsideRiskModel
-from ..models.volatility import VolatilityModel
-from ..models.explain import explain_prediction
+from ..features.technical import TechnicalFeatures
 from ..llm.news_risk import extract_news_risk, summarize_news_risk
+from ..models.downside_risk import DownsideRiskModel
+from ..models.explain import explain_prediction
+from ..models.volatility import VolatilityModel
 from . import risk_categories
 
 BENCHMARK_TICKER = "SPY"
@@ -107,7 +107,9 @@ class RiskScorer:
                 )
                 ml_drawdown_explanation = explain_prediction(self._dr_model, df)
             except Exception as exc:
-                logger.warning(f"DownsideRiskModel prediction/explanation failed for {ticker}: {exc}")
+                logger.warning(
+                    f"DownsideRiskModel prediction/explanation failed for {ticker}: {exc}"
+                )
 
         # GARCH is fit live on this ticker's own return series — unlike the
         # pretrained XGBoost classifier, volatility clustering parameters are

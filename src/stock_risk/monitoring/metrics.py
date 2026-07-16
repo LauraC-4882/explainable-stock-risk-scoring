@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
-from prometheus_client import Gauge, Counter, write_to_textfile
+from prometheus_client import Counter, Gauge, write_to_textfile
 
 RISK_SCORE_GAUGE = Gauge("stock_risk_score", "Current risk score", ["ticker"])
 SCORE_REQUESTS = Counter("stock_risk_score_requests_total", "Total scoring requests", ["ticker"])

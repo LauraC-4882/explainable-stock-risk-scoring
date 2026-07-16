@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 from loguru import logger
+from scipy import stats
 
 
 def _psi(expected: np.ndarray, actual: np.ndarray, bins: int = 10) -> float:

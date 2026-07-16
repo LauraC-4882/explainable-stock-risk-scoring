@@ -2,11 +2,10 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from stock_risk.data.preprocessor import DataPreprocessor
-from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
+from stock_risk.features.technical import TechnicalFeatures
 
 
 def _base_df(n: int = 250) -> pd.DataFrame:

@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import yfinance as yf
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from loguru import logger
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from ..scoring.scorer import RiskScorer
-from ..monitoring.metrics import ModelMonitor
 from ..config import settings
+from ..monitoring.metrics import ModelMonitor
+from ..scoring.scorer import RiskScorer
 
 app = FastAPI(
     title="Stock Risk Scoring API",
@@ -108,7 +107,7 @@ def get_score(ticker: str, period: str = "2y"):
         return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
+    except Exception:
         raise HTTPException(status_code=500, detail="Internal scoring error")
 
 

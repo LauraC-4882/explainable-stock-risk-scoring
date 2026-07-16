@@ -42,7 +42,10 @@ class VolatilityModel(BaseRiskModel):
             res = am.fit(last_obs=returns.index[-1], disp="off", show_warning=False)
         forecast = res.forecast(horizon=1)
         vol_forecast = float(np.sqrt(forecast.variance.values[-1, 0])) / self.rescale
-        return pd.Series({"garch_vol_1d": vol_forecast, "garch_vol_30d": vol_forecast * np.sqrt(30)})
+        return pd.Series({
+            "garch_vol_1d": vol_forecast,
+            "garch_vol_30d": vol_forecast * np.sqrt(30),
+        })
 
     def rolling_vol(self, df: pd.DataFrame, window: int = 21) -> pd.Series:
         """Convenience: realised rolling volatility (annualised)."""

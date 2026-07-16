@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 
 from stock_risk.data.preprocessor import DataPreprocessor
-from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
+from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.explain import explain_prediction
 

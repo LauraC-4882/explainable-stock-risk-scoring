@@ -8,7 +8,14 @@ target-version = ["py310"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# X/y is the standard sklearn convention for feature/target matrices throughout
+# this package (fit(X, y), predict(X), ...) — more readable than forcing lowercase.
+"src/stock_risk/models/*.py" = ["N803", "N806"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

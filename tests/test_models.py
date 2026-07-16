@@ -2,17 +2,18 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from stock_risk.data.preprocessor import DataPreprocessor
-from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
+from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.evaluation import compare_classifiers
 from stock_risk.models.feature_sets import ALL_FEATURE_COLS
 
 
-def _ohlcv(n: int, seed: int, vol: float = 0.01, drift: float = 0.0002, stress_tail: bool = False) -> pd.DataFrame:
+def _ohlcv(
+    n: int, seed: int, vol: float = 0.01, drift: float = 0.0002, stress_tail: bool = False
+) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     rets = rng.standard_normal(n) * vol + drift
     if stress_tail:
@@ -31,7 +32,9 @@ def _ohlcv(n: int, seed: int, vol: float = 0.01, drift: float = 0.0002, stress_t
     return df
 
 
-def _full_df(seed: int, n: int = 400, stress_tail: bool = True, vol_override: float = 0.01) -> pd.DataFrame:
+def _full_df(
+    seed: int, n: int = 400, stress_tail: bool = True, vol_override: float = 0.01
+) -> pd.DataFrame:
     raw = _ohlcv(n, seed=seed, vol=vol_override, stress_tail=stress_tail)
     df = DataPreprocessor().process(raw)
     df = TechnicalFeatures().compute(df)

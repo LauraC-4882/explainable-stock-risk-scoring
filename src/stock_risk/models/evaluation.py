@@ -11,6 +11,7 @@ majority (no-event) class.
 from __future__ import annotations
 
 import pandas as pd
+from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -23,7 +24,6 @@ from sklearn.metrics import (
 )
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
-from loguru import logger
 
 from .feature_sets import build_dataset, build_preprocessor
 
@@ -98,7 +98,9 @@ def compare_classifiers(
             "recall": recall_score(y_test, pred, zero_division=0),
             "f1": f1_score(y_test, pred, zero_division=0),
             "roc_auc": roc_auc_score(y_test, proba) if y_test.nunique() > 1 else float("nan"),
-            "pr_auc": average_precision_score(y_test, proba) if y_test.nunique() > 1 else float("nan"),
+            "pr_auc": (
+                average_precision_score(y_test, proba) if y_test.nunique() > 1 else float("nan")
+            ),
             "tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp),
             "n_test": len(y_test), "n_test_positive": int(y_test.sum()),
         })

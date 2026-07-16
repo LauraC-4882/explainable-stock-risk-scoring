@@ -1,4 +1,4 @@
-from .volatility import VolatilityModel
 from .downside_risk import DownsideRiskModel
+from .volatility import VolatilityModel
 
 __all__ = ["VolatilityModel", "DownsideRiskModel"]

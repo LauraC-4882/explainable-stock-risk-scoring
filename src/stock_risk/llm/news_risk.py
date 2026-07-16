@@ -60,7 +60,8 @@ NEWS_RISK_SCHEMA = {
         "evidence": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Short verbatim quotes from the headline/summary supporting the classification",
+            "description": "Short verbatim quotes from the headline/summary supporting the "
+                           "classification",
         },
     },
     "required": [

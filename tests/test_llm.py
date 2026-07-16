@@ -19,7 +19,9 @@ def test_schema_has_no_unsupported_numeric_constraints():
 
 
 def test_build_extraction_prompt_includes_inputs():
-    prompt = build_extraction_prompt("AAPL", "Apple faces antitrust probe", "Regulators announced...")
+    prompt = build_extraction_prompt(
+        "AAPL", "Apple faces antitrust probe", "Regulators announced..."
+    )
     assert "AAPL" in prompt
     assert "antitrust probe" in prompt
     assert "Regulators announced" in prompt

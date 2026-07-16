@@ -45,7 +45,9 @@ def build_preprocessor() -> ColumnTransformer:
     )
 
 
-def build_drawdown_labels(df: pd.DataFrame, horizon: int = 20, threshold: float = -0.10) -> pd.Series:
+def build_drawdown_labels(
+    df: pd.DataFrame, horizon: int = 20, threshold: float = -0.10
+) -> pd.Series:
     """Binary label: 1 if the forward `horizon`-day maximum drawdown breaches `threshold`.
 
     `threshold` is a negative return, e.g. -0.10 for "max drawdown of 10% or worse

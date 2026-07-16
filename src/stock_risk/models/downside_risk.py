@@ -6,12 +6,12 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
-from loguru import logger
 
 from .base import BaseRiskModel
-from .feature_sets import ALL_FEATURE_COLS, build_preprocessor, build_drawdown_labels
+from .feature_sets import ALL_FEATURE_COLS, build_drawdown_labels, build_preprocessor
 
 
 class DownsideRiskModel(BaseRiskModel):
@@ -45,7 +45,9 @@ class DownsideRiskModel(BaseRiskModel):
         self.pipeline: Optional[Pipeline] = None
         self._fallback_rate: Optional[float] = None
 
-    def fit(self, df: pd.DataFrame, horizon: int = 20, threshold: float = -0.10) -> "DownsideRiskModel":
+    def fit(
+        self, df: pd.DataFrame, horizon: int = 20, threshold: float = -0.10
+    ) -> "DownsideRiskModel":
         """Convenience fit on a single ticker's dataframe."""
         y = build_drawdown_labels(df, horizon=horizon, threshold=threshold)
         valid = df[ALL_FEATURE_COLS].join(y.rename("target")).dropna()
@@ -57,7 +59,10 @@ class DownsideRiskModel(BaseRiskModel):
         avoid cross-ticker leakage in the forward-looking window)."""
         if len(y) == 0:
             self._fallback_rate = 0.0
-            logger.warning("DownsideRiskModel: no valid training rows after dropping NaNs — using 0.0 fallback score")
+            logger.warning(
+                "DownsideRiskModel: no valid training rows after dropping NaNs — "
+                "using 0.0 fallback score"
+            )
             return self
         if y.nunique() < 2:
             self._fallback_rate = float(y.mean())

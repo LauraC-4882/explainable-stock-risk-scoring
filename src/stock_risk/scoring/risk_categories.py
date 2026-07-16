@@ -61,8 +61,14 @@ CATEGORY_WEIGHTS: dict[str, float] = {
 # somewhat further toward tail risk without fully abandoning the base mix.
 REGIME_WEIGHTS: dict[str, dict[str, float]] = {
     "calm": dict(CATEGORY_WEIGHTS),
-    "elevated": {"volatility": 0.25, "tail": 0.30, "drawdown": 0.20, "sensitivity": 0.10, "liquidity": 0.15},
-    "panic": {"volatility": 0.20, "tail": 0.40, "drawdown": 0.15, "sensitivity": 0.10, "liquidity": 0.15},
+    "elevated": {
+        "volatility": 0.25, "tail": 0.30, "drawdown": 0.20,
+        "sensitivity": 0.10, "liquidity": 0.15,
+    },
+    "panic": {
+        "volatility": 0.20, "tail": 0.40, "drawdown": 0.15,
+        "sensitivity": 0.10, "liquidity": 0.15,
+    },
 }
 
 _MIN_HISTORY = 20  # minimum non-NaN observations before a percentile is trusted

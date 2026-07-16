@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
 
 from stock_risk.data.fetcher import MarketDataFetcher
 from stock_risk.data.preprocessor import DataPreprocessor
@@ -70,7 +69,9 @@ def test_fetch_analyst_activity_counts_recent_actions_only():
         [now - pd.Timedelta(days=5), now - pd.Timedelta(days=10), now - pd.Timedelta(days=200)],
         name="GradeDate",
     )
-    df = pd.DataFrame({"Firm": ["A", "B", "C"], "Action": ["downgrade", "upgrade", "downgrade"]}, index=idx)
+    df = pd.DataFrame(
+        {"Firm": ["A", "B", "C"], "Action": ["downgrade", "upgrade", "downgrade"]}, index=idx
+    )
     mock_ticker = MagicMock()
     mock_ticker.upgrades_downgrades = df
     with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):

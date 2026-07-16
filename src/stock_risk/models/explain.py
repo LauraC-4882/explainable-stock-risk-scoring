@@ -22,7 +22,9 @@ def _sigmoid(x: float) -> float:
     return 1.0 / (1.0 + np.exp(-x))
 
 
-def explain_prediction(model: DownsideRiskModel, df: pd.DataFrame, top_n: int = 5) -> Optional[dict]:
+def explain_prediction(
+    model: DownsideRiskModel, df: pd.DataFrame, top_n: int = 5
+) -> Optional[dict]:
     """Return a SHAP attribution for the latest row's downside-risk prediction.
 
     Returns None when the model has no fitted XGBoost estimator (fallback/
