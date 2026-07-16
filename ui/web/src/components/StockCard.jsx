@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import { apiScore, apiTimeseries } from '../api'
+import { useCountUp } from '../hooks/useCountUp'
+import { useLanguage } from '../i18n/LanguageContext'
 import { riskColor } from '../utils'
+import CardSkeleton from './CardSkeleton'
 import DirectionSignal from './DirectionSignal'
 import MetricTiles from './MetricTiles'
 import PriceChart from './PriceChart'
 import RiskChart from './RiskChart'
+import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
 
 const BADGE_CLASS = {
@@ -14,7 +18,8 @@ const BADGE_CLASS = {
   EXTREME: 'bg-risk-extreme/15 text-risk-extreme',
 }
 
-export default function StockCard({ ticker, period, onRemove }) {
+export default function StockCard({ ticker, period, onRemove, index = 0 }) {
+  const { t } = useLanguage()
   const [score, setScore] = useState(null)
   const [timeseries, setTimeseries] = useState([])
   const [error, setError] = useState(null)
@@ -65,10 +70,14 @@ export default function StockCard({ ticker, period, onRemove }) {
   const subtitle =
     score?.name && score.name !== ticker
       ? score.name + (score.fundamentals?.sector ? ` · ${score.fundamentals.sector}` : '')
-      : score?.fundamentals?.sector || (loading ? 'Fetching…' : ticker)
+      : score?.fundamentals?.sector || (loading ? t('card.fetching') : ticker)
+  const animatedScore = useCountUp(score?.risk_score)
 
   return (
-    <div className="animate-fade-in overflow-hidden rounded-xl border border-border bg-surface transition hover:border-[#30363d] hover:shadow-2xl hover:shadow-black/40">
+    <div
+      className="animate-fade-in overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#30363d] hover:shadow-2xl hover:shadow-black/40"
+      style={{ animationDelay: `${Math.min(index, 8) * 60}ms`, animationFillMode: 'backwards' }}
+    >
       <div className="flex items-start justify-between border-b border-border px-4 py-3.5">
         <div>
           <div className="text-xl font-extrabold tracking-tight">{ticker}</div>
@@ -76,57 +85,54 @@ export default function StockCard({ ticker, period, onRemove }) {
         </div>
         <button
           onClick={() => onRemove(ticker)}
-          title="Remove"
-          className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
+          title={t('card.remove')}
+          className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition-all duration-150 hover:bg-down/10 hover:text-down active:scale-90"
         >
           ✕
         </button>
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center gap-2.5 px-8 py-12 text-sm text-muted">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-accent" />
-          Loading live data…
-        </div>
-      )}
+      {loading && <CardSkeleton />}
 
       {error && !loading && (
-        <div className="px-8 py-12 text-center text-sm text-down">⚠ {error}</div>
+        <div className="animate-fade-in px-8 py-12 text-center text-sm text-down">⚠ {error}</div>
       )}
 
       {score && !loading && !error && (
-        <>
+        <div className="animate-fade-in">
           <div className="flex items-center gap-5 border-b border-border px-5 py-4">
-            <RiskGauge score={score.risk_score} color={color} />
+            <RiskGauge score={animatedScore} color={color} />
             <div>
-              <div className="text-[2.6rem] font-black leading-none tracking-tighter" style={{ color }}>
-                {score.risk_score}
+              <div className="text-[2.6rem] font-black leading-none tracking-tighter tabular-nums" style={{ color }}>
+                {Math.round(animatedScore)}
               </div>
               <span
-                className={`mt-1.5 inline-block rounded-full px-3 py-0.5 text-[0.72rem] font-bold uppercase tracking-wide ${
+                className={`mt-1.5 inline-block rounded-full px-3 py-0.5 text-[0.72rem] font-bold uppercase tracking-wide transition-colors duration-500 ${
                   BADGE_CLASS[score.risk_label] || 'bg-muted/10 text-muted'
                 }`}
               >
-                {score.risk_label}
+                {t(`riskLabel.${score.risk_label}`)}
               </span>
-              <div className="mt-1.5 text-[0.72rem] text-muted">risk score out of 100</div>
+              <div className="mt-1.5 text-[0.72rem] text-muted">{t('card.riskScoreLabel')}</div>
             </div>
           </div>
+
+          <RiskExplainer riskLabel={score.risk_label} breakdown={score.risk_breakdown} />
 
           <DirectionSignal upProb={upProb} downProb={downProb} />
           <MetricTiles score={score} />
 
           <div className="space-y-3.5 px-4 py-4">
             <div>
-              <ChartLabel>Price History</ChartLabel>
+              <ChartLabel>{t('charts.price')}</ChartLabel>
               <PriceChart timeseries={timeseries} color={color} />
             </div>
             <div>
-              <ChartLabel>Daily Risk Score (0–100)</ChartLabel>
+              <ChartLabel>{t('charts.riskScore')}</ChartLabel>
               <RiskChart timeseries={timeseries} />
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

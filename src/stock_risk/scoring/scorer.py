@@ -22,7 +22,23 @@ from ..models.volatility import VolatilityModel
 from . import risk_categories
 from .stress_test import run_stress_test
 
-BENCHMARK_TICKER = "SPY"
+# "cn" uses the CSI 300 ETF (510300.SS) rather than the raw index (000300.SS):
+# the raw index ticker was found to have multi-day gaps via yfinance (verified
+# live — 3 missing trading days in a 1mo pull) while the ETF tracking it had
+# continuous daily bars, so it's the more reliable proxy despite being one
+# step removed from the index itself.
+MARKET_BENCHMARKS = {"us": "SPY", "hk": "^HSI", "cn": "510300.SS"}
+
+
+def market_for_ticker(ticker: str) -> str:
+    """Infer the market from a ticker's exchange suffix."""
+    upper = ticker.upper()
+    if upper.endswith(".HK"):
+        return "hk"
+    if upper.endswith(".SS") or upper.endswith(".SZ"):
+        return "cn"
+    return "us"
+
 
 RISK_LABELS = {
     (0, 25): "LOW",
@@ -55,11 +71,12 @@ def _trim_to_display_period(df: pd.DataFrame, period: str) -> pd.DataFrame:
     return df.tail(days) if days else df
 
 
-RISK_NOTE = (
-    "Score reflects this stock's risk relative to its own historical distribution "
-    "(and market sensitivity vs. SPY) — it is not a probability of loss, default "
-    "probability, or investment recommendation."
-)
+def _risk_note(benchmark_ticker: str) -> str:
+    return (
+        "Score reflects this stock's risk relative to its own historical distribution "
+        f"(and market sensitivity vs. {benchmark_ticker}) — it is not a probability of loss, "
+        "default probability, or investment recommendation."
+    )
 
 
 def _label(score: float) -> str:
@@ -91,17 +108,20 @@ class RiskScorer:
         """Return a complete risk scorecard dict for *ticker*."""
         logger.info(f"Scoring {ticker}")
 
+        market = market_for_ticker(ticker)
+        benchmark_ticker = MARKET_BENCHMARKS.get(market, "SPY")
+
         raw = self.fetcher.fetch_history(ticker, period=period)
         df = self.preprocessor.process(raw)
         df = self.tech.compute(df)
 
         benchmark_log_return = None
-        if ticker.upper() != BENCHMARK_TICKER:
+        if ticker.upper() != benchmark_ticker:
             try:
-                bench_raw = self.fetcher.fetch_history(BENCHMARK_TICKER, period=period)
+                bench_raw = self.fetcher.fetch_history(benchmark_ticker, period=period)
                 benchmark_log_return = self.preprocessor.process(bench_raw)["log_return"]
             except Exception as exc:
-                logger.warning(f"Could not fetch benchmark {BENCHMARK_TICKER}: {exc}")
+                logger.warning(f"Could not fetch benchmark {benchmark_ticker}: {exc}")
 
         df = self.risk.compute(df, benchmark_returns=benchmark_log_return)
         info = self.fetcher.fetch_info(ticker)
@@ -111,11 +131,18 @@ class RiskScorer:
 
         # VIX-threshold regime weighting: panic/elevated markets lean the
         # composite toward tail risk over day-to-day volatility (see
-        # risk_categories.REGIME_WEIGHTS). Falls back to the base weights if
-        # VIX is unavailable.
-        vix = self.fetcher.fetch_vix()
-        regime = risk_categories.regime_for_vix(vix)
-        weights = risk_categories.regime_adjusted_weights(vix)
+        # risk_categories.REGIME_WEIGHTS). The VIX is a US-market fear gauge —
+        # there's no verified free equivalent wired in for HK/CN yet, so
+        # non-US tickers fall back to the base (non-regime-adjusted) weights
+        # rather than reusing VIX as a proxy it wasn't designed to represent.
+        if market == "us":
+            vix = self.fetcher.fetch_vix()
+            regime = risk_categories.regime_for_vix(vix)
+            weights = risk_categories.regime_adjusted_weights(vix)
+        else:
+            vix = None
+            regime = "not_available"
+            weights = risk_categories.CATEGORY_WEIGHTS
 
         # Percentile-based composite score across volatility/tail/drawdown/
         # sensitivity/liquidity categories (see risk_categories.py) — the
@@ -179,9 +206,14 @@ class RiskScorer:
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "risk_score": round(composite_score, 1),
             "risk_label": _label(composite_score),
-            "risk_note": RISK_NOTE,
+            "risk_note": _risk_note(benchmark_ticker),
             "risk_breakdown": scorecard["categories"],
-            "market_regime": {"vix": vix, "regime": regime},
+            "market_regime": {
+                "vix": vix,
+                "regime": regime,
+                "market": market,
+                "benchmark": benchmark_ticker,
+            },
             "ml_drawdown_probability": ml_drawdown_probability,
             "ml_drawdown_explanation": ml_drawdown_explanation,
             "garch_volatility_forecast": garch_volatility_forecast,

@@ -1,10 +1,8 @@
+import { useLanguage } from '../i18n/LanguageContext'
+
 export default function DirectionSignal({ upProb, downProb }) {
+  const { t } = useLanguage()
   const verdict = upProb > 0.55 ? 'bull' : upProb < 0.45 ? 'bear' : 'flat'
-  const verdictText = {
-    bull: '↑ Likely to INCREASE',
-    bear: '↓ Likely to DECREASE',
-    flat: '→ Neutral — unclear direction',
-  }[verdict]
   const verdictClass = {
     bull: 'bg-up/10 text-up',
     bear: 'bg-down/10 text-down',
@@ -14,14 +12,14 @@ export default function DirectionSignal({ upProb, downProb }) {
   return (
     <div className="border-b border-border px-5 py-3.5">
       <div className="mb-2.5 text-[0.68rem] font-semibold uppercase tracking-wide text-muted">
-        Today&apos;s Direction Signal
+        {t('direction.heading')}
       </div>
-      <Bar label="↑ Upside" pct={upProb} colorClass="text-up" barClass="from-[#1a7f37] to-up" />
-      <Bar label="↓ Downside" pct={downProb} colorClass="text-down" barClass="from-[#b91c1c] to-down" />
+      <Bar label={`↑ ${t('direction.upside')}`} pct={upProb} colorClass="text-up" barClass="from-[#1a7f37] to-up" />
+      <Bar label={`↓ ${t('direction.downside')}`} pct={downProb} colorClass="text-down" barClass="from-[#b91c1c] to-down" />
       <div
         className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${verdictClass}`}
       >
-        {verdictText}
+        {t(`direction.${verdict}`)}
       </div>
     </div>
   )

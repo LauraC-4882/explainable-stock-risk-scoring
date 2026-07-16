@@ -1,26 +1,22 @@
-const OPTIONS = [
-  { p: '5d', label: '5D' },
-  { p: '1mo', label: '1M' },
-  { p: '3mo', label: '3M' },
-  { p: '6mo', label: '6M' },
-  { p: '1y', label: '1Y' },
-  { p: '2y', label: '2Y' },
-]
+import { useLanguage } from '../i18n/LanguageContext'
+
+const PERIODS = ['5d', '1mo', '3mo', '6mo', '1y', '2y']
 
 export default function TimeframeSelector({ period, onChange }) {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-wrap gap-1.5">
-      {OPTIONS.map((o) => (
+      {PERIODS.map((p) => (
         <button
-          key={o.p}
-          onClick={() => onChange(o.p)}
-          className={`rounded-full border px-4 py-1 text-xs font-semibold transition ${
-            period === o.p
-              ? 'border-accent bg-accent text-white shadow-lg shadow-accent/20'
-              : 'border-border text-muted hover:border-accent hover:text-accent'
+          key={p}
+          onClick={() => onChange(p)}
+          className={`rounded-full border px-4 py-1 text-xs font-semibold transition-all duration-200 ease-out active:scale-90 ${
+            period === p
+              ? 'scale-105 border-accent bg-accent text-white shadow-lg shadow-accent/20'
+              : 'border-border text-muted hover:-translate-y-px hover:border-accent hover:text-accent'
           }`}
         >
-          {o.label}
+          {t(`timeframe.${p}`)}
         </button>
       ))}
     </div>

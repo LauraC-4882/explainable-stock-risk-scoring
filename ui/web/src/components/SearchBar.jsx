@@ -1,8 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiSearch } from '../api'
+import { useLanguage } from '../i18n/LanguageContext'
 import { debounce } from '../utils'
 
-export default function SearchBar({ onAdd }) {
+// A bare numeric code entered while in the "China" market bucket (which
+// covers both A-shares and HK-listed stocks) is normalized to its Yahoo-style
+// ticker; anything already carrying a suffix (or entered in US mode) passes
+// through untouched. A-share codes are always exactly 6 digits (6xxxxx on
+// Shanghai/.SS, 0xxxxx/3xxxxx on Shenzhen/.SZ); HK codes are shorter, so the
+// digit count alone disambiguates which exchange a bare code means.
+function normalizeTicker(raw, market) {
+  const v = raw.trim().toUpperCase()
+  if (market === 'cn' && /^\d+$/.test(v)) {
+    if (v.length === 6) {
+      return v + (v.startsWith('6') ? '.SS' : '.SZ')
+    }
+    return v.padStart(4, '0') + '.HK'
+  }
+  return v
+}
+
+export default function SearchBar({ market, onAdd }) {
+  const { t } = useLanguage()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
@@ -44,7 +63,7 @@ export default function SearchBar({ onAdd }) {
 
   function handleKeyDown(e) {
     if (e.key === 'Enter') {
-      const v = query.trim().toUpperCase()
+      const v = normalizeTicker(query, market)
       if (v) {
         onAdd(v)
         setQuery('')
@@ -80,16 +99,17 @@ export default function SearchBar({ onAdd }) {
         type="text"
         autoComplete="off"
         spellCheck="false"
-        placeholder="Search stocks — Apple, TSLA, NVDA, 0700.HK…"
+        placeholder={t(`search.placeholder.${market}`)}
         className="w-full rounded-xl border border-border bg-surface2 py-2.5 pl-10 pr-4 text-sm text-slate-100 outline-none transition placeholder:text-muted focus:border-accent focus:ring-4 focus:ring-accent/10"
       />
       {open && (
         <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 animate-fade-in overflow-hidden rounded-xl border border-border bg-surface2 shadow-2xl shadow-black/50">
-          {results.map((r) => (
+          {results.map((r, i) => (
             <div
               key={r.symbol}
               onClick={() => pick(r.symbol)}
-              className="flex cursor-pointer items-center justify-between border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-accent/10"
+              className="flex animate-fade-in cursor-pointer items-center justify-between border-b border-border px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-accent/10 active:scale-[0.98]"
+              style={{ animationDelay: `${Math.min(i, 6) * 30}ms`, animationFillMode: 'backwards', animationDuration: '0.18s' }}
             >
               <div>
                 <span className="text-sm font-bold text-accent">{r.symbol}</span>

@@ -7,10 +7,29 @@ import pandas as pd
 import pytest
 
 from stock_risk.scoring.scorer import (
+    MARKET_BENCHMARKS,
     RiskScorer,
     _fetch_period_for_display,
     _trim_to_display_period,
+    market_for_ticker,
 )
+
+
+@pytest.mark.parametrize("ticker,expected", [
+    ("AAPL", "us"),
+    ("aapl", "us"),
+    ("0700.HK", "hk"),
+    ("0700.hk", "hk"),
+    ("600519.SS", "cn"),
+    ("000001.SZ", "cn"),
+])
+def test_market_for_ticker(ticker, expected):
+    assert market_for_ticker(ticker) == expected
+
+
+def test_every_market_has_a_benchmark():
+    for market in ("us", "hk", "cn"):
+        assert market in MARKET_BENCHMARKS
 
 
 @pytest.mark.parametrize("period", ["5d", "1mo", "3mo", "6mo", "1y", "2y"])
