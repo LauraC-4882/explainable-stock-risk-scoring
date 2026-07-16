@@ -27,10 +27,12 @@ yfinance analyst/insider ──────────────────�
                 ▼
           Risk Scorecard (0–100 + label + category breakdown)
                 │
-       ┌────────┴────────┐
-       ▼                 ▼
-  FastAPI REST      Streamlit Dashboard
-  /score/{ticker}   ui/dashboard.py
+       ┌────────┬────────┐
+       ▼        ▼        ▼
+  FastAPI   React SPA   Streamlit
+  REST API  ui/web/     Dashboard
+  /api/*    (built,     ui/dashboard.py
+            served at /)
 ```
 
 ## Components
@@ -72,9 +74,15 @@ python scripts/score.py --ticker TSLA
 streamlit run ui/dashboard.py
 # or:  make dashboard
 
-# 6. Start the REST API
+# 6. Build the React web frontend (one-time / after any ui/web change)
+cd ui/web && npm install && npm run build && cd ../..
+
+# 7. Start the REST API — serves the built React app at http://localhost:8000/
 uvicorn src.stock_risk.api.app:app --reload
 # or:  make api
+
+# For frontend development with hot reload instead of rebuilding on every change:
+cd ui/web && npm run dev   # proxies /api, /health, /metrics to :8000 — run the API too
 ```
 
 ## Data Pipeline
@@ -197,6 +205,17 @@ No paid data vendor required — all via yfinance:
 }
 ```
 
+## Web Frontend (React + Tailwind)
+
+`ui/web/` is a Vite + React 18 + Tailwind CSS single-page app (multi-ticker search, side-by-side risk cards, SVG gauge, Chart.js price/risk charts) served by FastAPI at `/` once built — see step 6 in Quick Start. Source lives in `ui/web/src/`; `npm run build` outputs to `ui/web/dist/`, which `api/app.py` mounts at `/assets` and serves `index.html` from at `/`. If `dist/` hasn't been built yet, `/` returns a 503 with instructions rather than a confusing 404.
+
+- `src/App.jsx` — top-level state (ticker list, selected timeframe)
+- `src/components/StockCard.jsx` — per-ticker fetch + render (score, gauge, direction signal, metric tiles, charts)
+- `src/api.js` — thin fetch wrappers over `/api/search`, `/api/score/{ticker}`, `/api/score/{ticker}/timeseries`
+- `tailwind.config.js` — theme colors matched to the original dark palette (risk label colors, accent gradient)
+
+Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.
+
 ## Streamlit Dashboard
 
 Run `streamlit run ui/dashboard.py` (or `make dashboard`) and open `http://localhost:8501`.
@@ -243,9 +262,11 @@ stock_risk/
 │   ├── api/           app.py  (FastAPI)
 │   └── config.py
 ├── ui/
-│   └── dashboard.py   (Streamlit)
+│   ├── dashboard.py   (Streamlit)
+│   └── web/           React + Vite + Tailwind SPA (src/, package.json, dist/ after build)
 ├── scripts/           train.py · score.py · monitor.py
-├── tests/             test_data · test_features · test_models · test_api
+├── tests/             test_data · test_features · test_llm · test_models ·
+│                       test_explain · test_risk_categories · test_scorer · test_api
 ├── configs/           model_config.yaml · monitoring_config.yaml
 ├── docker/            Dockerfile · docker-compose.yml
 └── .github/workflows/ ci.yml · cd.yml

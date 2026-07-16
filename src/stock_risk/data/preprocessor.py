@@ -21,6 +21,13 @@ class DataPreprocessor:
         return df.dropna(subset=["close", "log_return"])
 
     def _fill_gaps(self, df: pd.DataFrame) -> pd.DataFrame:
+        # yfinance timestamps carry a time-of-day (market close in UTC) that
+        # shifts by an hour across DST transitions (e.g. 04:00:00 vs 05:00:00
+        # within the same fetch) — asfreq("B") reindexes against midnight-
+        # aligned dates, so without normalizing first, most rows silently fail
+        # to match the new index and get dropped instead of forward-filled.
+        df = df.copy()
+        df.index = df.index.normalize()
         df = df.asfreq("B")  # business-day frequency
         df = df.ffill(limit=self.max_gap_days)
         return df

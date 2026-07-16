@@ -9,6 +9,7 @@ import yfinance as yf
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -33,13 +34,24 @@ scorer = RiskScorer()
 monitor = ModelMonitor(settings.monitoring_log_dir)
 
 _WEB_DIR = Path(__file__).parent.parent.parent.parent / "ui" / "web"
+_DIST_DIR = _WEB_DIR / "dist"
 
 
-# ── Frontend ──────────────────────────────────────────────────────────────────
+# ── Frontend (React app built via `npm run build` in ui/web/) ──────────────────
+
+if (_DIST_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=_DIST_DIR / "assets"), name="assets")
+
 
 @app.get("/", include_in_schema=False)
 def index():
-    return FileResponse(str(_WEB_DIR / "index.html"))
+    dist_index = _DIST_DIR / "index.html"
+    if not dist_index.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="Frontend not built — run `npm install && npm run build` in ui/web/",
+        )
+    return FileResponse(str(dist_index))
 
 
 # ── Search ────────────────────────────────────────────────────────────────────

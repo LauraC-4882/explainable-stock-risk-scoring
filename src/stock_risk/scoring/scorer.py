@@ -30,6 +30,30 @@ RISK_LABELS = {
     (75, 101): "EXTREME",
 }
 
+# Trading-day counts for each selectable timeframe, and how much *extra*
+# history score_timeseries must fetch before that window so 21d/63d rolling
+# metrics (vol_21d, max_drawdown_63d, ...) already have valid values on the
+# first displayed day instead of returning NaN for the whole requested period.
+_PERIOD_TRADING_DAYS = {"5d": 5, "1mo": 21, "3mo": 63, "6mo": 126, "1y": 252, "2y": 504}
+_ROLLING_WARMUP_DAYS = 70  # covers the largest rolling window (63d) plus a buffer
+
+
+def _fetch_period_for_display(period: str) -> str:
+    """Map a display period to a yfinance fetch period with enough warm-up history."""
+    needed = _PERIOD_TRADING_DAYS.get(period, 126) + _ROLLING_WARMUP_DAYS
+    for fetch_period, days in [("6mo", 126), ("1y", 252), ("2y", 504), ("5y", 1260)]:
+        if needed <= days:
+            return fetch_period
+    return "10y"
+
+
+def _trim_to_display_period(df: pd.DataFrame, period: str) -> pd.DataFrame:
+    """Drop the warm-up rows fetched by _fetch_period_for_display, keeping the
+    last N trading days actually requested for display."""
+    days = _PERIOD_TRADING_DAYS.get(period)
+    return df.tail(days) if days else df
+
+
 RISK_NOTE = (
     "Score reflects this stock's risk relative to its own historical distribution "
     "(and market sensitivity vs. SPY) — it is not a probability of loss, default "
@@ -177,10 +201,11 @@ class RiskScorer:
     def score_timeseries(self, ticker: str, period: str = "6mo") -> list[dict]:
         """Return a daily risk scorecard list for the requested *period*."""
         logger.info(f"Timeseries for {ticker} | period={period}")
-        raw = self.fetcher.fetch_history(ticker, period=period)
+        raw = self.fetcher.fetch_history(ticker, period=_fetch_period_for_display(period))
         df = self.preprocessor.process(raw)
         df = self.tech.compute(df)
         df = self.risk.compute(df)
+        df = _trim_to_display_period(df, period)
 
         results = []
         for idx, row in df.iterrows():
@@ -211,13 +236,21 @@ class RiskScorer:
         if pd.isna(vol) and pd.isna(rsi):
             return np.nan
 
-        c_vol = min(float(vol or 0.25) / 0.80 * 40, 40)
+        # `x or default` silently breaks here: NaN is truthy in Python, so
+        # `float("nan") or 0.25` evaluates to NaN, not the default — and NaN
+        # propagates through the sum below, making the whole score NaN even
+        # though vol/rsi were present. Use explicit pd.notna() checks instead.
+        vol_v = float(vol) if pd.notna(vol) else 0.25
+        c_vol = min(vol_v / 0.80 * 40, 40)
 
         rsi_v = float(rsi) if pd.notna(rsi) else 50.0
         c_rsi = 20 if rsi_v >= 70 else (5 if rsi_v <= 30 else 10)
 
-        c_dd  = min(abs(float(dd or 0.0)) / 0.30 * 20, 20)
-        c_var = min(abs(float(var or 0.02)) / 0.05 * 20, 20)
+        dd_v = float(dd) if pd.notna(dd) else 0.0
+        c_dd  = min(abs(dd_v) / 0.30 * 20, 20)
+
+        var_v = float(var) if pd.notna(var) else 0.02
+        c_var = min(abs(var_v) / 0.05 * 20, 20)
 
         return c_vol + c_rsi + c_dd + c_var  # max = 100
 

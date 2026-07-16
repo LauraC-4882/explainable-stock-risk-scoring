@@ -34,6 +34,34 @@ def test_preprocessor_no_nans_in_close():
     assert result["close"].isnull().sum() == 0
 
 
+def test_preprocessor_survives_dst_mixed_timestamps():
+    """Regression test: real yfinance timestamps carry a time-of-day (market
+    close in UTC) that shifts by an hour across DST transitions, e.g.
+    04:00:00 vs 05:00:00 within the same fetch. asfreq("B") reindexes against
+    midnight-aligned dates, so without normalizing the index first, almost
+    every row silently fails to match the new index and gets dropped instead
+    of forward-filled — this used to shrink a 123-row real fetch to 40 rows."""
+    import numpy as np
+
+    n = 120
+    dates = pd.bdate_range("2024-01-01", periods=n)
+    # Half the timestamps carry a 04:00 time-of-day, half 05:00 — like a real
+    # EST/EDT DST split within one fetch.
+    times = [pd.Timedelta(hours=4) if i < n // 2 else pd.Timedelta(hours=5) for i in range(n)]
+    index = dates + pd.TimedeltaIndex(times)
+    close = 100 * (1 + np.random.randn(n).cumsum() * 0.01)
+    df = pd.DataFrame({
+        "open": close * 0.99, "high": close * 1.01,
+        "low": close * 0.98, "close": close,
+        "volume": np.random.randint(1_000_000, 10_000_000, n),
+    }, index=index)
+
+    result = DataPreprocessor().process(df)
+    # Allow a little loss to gap-filling/outlier removal, but not the ~65%
+    # collapse the unnormalized-index bug caused.
+    assert len(result) >= n - 5
+
+
 def test_fetch_news_parses_yfinance_content_shape():
     mock_ticker = MagicMock()
     mock_ticker.news = [

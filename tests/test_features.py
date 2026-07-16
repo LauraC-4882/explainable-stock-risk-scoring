@@ -26,6 +26,19 @@ def test_technical_rsi_range():
     assert (rsi >= 0).all() and (rsi <= 100).all()
 
 
+def test_technical_compute_does_not_crash_on_short_history():
+    """The "5d"/"1mo" timeframes produce very short frames after preprocessing —
+    several ta indicators (ADX, ATR, ...) raise IndexError on these instead of
+    returning NaN, which used to 500 the /timeseries endpoint. Degrading to NaN
+    is an acceptable trade for not crashing; atr_14 is used downstream so it
+    must resolve to a real column (all-NaN, not a crash) rather than be dropped."""
+    df = _base_df(n=8)
+    result = TechnicalFeatures().compute(df)
+    for col in ["adx_14", "atr_14"]:
+        assert col in result.columns
+        assert result[col].isna().all()
+
+
 def test_risk_metrics_vol_positive():
     df = _base_df()
     result = RiskMetrics().compute(df)
