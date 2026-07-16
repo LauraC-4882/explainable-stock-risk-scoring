@@ -17,7 +17,8 @@ TechnicalFeatures         ← RSI, MACD, Bollinger Bands, ATR, OBV, EMA
 RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, liquidity, beta,
        │                     vol_regime_change, vol_of_vol, drawdown_acceleration, skew_momentum
        ├──► risk_categories.py  (percentile composite, VIX-regime-weighted) ← primary risk_score
-       ├──► XGBoost classifier  (P[drawdown ≤ -10% / 20d]) + SHAP  ← secondary ml_drawdown_probability
+       ├──► XGBoost classifier, isotonic-calibrated  (P[drawdown ≤ -10% / 20d])
+       │      + SHAP on the raw pre-calibration model  ← secondary ml_drawdown_probability
        └──► GARCH(1,1), fit live per ticker              ← secondary garch_volatility_forecast
 
 yfinance news        ──► llm/news_risk.py (schema+prompt ready, Haiku 4.5; call mocked) ─ news_risk
@@ -45,8 +46,8 @@ yfinance analyst/insider ──────────────────�
 | `features/risk_metrics.py` | Rolling VaR, CVaR, Sharpe, Sortino, drawdown, skew, kurtosis, EWMA vol, liquidity, beta, + vol-regime/vol-of-vol/drawdown-acceleration/skew-momentum cross features |
 | `scoring/risk_categories.py` | Percentile-based composite score across 5 risk categories, VIX-threshold regime-weighted (explainable baseline) |
 | `models/volatility.py` | GARCH(1,1) volatility forecasting via **arch** |
-| `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline |
-| `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison (Precision/Recall/F1/ROC-AUC/PR-AUC) |
+| `models/downside_risk.py` | **XGBoost** classifier (P[max drawdown ≤ -10% in 20d]) inside **sklearn ColumnTransformer** pipeline, isotonic-calibrated for production via `fit_calibrated` |
+| `models/evaluation.py` | Chronological Logistic Regression / Random Forest / XGBoost comparison, plus a per-ticker `TimeSeriesSplit` walk-forward backtest with calibration (Precision/Recall/F1/ROC-AUC/PR-AUC/Brier score per fold) |
 | `models/explain.py` | **SHAP** attribution for the XGBoost classifier — which features drove `ml_drawdown_probability` |
 | `llm/news_risk.py` | News event extraction schema + prompt (Claude structured outputs) — extraction call is mocked until wired |
 | `scoring/scorer.py` | End-to-end orchestration: fetch → preprocess → engineer → score |
@@ -120,6 +121,25 @@ Falls back to a constant base-rate score (instead of raising) when the training 
 
 Feature importances are accessible via `model.feature_importance()`. `scripts/train.py` also runs `models/evaluation.py::compare_classifiers`, which benchmarks Logistic Regression / Random Forest / XGBoost on a chronological (never random) train/test split and reports Precision/Recall/F1/ROC-AUC/PR-AUC/confusion-matrix — accuracy alone is misleading here since drawdown events are a rare minority class.
 
+### Walk-forward backtest + probability calibration
+
+A single train/test split can look fine by luck of where the cut falls. `models/evaluation.py::walk_forward_evaluate` instead runs a per-ticker `TimeSeriesSplit` (with a `gap` between train/test so the forward-looking label window can never leak across the boundary), pooling each fold across tickers, and reports one row per fold plus a mean/std summary — so a caller can see whether e.g. recall holds up or degrades in a specific period instead of only the average:
+
+```python
+from stock_risk.models.evaluation import walk_forward_evaluate
+
+result = walk_forward_evaluate(per_ticker_dfs, n_splits=5, gap=20)
+#       precision  recall    f1  roc_auc  pr_auc  brier_raw  brier_calibrated
+# fold
+# 1          0.61    0.68  0.64     0.71    0.55       0.14              0.11
+# 2          0.58    0.72  0.64     0.74    0.58       0.15              0.12
+# ...
+```
+
+An uncalibrated XGBoost probability isn't trustworthy at face value — "P=0.7" should mean the event actually happens in ~70% of such cases, which the training objective doesn't guarantee. Each fold's classifier is isotonic-calibrated (`sklearn.calibration.CalibratedClassifierCV`) on a **chronological** held-out slice — the last 20% of the training rows, strictly after what the model fit on and strictly before the test fold — never a random split, which would leak future rows into "calibration" the same way a random train/test split leaks them into training. `brier_raw` vs `brier_calibrated` makes "does calibration actually help" a number instead of an assumption.
+
+The production model uses the same calibration path: `scripts/train.py` calls `DownsideRiskModel.fit_calibrated(...)` (not the plain `fit`/`fit_dataset`), so `ml_drawdown_probability` in the API response is the calibrated estimate. Because isotonic calibration is a post-hoc, non-smooth remap with no SHAP decomposition of its own, `models/explain.py`'s SHAP breakdown still explains the *raw* pre-calibration model — `ml_drawdown_explanation.predicted_probability` (raw) and `.calibrated_probability` (what's actually served) are both reported when a model is calibrated, so the two never get silently conflated.
+
 ## News / Event Risk Layer (schema ready, LLM call mocked)
 
 `data/fetcher.py::fetch_news` pulls real recent headlines per ticker via yfinance's built-in news (no extra API key). Each headline is run through `llm/news_risk.py::extract_news_risk`, which classifies it into a fixed taxonomy (`event_type`, `risk_category`, `sentiment`, `severity` 0–5, `time_horizon`, `confidence`, `evidence`) using Claude's structured-outputs contract (`output_config.format` + a JSON schema) — the LLM never computes a risk score itself, only extracts structured fields from a single headline.
@@ -164,13 +184,14 @@ No paid data vendor required — all via yfinance:
   "ml_drawdown_probability": 66.1,
   "ml_drawdown_explanation": {
     "base_probability": 0.08,
-    "predicted_probability": 0.661,
+    "predicted_probability": 0.601,
+    "calibrated_probability": 0.661,
     "top_features": [
       {"feature": "volatility__vol_21d", "raw_value": 0.62, "shap_contribution": 1.42},
       {"feature": "volatility__max_drawdown_63d", "raw_value": -0.24, "shap_contribution": 0.87},
       {"feature": "momentum__rsi_14", "raw_value": 71.2, "shap_contribution": 0.31}
     ],
-    "note": "shap_contribution is in log-odds units ..."
+    "note": "shap_contribution is in log-odds units ... predicted_probability is the raw (pre-calibration) model's output that this SHAP breakdown explains — calibrated_probability is what model.predict() actually serves ..."
   },
   "garch_volatility_forecast": {"vol_1d": 0.031, "vol_30d": 0.51},
   "news_risk": {

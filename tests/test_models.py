@@ -2,13 +2,15 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from stock_risk.data.preprocessor import DataPreprocessor
 from stock_risk.features.risk_metrics import RiskMetrics
 from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.evaluation import compare_classifiers
-from stock_risk.models.feature_sets import ALL_FEATURE_COLS
+from stock_risk.models.explain import explain_prediction
+from stock_risk.models.feature_sets import ALL_FEATURE_COLS, build_dataset
 
 
 def _ohlcv(
@@ -84,3 +86,75 @@ def test_compare_classifiers_reports_all_models():
         assert (comparison[col].dropna() >= 0).all()
         assert (comparison[col].dropna() <= 1).all()
     assert (comparison["n_test_positive"] >= 0).all()
+
+
+def _multi_stress_full_df(seed: int, n: int = 500) -> pd.DataFrame:
+    """Several drawdown events spread across the whole timeline, unlike
+    _full_df's single early stress window — fit_calibrated needs events in
+    *both* the fit portion and the calibration tail-slice (last 20% of the
+    rows remaining after dropping the ~63-row rolling-window warmup and the
+    ~20-row forward-label tail) to actually calibrate anything. With n=500
+    that valid range is roughly rows 63-480, so a stress window must land
+    inside its last ~20% (~rows 400-480) as well as earlier in the series."""
+    rng = np.random.default_rng(seed)
+    rets = rng.standard_normal(n) * 0.01 + 0.0002
+    for center in (int(n * 0.2), int(n * 0.5), int(n * 0.85)):
+        rets[center:center + 15] = rng.standard_normal(15) * 0.04 - 0.02
+    close = 100 * np.exp(np.cumsum(rets))
+    dates = pd.bdate_range("2022-01-01", periods=n)
+    raw = pd.DataFrame({
+        "open": close * 0.99, "high": close * 1.01,
+        "low": close * 0.98, "close": close,
+        "volume": rng.integers(1_000_000, 5_000_000, n).astype(float),
+    }, index=dates)
+    raw.index.name = "date"
+    df = DataPreprocessor().process(raw)
+    df = TechnicalFeatures().compute(df)
+    df = RiskMetrics().compute(df)
+    return df
+
+
+def test_fit_calibrated_sets_calibrated_estimator():
+    dfs = {
+        "AAA": _multi_stress_full_df(seed=30),
+        "BBB": _multi_stress_full_df(seed=31),
+    }
+    dataset = build_dataset(dfs)
+    model = DownsideRiskModel(n_estimators=20)
+    model.fit_calibrated(dataset)
+
+    assert model.pipeline is not None
+    assert model.calibrated is not None
+
+    result = model.predict(dfs["AAA"])
+    assert 0 <= result["downside_risk_score"] <= 100
+
+
+def test_fit_calibrated_explanation_reports_both_probabilities():
+    dfs = {
+        "AAA": _multi_stress_full_df(seed=32),
+        "BBB": _multi_stress_full_df(seed=33),
+    }
+    dataset = build_dataset(dfs)
+    model = DownsideRiskModel(n_estimators=20)
+    model.fit_calibrated(dataset)
+
+    explanation = explain_prediction(model, dfs["AAA"])
+    assert explanation is not None
+    assert "calibrated_probability" in explanation
+    served_score = model.predict(dfs["AAA"])["downside_risk_score"] / 100
+    assert explanation["calibrated_probability"] == pytest.approx(served_score, abs=1e-6)
+
+
+def test_fit_calibrated_falls_back_gracefully_with_no_class_variation():
+    """A single calm ticker with no drawdown events at all must not crash the
+    fit/calibration split — it should fall back to fit_dataset's own base-rate
+    handling exactly like the uncalibrated path does."""
+    dfs = {"AAA": _full_df(seed=34, n=500, vol_override=0.003, stress_tail=False)}
+    dataset = build_dataset(dfs)
+    model = DownsideRiskModel(n_estimators=10)
+    model.fit_calibrated(dataset)
+
+    assert model.calibrated is None
+    result = model.predict(dfs["AAA"])
+    assert 0 <= result["downside_risk_score"] <= 100

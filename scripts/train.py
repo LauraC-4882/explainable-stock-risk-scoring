@@ -16,7 +16,7 @@ from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.feature_sets import build_dataset
-from stock_risk.models.evaluation import compare_classifiers
+from stock_risk.models.evaluation import compare_classifiers, walk_forward_evaluate
 
 
 def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20, threshold: float = -0.10):
@@ -51,12 +51,13 @@ def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20,
     # Build (X, y) per ticker *before* pooling — a forward-looking drawdown
     # label must never be computed across a ticker boundary.
     dataset = build_dataset(per_ticker_dfs, horizon=horizon, threshold=threshold)
-    X = pd.concat([x for x, _ in dataset.values()])
-    y = pd.concat([y_ for _, y_ in dataset.values()])
-    logger.info(f"Drawdown-event target: {int(y.sum())}/{len(y)} positive ({y.mean():.1%})")
+    y_all = pd.concat([y_ for _, y_ in dataset.values()])
+    logger.info(f"Drawdown-event target: {int(y_all.sum())}/{len(y_all)} positive ({y_all.mean():.1%})")
 
+    # fit_calibrated does its own internal per-ticker chronological fit/calibration
+    # split (see downside_risk.py) — pass the per-ticker dict, not pooled X/y.
     dr_model = DownsideRiskModel()
-    dr_model.fit_dataset(X, y)
+    dr_model.fit_calibrated(dataset)
     dr_model.save(model_dir)
 
     logger.info("Comparing classifier baselines (Logistic Regression / Random Forest / XGBoost)...")
@@ -65,6 +66,13 @@ def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20,
         logger.info("\n" + comparison.to_string())
     except ValueError as exc:
         logger.warning(f"Skipped classifier comparison: {exc}")
+
+    logger.info("Walk-forward backtest (TimeSeriesSplit, isotonic-calibrated)...")
+    try:
+        backtest = walk_forward_evaluate(per_ticker_dfs, horizon=horizon, threshold=threshold)
+        logger.info("\n" + backtest.to_string())
+    except ValueError as exc:
+        logger.warning(f"Skipped walk-forward backtest: {exc}")
 
     logger.info("Training complete")
 

@@ -36,6 +36,13 @@ def explain_prediction(
     probability-space "points" per feature would look more intuitive but
     isn't a valid decomposition (sigmoid is nonlinear), so we report the
     log-odds units directly and let sign/rank convey direction and importance.
+
+    When `model.calibrated` is set (via `fit_calibrated`), `predicted_probability`
+    here is the *raw* pipeline's probability, not the calibrated one actually
+    served by `model.predict()` — isotonic calibration is a post-hoc, non-smooth
+    remap with no SHAP decomposition of its own, so there is no way to attribute
+    the calibrated number to individual features. `calibrated_probability` is
+    included alongside for comparison in that case.
     """
     if model.pipeline is None:
         return None
@@ -62,7 +69,7 @@ def explain_prediction(
     ]
     contributions.sort(key=lambda c: abs(c["shap_contribution"]), reverse=True)
 
-    return {
+    result = {
         "base_probability": round(_sigmoid(base_value), 4),
         "predicted_probability": round(_sigmoid(base_value + values.sum()), 4),
         "top_features": contributions[:top_n],
@@ -73,3 +80,12 @@ def explain_prediction(
             "negative values push it down. Only the top_n largest-magnitude features are listed."
         ),
     }
+    if model.calibrated is not None:
+        calibrated_proba = float(model.calibrated.predict_proba(feat)[0, 1])
+        result["calibrated_probability"] = round(calibrated_proba, 4)
+        result["note"] += (
+            " predicted_probability is the raw (pre-calibration) model's output that "
+            "this SHAP breakdown explains — calibrated_probability is what model.predict() "
+            "actually serves; isotonic calibration has no per-feature attribution of its own."
+        )
+    return result

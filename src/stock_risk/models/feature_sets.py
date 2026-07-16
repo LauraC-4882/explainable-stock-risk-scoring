@@ -7,6 +7,8 @@ harness in `evaluation.py`, so the two always train on identical features/labels
 from __future__ import annotations
 
 import pandas as pd
+from sklearn.base import BaseEstimator
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -58,6 +60,27 @@ def build_drawdown_labels(
     fwd_max_dd = fwd_min.div(df["close"]).sub(1)  # negative = drawdown
     label = (fwd_max_dd <= threshold).astype(float)
     return label.where(fwd_max_dd.notna())
+
+
+def calibrate_fitted(
+    estimator: BaseEstimator, X_cal: pd.DataFrame, y_cal: pd.Series
+) -> CalibratedClassifierCV:
+    """Wrap an already-fitted estimator for isotonic calibration on a held-out
+    set, without refitting it.
+
+    `cv="prefit"` is deprecated in sklearn 1.6+ (removed in 1.8) in favor of
+    `CalibratedClassifierCV(FrozenEstimator(estimator))`, but the project's
+    scikit-learn constraint (>=1.4) doesn't guarantee `FrozenEstimator` exists
+    (added in 1.6) — use it when available, fall back to `cv="prefit"` on
+    older installs rather than bumping the minimum version just for this.
+    """
+    try:
+        from sklearn.frozen import FrozenEstimator
+        calibrated = CalibratedClassifierCV(FrozenEstimator(estimator), method="isotonic")
+    except ImportError:
+        calibrated = CalibratedClassifierCV(estimator, method="isotonic", cv="prefit")
+    calibrated.fit(X_cal, y_cal)
+    return calibrated
 
 
 def build_dataset(
