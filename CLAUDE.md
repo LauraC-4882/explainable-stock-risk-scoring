@@ -47,23 +47,35 @@ the file in the same PR that breaks it.
 |---|---|---|
 | `.venv/bin/python -m pytest tests/ -q` | **live** — 89 passed, 0 failed as of 2026-07-17 | Full test suite |
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
-| `make smoke` | **not yet implemented** — delivered by [D1]; this row becomes binding once that lands (`grep -q smoke Makefile` currently fails) | End-to-end API smoke test |
+| `make smoke` (→ `python scripts/smoke.py`) | **live** — [D1] landed 2026-07-17; ~11s locally, exit 0 | End-to-end: train a real tiny model, serve it, hit `/health` + `/api/score/AAPL` + `/api/score/AAPL/timeseries` over real HTTP, assert 200 + valid JSON + expected keys |
 | `scripts/ui_shot.sh` | **not yet implemented** — delivered by [D2]; this row becomes binding once that lands (`test -f scripts/ui_shot.sh` currently fails) | Frontend screenshot round-trip |
 
-Until [D1]/[D2] land, "ran the harness" means: pytest for any backend
-change; a manual Playwright screenshot (build `ui/web`, hit the running
-server, screenshot, actually look at the PNG) for any frontend change — see
-rule 2 below for the exact bar.
+`make smoke` red/green-tested against the exact bug in rule 4 below: run
+against the pre-fix `explain.py` and it fails in ~10s with the real
+`TypeError: Object of type float32 is not JSON serializable` traceback in
+its output; run against the fix and it passes. Self-contained (temp model
+dir, temp DB, OS-assigned free port — never touches `models/artefacts/`,
+a developer's real DB, or port 8000) and self-cleaning (temp dirs and the
+server subprocess are gone whether it passes or fails).
+
+Until [D2] lands, "ran the harness" for frontend changes means: build
+`ui/web`, drive the running app with Playwright, and actually look at the
+PNG — see rule 2 below for the exact bar.
 
 ## 3. Hard rules
 
 Every rule here is a **must**, each with the command that proves you did it.
 
-1. **Any backend change → run the test suite before calling it done.**
+1. **Any backend change → run the test suite *and* the smoke test before
+   calling it done.** Unit tests alone already missed the bug in rule 4 —
+   every unit test uses `RiskScorer` with no model loaded (the `None`
+   fallback path), so none of them ever exercised a real trained model
+   through a real HTTP response the way `make smoke` does.
    ```bash
    .venv/bin/python -m pytest tests/ -q
+   make smoke   # or: .venv/bin/python scripts/smoke.py
    ```
-   Must show `0 failed`. Once [D1] lands, `make smoke` must also pass.
+   Both must exit 0.
 
 2. **Any `ui/web` change → build it and look at a real screenshot, not just
    "the build succeeded."** A clean `npm run build` proves the bundler is

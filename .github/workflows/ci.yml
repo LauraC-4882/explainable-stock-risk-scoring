@@ -26,3 +26,6 @@ jobs:
 
       - name: Test
         run: pytest tests/ -v --tb=short
+
+      - name: Smoke test (train -> serve -> real HTTP -> JSON)
+        run: python scripts/smoke.py

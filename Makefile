@@ -1,4 +1,4 @@
-.PHONY: install train score api dashboard monitor test lint format
+.PHONY: install train score api dashboard monitor test lint format smoke
 
 install:
 	pip install -e ".[dev]"
@@ -20,6 +20,9 @@ monitor:
 
 test:
 	pytest tests/ -v
+
+smoke:
+	python scripts/smoke.py
 
 lint:
 	ruff check src/ tests/
