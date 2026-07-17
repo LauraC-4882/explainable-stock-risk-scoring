@@ -227,7 +227,8 @@ def get_score(ticker: str, period: str = "2y"):
         return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    except Exception:
+    except Exception as exc:
+        logger.exception(f"Error scoring {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal scoring error")
 
 

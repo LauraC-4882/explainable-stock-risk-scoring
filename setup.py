@@ -12,7 +12,7 @@ setup(
         "numpy>=1.26",
         "scikit-learn>=1.4",
         "xgboost>=2.0,<3.0",  # shap 0.49.1 can't parse XGBoost 3.x's base_score serialization format
-        "shap>=0.45",
+        "shap==0.49.1",  # pinned exactly, not just >=0.45 — see CLAUDE.md for why
         "arch>=6.3",
         "ta>=0.11.0",
         "fastapi>=0.111",

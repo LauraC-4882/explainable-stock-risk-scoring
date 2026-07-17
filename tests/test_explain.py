@@ -1,5 +1,7 @@
 """Tests for SHAP-based attribution of DownsideRiskModel predictions."""
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -43,6 +45,26 @@ def test_explain_prediction_matches_model_probability():
     # sorted by |shap_contribution| descending
     magnitudes = [abs(f["shap_contribution"]) for f in explanation["top_features"]]
     assert magnitudes == sorted(magnitudes, reverse=True)
+
+
+def test_explain_prediction_is_json_serializable():
+    """Regression test: SHAP/XGBoost's predict_proba and shap_values are
+    float32, which — unlike float64 — isn't a subclass of Python's float, so
+    it silently breaks json.dumps. Reproduced live via the real API once a
+    trained model was loaded (ModelMonitor.record() 500s on a real ticker);
+    every numeric leaf here must already be a native Python type."""
+    df = _stressed_df(seed=7)
+    model = DownsideRiskModel(n_estimators=20)
+    model.fit(df)
+    explanation = explain_prediction(model, df)
+
+    json.dumps(explanation)  # raises TypeError if any leaf is numpy.float32
+
+    assert isinstance(explanation["base_probability"], float)
+    assert isinstance(explanation["predicted_probability"], float)
+    for feature in explanation["top_features"]:
+        assert isinstance(feature["shap_contribution"], float)
+        assert feature["raw_value"] is None or isinstance(feature["raw_value"], float)
 
 
 def test_explain_prediction_returns_none_for_fallback_model():

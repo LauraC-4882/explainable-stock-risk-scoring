@@ -70,8 +70,12 @@ def explain_prediction(
     contributions.sort(key=lambda c: abs(c["shap_contribution"]), reverse=True)
 
     result = {
-        "base_probability": round(_sigmoid(base_value), 4),
-        "predicted_probability": round(_sigmoid(base_value + values.sum()), 4),
+        "base_probability": round(float(_sigmoid(base_value)), 4),
+        # values.sum() is float32 (SHAP/XGBoost's native dtype) — cast before
+        # it propagates through the sigmoid and round(), or the response dict
+        # ends up carrying a numpy.float32 that json.dumps can't serialize
+        # (unlike numpy.float64, float32 isn't a subclass of Python's float).
+        "predicted_probability": round(float(_sigmoid(base_value + float(values.sum()))), 4),
         "top_features": contributions[:top_n],
         "note": (
             "shap_contribution is in log-odds units (additive: base_probability's "
