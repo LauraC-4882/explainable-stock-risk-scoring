@@ -45,10 +45,10 @@ the file in the same PR that breaks it.
 
 | Command | Status | What it checks |
 |---|---|---|
-| `.venv/bin/python -m pytest tests/ -q` | **live** — 89 passed, 0 failed as of 2026-07-17 | Full test suite |
+| `.venv/bin/python -m pytest tests/ -q` | **live** — 104 passed, 0 failed as of 2026-07-17 | Full test suite |
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
 | `make smoke` (→ `python scripts/smoke.py`) | **live** — [D1] landed 2026-07-17; ~11s locally, exit 0 | End-to-end: train a real tiny model, serve it, hit `/health` + `/api/score/AAPL` + `/api/score/AAPL/timeseries` over real HTTP, assert 200 + valid JSON + expected keys |
-| `scripts/ui_shot.sh` | **not yet implemented** — delivered by [D2]; this row becomes binding once that lands (`test -f scripts/ui_shot.sh` currently fails) | Frontend screenshot round-trip |
+| `bash scripts/ui_shot.sh` | **live** — [D2] landed 2026-07-17; ~15-20s locally, exit 0 | Frontend screenshot round-trip: build, serve (mock data, no network — see below), Playwright-screenshot a real card at 1280px + 375px to `$UI_SHOT_OUT_DIR` (default `/tmp`) |
 
 `make smoke` red/green-tested against the exact bug in rule 4 below: run
 against the pre-fix `explain.py` and it fails in ~10s with the real
@@ -58,9 +58,17 @@ dir, temp DB, OS-assigned free port — never touches `models/artefacts/`,
 a developer's real DB, or port 8000) and self-cleaning (temp dirs and the
 server subprocess are gone whether it passes or fails).
 
-Until [D2] lands, "ran the harness" for frontend changes means: build
-`ui/web`, drive the running app with Playwright, and actually look at the
-PNG — see rule 2 below for the exact bar.
+`scripts/ui_shot.sh` runs against `STOCK_RISK_MOCK=1` (fixture data captured
+from a real `/api/score/TSLA` + `/api/score/TSLA/timeseries` response,
+`tests/fixtures/mock_api/`), not a live yfinance call — a real request takes
+~2.7s and would make repeated screenshot runs slow and network-flaky, and
+this harness verifies the UI renders correctly, not that the data is fresh.
+Verified mock mode never touches the network by routing `HTTP_PROXY`/
+`HTTPS_PROXY` to a dead host (with `NO_PROXY=127.0.0.1` so the harness's own
+localhost health check still works) and confirming the script still exits 0.
+Self-cleaning like `make smoke`: `trap cleanup EXIT INT TERM` kills the
+server on any exit path, checked by confirming nothing is left listening on
+its port afterward.
 
 ## 3. Hard rules
 
@@ -77,15 +85,23 @@ Every rule here is a **must**, each with the command that proves you did it.
    ```
    Both must exit 0.
 
-2. **Any `ui/web` change → build it and look at a real screenshot, not just
-   "the build succeeded."** A clean `npm run build` proves the bundler is
-   happy, not that the feature works.
+2. **Any `ui/web` change → run `scripts/ui_shot.sh` and look at both PNGs,
+   self-review against `scripts/ui_checklist.md`, iterate up to 3 rounds,
+   attach the final screenshots to the PR.** A clean `npm run build` proves
+   the bundler is happy, not that the feature works — `ui_shot.sh` builds,
+   serves mock data, and Playwright-screenshots a real populated card at
+   desktop (1280px) and mobile (375px) widths.
    ```bash
-   cd ui/web && npm run build
-   # then drive the running app with Playwright (chromium.launch(), goto the
-   # local server, screenshot()) and open the PNG — a blank/broken render is
-   # a failure to launch, not a pass. See scripts/ui_shot.sh once [D2] lands.
+   bash scripts/ui_shot.sh
+   # then actually open $UI_SHOT_OUT_DIR/ui-desktop.png and .../ui-mobile.png
+   # (default /tmp) and check every item in scripts/ui_checklist.md against
+   # the pixels — a blank/broken/503 render, or a checklist item you can't
+   # point at specific pixels to justify, is a fail, not a pass.
    ```
+   One checklist item (the gauge vs. daily-risk-score-chart consistency
+   check) is *expected* to currently fail — that's [E1]'s bug, not a
+   regression in whatever you just changed; don't "fix" the checklist by
+   deleting the item.
 
 3. **Every new `except Exception` must either log or explain the silence.**
    No bare `except Exception: pass`-style swallowing.

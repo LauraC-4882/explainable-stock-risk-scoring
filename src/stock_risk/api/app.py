@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -50,6 +51,32 @@ if settings.jwt_secret_key == "dev-insecure-secret-change-me-before-deploying":
 
 _WEB_DIR = Path(__file__).parent.parent.parent.parent / "ui" / "web"
 _DIST_DIR = _WEB_DIR / "dist"
+
+# Mock mode: for scripts/ui_shot.sh's visual regression harness, which only
+# needs to verify the UI *renders correctly* — not that the data is fresh.
+# /api/score/{ticker} real requests take ~2.7s each (a live yfinance round
+# trip), which would make a screenshot loop slow and flaky; mock mode
+# serves a fixture captured from a real response instead, so the harness
+# never touches the network and every run sees identical data. Fixture is
+# always TSLA's real captured response regardless of what ticker is
+# requested — the harness only ever asks for TSLA, and this mode exists
+# for visual verification, not multi-ticker data testing.
+MOCK_MODE = os.environ.get("STOCK_RISK_MOCK") == "1"
+_MOCK_FIXTURES_DIR = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures" / "mock_api"
+_mock_score: Optional[dict] = None
+_mock_timeseries: Optional[list] = None
+if MOCK_MODE:
+    # encoding="utf-8" is not optional here: Path.read_text() defaults to
+    # locale.getpreferredencoding() when unspecified, which is cp1252 on
+    # Windows — silently mangling the em-dash in risk_note into mojibake
+    # ("â€"") rather than raising, since cp1252 is happy to (mis)decode
+    # arbitrary UTF-8 bytes as different characters instead of failing.
+    # Found via this exact harness's own first screenshot.
+    _mock_score = json.loads((_MOCK_FIXTURES_DIR / "score_tsla.json").read_text(encoding="utf-8"))
+    _mock_timeseries = json.loads(
+        (_MOCK_FIXTURES_DIR / "timeseries_tsla.json").read_text(encoding="utf-8")
+    )
+    logger.warning("STOCK_RISK_MOCK=1 — serving fixture data, not calling yfinance")
 
 
 # ── Frontend (React app built via `npm run build` in ui/web/) ──────────────────
@@ -106,6 +133,9 @@ def _score_ticker(ticker: str, period: str) -> dict:
     anything else -> logged with full traceback, then a generic 500 (detail
     intentionally doesn't leak internals).
     """
+    if MOCK_MODE:
+        return _mock_score
+
     try:
         result = scorer.score(ticker.upper(), period=period)
     except ValueError as exc:
@@ -144,7 +174,9 @@ def api_score(ticker: str, period: str = "2y"):
 
 @app.get("/api/score/{ticker}/timeseries")
 def api_timeseries(ticker: str, period: str = "6mo"):
-    """Return daily risk score + direction probabilities for the selected period."""
+    """Return the daily risk score history for the selected period."""
+    if MOCK_MODE:
+        return _mock_timeseries
     try:
         return scorer.score_timeseries(ticker.upper(), period=period)
     except ValueError as exc:
