@@ -25,6 +25,7 @@ export default function SearchBar({ market, onAdd }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(-1)
   const wrapRef = useRef(null)
   // Tracks the input's current value so the debounced search can detect a
   // stale response — e.g. the user pressed Enter or cleared the box while an
@@ -54,6 +55,12 @@ export default function SearchBar({ market, onAdd }) {
     return () => document.removeEventListener('click', onClickOutside)
   }, [])
 
+  // A fresh result set always starts with the top match highlighted, so
+  // Enter picks something sensible even before the user touches the arrow keys.
+  useEffect(() => {
+    setHighlight(results.length > 0 ? 0 : -1)
+  }, [results])
+
   function handleChange(e) {
     const v = e.target.value
     setQuery(v)
@@ -62,7 +69,21 @@ export default function SearchBar({ market, onAdd }) {
   }
 
   function handleKeyDown(e) {
+    if (open && results.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault()
+      const delta = e.key === 'ArrowDown' ? 1 : -1
+      setHighlight((h) => (h + delta + results.length) % results.length)
+      return
+    }
     if (e.key === 'Enter') {
+      // With matches showing, Enter must pick the highlighted suggestion —
+      // not the raw text the user typed (e.g. a company name like "Apple"
+      // isn't a valid ticker; its real symbol, AAPL, is what the dropdown
+      // resolved it to).
+      if (open && results.length > 0) {
+        pick(results[highlight >= 0 ? highlight : 0].symbol)
+        return
+      }
       const v = normalizeTicker(query, market)
       if (v) {
         onAdd(v)
@@ -70,6 +91,7 @@ export default function SearchBar({ market, onAdd }) {
         latestQueryRef.current = ''
         setOpen(false)
       }
+      return
     }
     if (e.key === 'Escape') setOpen(false)
   }
@@ -108,7 +130,10 @@ export default function SearchBar({ market, onAdd }) {
             <div
               key={r.symbol}
               onClick={() => pick(r.symbol)}
-              className="flex animate-fade-in cursor-pointer items-center justify-between border-b border-border px-4 py-2.5 transition-colors duration-150 last:border-b-0 hover:bg-accent/10 active:scale-[0.98]"
+              onMouseEnter={() => setHighlight(i)}
+              className={`flex animate-fade-in cursor-pointer items-center justify-between border-b border-border px-4 py-2.5 transition-colors duration-150 last:border-b-0 active:scale-[0.98] ${
+                i === highlight ? 'bg-accent/10' : ''
+              }`}
               style={{ animationDelay: `${Math.min(i, 6) * 30}ms`, animationFillMode: 'backwards', animationDuration: '0.18s' }}
             >
               <div>
