@@ -93,16 +93,18 @@ def api_search(q: str = Query(..., min_length=1, description="Ticker or company 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
-@app.get("/api/score/{ticker}", response_model=ScoreResponse)
-def api_score(ticker: str, period: str = "2y"):
-    """Return a full risk scorecard for *ticker*.
+def _score_ticker(ticker: str, period: str) -> dict:
+    """Shared implementation for /api/score/{ticker} and the legacy
+    /score/{ticker} (kept for Streamlit/Prometheus compat — see the legacy
+    section below). Both routes used to be independent copy-pasted bodies;
+    they silently drifted apart (only one of them logged exceptions) until
+    that gap caused a real diagnosis delay during the [C1] postmortem. Now
+    there is exactly one implementation, so a fix here can't miss the other
+    route the way editing one copy and forgetting the other did.
 
-    `response_model=ScoreResponse` sanitizes types at the response boundary
-    (a stray numpy scalar gets coerced to native float by Pydantic) — but
-    that boundary is FastAPI's serialization step, which happens *after*
-    this function returns. monitor.record() runs on the raw dict before
-    that, so it can't rely on the response model; it's made safe on its own
-    terms instead (see ModelMonitor.record's own try/except).
+    ValueError -> 404 (a user-fixable "no data for this ticker" case);
+    anything else -> logged with full traceback, then a generic 500 (detail
+    intentionally doesn't leak internals).
     """
     try:
         result = scorer.score(ticker.upper(), period=period)
@@ -124,6 +126,20 @@ def api_score(ticker: str, period: str = "2y"):
         logger.exception(f"Monitoring failed for {ticker} (request still served): {exc}")
 
     return result
+
+
+@app.get("/api/score/{ticker}", response_model=ScoreResponse)
+def api_score(ticker: str, period: str = "2y"):
+    """Return a full risk scorecard for *ticker*.
+
+    `response_model=ScoreResponse` sanitizes types at the response boundary
+    (a stray numpy scalar gets coerced to native float by Pydantic) — but
+    that boundary is FastAPI's serialization step, which happens *after*
+    _score_ticker returns. monitor.record() runs on the raw dict before
+    that, so it can't rely on the response model; it's made safe on its own
+    terms instead (see ModelMonitor.record's own try/except).
+    """
+    return _score_ticker(ticker, period)
 
 
 @app.get("/api/score/{ticker}/timeseries")
@@ -241,15 +257,9 @@ def health():
 
 @app.get("/score/{ticker}")
 def get_score(ticker: str, period: str = "2y"):
-    try:
-        result = scorer.score(ticker.upper(), period=period)
-        monitor.record(result)
-        return result
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
-        logger.exception(f"Error scoring {ticker}: {exc}")
-        raise HTTPException(status_code=500, detail="Internal scoring error")
+    """Pre-/api/ score endpoint, kept only for Streamlit/Prometheus compat.
+    See _score_ticker for the (now shared, previously duplicated) implementation."""
+    return _score_ticker(ticker, period)
 
 
 @app.get("/score/{ticker}/history")
