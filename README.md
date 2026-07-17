@@ -63,6 +63,10 @@ yfinance analyst/insider ──────────────────�
 ```bash
 # 1. Install dependencies
 pip install -e ".[dev]"
+# `requirements.lock` (uv-generated, full transitive pin of every package —
+# regenerate with `uv pip compile requirements.txt -o requirements.lock`
+# after changing requirements.txt) is optional, for a byte-for-byte
+# reproducible install: pip install -r requirements.lock
 
 # 2. Copy and configure environment
 cp .env.example .env
