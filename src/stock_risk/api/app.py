@@ -23,6 +23,7 @@ from ..config import settings
 from ..db import get_session, init_db
 from ..monitoring.metrics import ModelMonitor
 from ..scoring.scorer import RiskScorer
+from .schemas import ScoreResponse
 
 app = FastAPI(
     title="Stock Risk Scoring API",
@@ -92,18 +93,37 @@ def api_search(q: str = Query(..., min_length=1, description="Ticker or company 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
-@app.get("/api/score/{ticker}")
+@app.get("/api/score/{ticker}", response_model=ScoreResponse)
 def api_score(ticker: str, period: str = "2y"):
-    """Return a full risk scorecard for *ticker*."""
+    """Return a full risk scorecard for *ticker*.
+
+    `response_model=ScoreResponse` sanitizes types at the response boundary
+    (a stray numpy scalar gets coerced to native float by Pydantic) — but
+    that boundary is FastAPI's serialization step, which happens *after*
+    this function returns. monitor.record() runs on the raw dict before
+    that, so it can't rely on the response model; it's made safe on its own
+    terms instead (see ModelMonitor.record's own try/except).
+    """
     try:
         result = scorer.score(ticker.upper(), period=period)
-        monitor.record(result)
-        return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
         logger.exception(f"Error scoring {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal scoring error")
+
+    # Isolated from the try/except above on purpose: a monitoring failure is
+    # never allowed to fail a scoring request, so it gets its own try/except
+    # at the call site too, not just inside ModelMonitor.record() — belt and
+    # suspenders, since anything that bypasses record()'s own safety net
+    # (e.g. the method itself being replaced, as a test does) must still not
+    # be able to turn a successful score into a 500.
+    try:
+        monitor.record(result)
+    except Exception as exc:
+        logger.exception(f"Monitoring failed for {ticker} (request still served): {exc}")
+
+    return result
 
 
 @app.get("/api/score/{ticker}/timeseries")

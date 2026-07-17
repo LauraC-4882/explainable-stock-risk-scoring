@@ -21,17 +21,24 @@ class ModelMonitor:
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
     def record(self, scorecard: dict):
-        ticker = scorecard["ticker"]
-        score = scorecard["risk_score"]
+        """Log a scorecard and update Prometheus gauges — a side channel, not
+        part of the request's actual result. A failure here (e.g. a stray
+        numpy scalar breaking json.dumps, a full disk, a permissions error)
+        must never fail the scoring request that triggered it, so every
+        failure mode is caught and logged rather than propagated."""
+        ticker = scorecard.get("ticker", "UNKNOWN")
+        try:
+            score = scorecard["risk_score"]
+            RISK_SCORE_GAUGE.labels(ticker=ticker).set(score)
+            SCORE_REQUESTS.labels(ticker=ticker).inc()
 
-        RISK_SCORE_GAUGE.labels(ticker=ticker).set(score)
-        SCORE_REQUESTS.labels(ticker=ticker).inc()
+            log_path = self.log_dir / f"{ticker}.jsonl"
+            with open(log_path, "a") as f:
+                f.write(json.dumps(scorecard) + "\n")
 
-        log_path = self.log_dir / f"{ticker}.jsonl"
-        with open(log_path, "a") as f:
-            f.write(json.dumps(scorecard) + "\n")
-
-        logger.info(f"Recorded score for {ticker}: {score}")
+            logger.info(f"Recorded score for {ticker}: {score}")
+        except Exception as exc:
+            logger.exception(f"Monitoring failed for {ticker} (request still served): {exc}")
 
     def export_prometheus(self, output_path: Path):
         write_to_textfile(str(output_path), registry=None)
