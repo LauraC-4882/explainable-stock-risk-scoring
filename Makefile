@@ -1,4 +1,4 @@
-.PHONY: install train score api dashboard monitor test lint format smoke
+.PHONY: install train score api dashboard monitor test lint format smoke validate analyze-categories
 
 install:
 	pip install -e ".[dev]"
@@ -23,6 +23,12 @@ test:
 
 smoke:
 	python scripts/smoke.py
+
+validate:
+	python scripts/validate_score.py
+
+analyze-categories:
+	python scripts/analyze_categories.py
 
 lint:
 	ruff check src/ tests/

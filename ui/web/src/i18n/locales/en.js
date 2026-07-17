@@ -71,14 +71,6 @@ export default {
       plain: 'How easily shares can be bought or sold without noticeably moving the price. Lower liquidity can mean bigger price jumps on trades.',
     },
   },
-  direction: {
-    heading: 'Today’s Direction Signal',
-    upside: 'Upside',
-    downside: 'Downside',
-    bull: '↑ Likely to INCREASE',
-    bear: '↓ Likely to DECREASE',
-    flat: '→ Neutral — unclear direction',
-  },
   metrics: {
     vol30d: '30d Vol',
     var95: 'VaR 95%',

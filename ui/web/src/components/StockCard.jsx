@@ -5,7 +5,6 @@ import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
 import { inferMarket, riskColor } from '../utils'
 import CardSkeleton from './CardSkeleton'
-import DirectionSignal from './DirectionSignal'
 import MetricTiles from './MetricTiles'
 import PriceChart from './PriceChart'
 import RiskChart from './RiskChart'
@@ -66,9 +65,6 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period])
 
-  const last = timeseries.length ? timeseries[timeseries.length - 1] : null
-  const upProb = last?.up_prob ?? 0.5
-  const downProb = last?.down_prob ?? 0.5
   const color = score ? riskColor(score.risk_label) : '#8b949e'
   const subtitle =
     score?.name && score.name !== ticker
@@ -145,7 +141,6 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
           <RiskExplainer riskLabel={score.risk_label} breakdown={score.risk_breakdown} />
 
-          <DirectionSignal upProb={upProb} downProb={downProb} />
           <MetricTiles score={score} />
 
           <div className="space-y-3.5 px-4 py-4">
@@ -158,6 +153,12 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
               <RiskChart timeseries={timeseries} />
             </div>
           </div>
+
+          {score.risk_note && (
+            <div className="border-t border-border px-4 py-2.5 text-[0.65rem] leading-relaxed text-muted">
+              {score.risk_note}
+            </div>
+          )}
         </div>
       )}
     </div>

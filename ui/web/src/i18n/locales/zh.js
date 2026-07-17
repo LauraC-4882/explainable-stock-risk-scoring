@@ -71,14 +71,6 @@ export default {
       plain: '买卖这只股票时，能否在不明显影响价格的情况下顺利成交。流动性越低，交易时价格跳动可能越大。',
     },
   },
-  direction: {
-    heading: '今日方向信号',
-    upside: '上涨',
-    downside: '下跌',
-    bull: '↑ 可能上涨',
-    bear: '↓ 可能下跌',
-    flat: '→ 中性——方向不明确',
-  },
   metrics: {
     vol30d: '30日波动率',
     var95: 'VaR 95%',

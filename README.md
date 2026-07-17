@@ -189,14 +189,166 @@ from stock_risk.models.evaluation import walk_forward_evaluate
 result = walk_forward_evaluate(per_ticker_dfs, n_splits=5, gap=20)
 #       precision  recall    f1  roc_auc  pr_auc  brier_raw  brier_calibrated
 # fold
-# 1          0.61    0.68  0.64     0.71    0.55       0.14              0.11
-# 2          0.58    0.72  0.64     0.74    0.58       0.15              0.12
-# ...
+# 1        ...
 ```
 
 An uncalibrated XGBoost probability isn't trustworthy at face value — "P=0.7" should mean the event actually happens in ~70% of such cases, which the training objective doesn't guarantee. Each fold's classifier is isotonic-calibrated (`sklearn.calibration.CalibratedClassifierCV`) on a **chronological** held-out slice — the last 20% of the training rows, strictly after what the model fit on and strictly before the test fold — never a random split, which would leak future rows into "calibration" the same way a random train/test split leaks them into training. `brier_raw` vs `brier_calibrated` makes "does calibration actually help" a number instead of an assumption.
 
 The production model uses the same calibration path: `scripts/train.py` calls `DownsideRiskModel.fit_calibrated(...)` (not the plain `fit`/`fit_dataset`), so `ml_drawdown_probability` in the API response is the calibrated estimate. Because isotonic calibration is a post-hoc, non-smooth remap with no SHAP decomposition of its own, `models/explain.py`'s SHAP breakdown still explains the *raw* pre-calibration model — `ml_drawdown_explanation.predicted_probability` (raw) and `.calibrated_probability` (what's actually served) are both reported when a model is calibrated, so the two never get silently conflated.
+
+### Does the XGBoost signal actually work? Two real experiments, not one
+
+The walk-forward framework above is honest and correctly leak-free — that's
+exactly what let it expose a real problem instead of hiding one. First
+run, small universe (`scripts/train.py --tickers AAPL MSFT GOOGL TSLA NVDA
+--lookback 730`, 5 tickers × 2 years):
+
+| fold | precision | recall | ROC-AUC | brier_raw | brier_cal |
+|---|---|---|---|---|---|
+| 1 | 0.00 | 0.00 | 0.36 | 0.44 | 0.37 |
+| 2 | 0.09 | 1.00 | 0.66 | 0.15 | 0.46 |
+| 3 | 0.15 | 0.92 | 0.77 | 0.27 | 0.15 |
+| 4 | 0.00 | 0.00 | 0.54 | 0.32 | 0.16 |
+| 5 | 0.00 | 0.00 | 0.48 | 0.26 | 0.18 |
+| **mean** | **0.05** | **0.38** | **0.56** | — | — |
+
+Mean AUC 0.56 — essentially a coin flip — with 3 of 5 folds at recall=0.
+Not enough data to reliably learn a drawdown-prediction signal from 5
+tickers over 2 years (~2,470 rows before the 15-20% positive rate even
+applies).
+
+Second run, per this issue's decision procedure ("expand the data and
+retry before concluding the signal is dead"): `scripts/train.py
+--tickers-file scripts/tickers_universe.txt --lookback 1825` — 56
+cross-sector tickers × 5 years, 73,022 total feature rows, 68,430 after
+label construction:
+
+| fold | test period | precision | recall | ROC-AUC | pr_auc | brier_raw | brier_cal |
+|---|---|---|---|---|---|---|---|
+| 1 | 2022-07 → 2023-05 | 0.40 | 0.26 | 0.684 | 0.327 | 0.354 | 0.162 |
+| 2 | 2023-05 → 2024-02 | 0.49 | 0.05 | 0.682 | 0.203 | 0.163 | 0.076 |
+| 3 | 2024-02 → 2024-11 | 0.36 | 0.16 | 0.682 | 0.216 | 0.160 | 0.098 |
+| 4 | 2024-11 → 2025-09 | 0.34 | 0.02 | 0.617 | 0.237 | 0.218 | 0.135 |
+| 5 | 2025-09 → 2026-06 | 0.47 | 0.08 | 0.692 | 0.274 | 0.183 | 0.119 |
+| **mean** | | **0.41** | **0.11** | **0.671** | **0.251** | | |
+
+**Decision: keep the signal, data volume was the actual constraint.**
+Mean AUC 0.56 → 0.671, every fold now individually above 0.6 (vs. swinging
+0.36–0.77 before), and the recall=0 folds are gone. That's not "AUC went
+up" noise — it's the difference between "sometimes finds nothing" and "a
+real, if imperfect, discriminative signal." Precision improved too (0.05 →
+0.41 mean).
+
+**What's still weak, stated plainly**: recall stays low (0.11 mean, and
+fold 4 is 0.02) — the model is conservative and misses most actual
+drawdown events even though what it does flag is reasonably precise. This
+is a real limitation, not a rounding error, and it's why
+`ml_drawdown_probability` is presented as a secondary signal alongside the
+percentile composite score (validated separately, see "Score Validation"
+above) rather than a standalone prediction. If recall specifically needs
+to improve, the next lever is almost certainly the fixed threshold
+(`-10%`/20-day drawdown) and class-imbalance handling, not more data —
+this run already used a fairly large, diverse universe.
+
+## Score Validation
+
+The composite score (`risk_categories.composite_score`, `risk_score` in the
+API response) is explainable by construction — every category and metric
+is a named, inspectable percentile — but "explainable" and "predictive"
+are different claims, and until this section the second one had never been
+tested. `scripts/validate_score.py` (`make validate`) runs two standard
+checks against real market data: **36 tickers, 5 years, 37,869 (ticker,
+date) observations**, cross-sector (tech, financials, healthcare, energy,
+industrials, consumer, utilities, materials, real estate, plus a few
+high-volatility names for score-range coverage).
+
+**No-lookahead by construction**: every historical day is scored via
+`composite_score(df.iloc[:i+1])` — the exact same function production
+uses, called on data truncated at that day, never anything after it.
+Verified directly in `tests/test_risk_categories.py::
+test_composite_score_has_no_lookahead`, which recomputes features from a
+price series that never had the later rows to begin with and checks the
+score matches slicing a fully-computed history afterward. That test caught
+a real, if narrow, leak during development: `DataPreprocessor`'s outlier
+filter uses whole-series mean/std, which is correct for how it's actually
+called in production (a fresh fetch always ends "today") but leaks future
+statistics into a historical day's outlier classification when a
+precomputed multi-year frame gets sliced for backtesting instead —
+`validate_score.py` uses its own expanding-window variant of the same
+filter to avoid this.
+
+**1. Quintile backtest** — bucket every observation by that day's score,
+check whether subsequent 20-trading-day outcomes are monotonically worse
+for higher-scored quintiles:
+
+| Quintile | n | mean score | mean fwd 20d max drawdown | mean fwd realized vol |
+|---|---|---|---|---|
+| Q1 | 7,440 | 24.1 | -5.02% | 27.3% |
+| Q2 | 7,454 | 36.0 | -5.10% | 29.0% |
+| Q3 | 7,474 | 45.7 | -5.22% | 30.1% |
+| Q4 | 7,401 | 56.1 | -5.64% | 33.0% |
+| Q5 | 7,380 | 71.6 | -5.80% | 36.4% |
+
+Both monotonic: drawdown gets worse and realized volatility rises cleanly
+from Q1 to Q5. At this scale, the composite score does what a risk score
+is supposed to do — higher score, worse subsequent outcomes, in order.
+
+**2. Kupiec POF test on `var_95_21d`** — it claims "5% of days breach this
+line"; count actual breaches and run the likelihood-ratio test on whether
+the observed rate is statistically consistent with 5%:
+
+| n | breaches | breach rate | LR statistic | p-value | reject H₀ (5%) |
+|---|---|---|---|---|---|
+| 37,833 | 3,498 | 9.25% | 1160.9 | ~0 | **Yes** |
+
+This is the honest negative result: **`var_95_21d` under-states risk by
+roughly 2x** — actual breaches happen at ~9.25%, not the claimed 5%, and
+the p-value leaves no ambiguity about whether that's noise. The rolling
+21-day empirical quantile is doing what it's defined to do (a historical
+quantile, not a distributional forecast); it just isn't a calibrated VaR
+estimate at the 95% level, and this README previously had no way of
+knowing that. Not fixed as part of this validation pass — this is a
+measurement, not a patch — but it's real ammunition for [A3]'s weight/
+threshold-calibration review, and any UI copy that implies "5% chance of
+breaching this line" should be corrected or caveated until it's addressed.
+
+### Are the five categories actually independent? (`make analyze-categories` / `scripts/analyze_categories.py`)
+
+`CATEGORY_WEIGHTS` (25/25/20/15/15) implies five distinct risk dimensions
+being blended. Volatility, VaR, CVaR, and drawdown are all different
+lenses on the same underlying price-move-size, so it's a fair question
+whether the composite is really counting one factor five times with
+different labels. Tested directly: category scores for 14 cross-sector
+tickers × 2 years (6,173 observations with all five categories present),
+correlation matrix + PCA:
+
+| | volatility | tail | drawdown | sensitivity | liquidity |
+|---|---|---|---|---|---|
+| **volatility** | 1.000 | 0.672 | 0.503 | 0.238 | 0.535 |
+| **tail** | 0.672 | 1.000 | 0.460 | 0.177 | 0.406 |
+| **drawdown** | 0.503 | 0.460 | 1.000 | 0.046 | 0.383 |
+| **sensitivity** | 0.238 | 0.177 | 0.046 | 1.000 | 0.152 |
+| **liquidity** | 0.535 | 0.406 | 0.383 | 0.152 | 1.000 |
+
+No pair exceeds 0.8 — the highest is volatility↔tail at 0.672, a moderate
+relationship (unsurprising: both are downstream of how large daily price
+moves are), not the near-duplication that would make the weighting
+cosmetic. PCA needs **4 of 5 components to reach 90% of variance**
+(51.1% / 70.5% / 83.0% / 94.0% / 100.0% cumulative) — the opposite of "two
+factors doing all the work." `sensitivity` (beta) in particular is the
+most distinct category (correlations of 0.046–0.238 with everything else),
+which tracks: market-beta co-movement is a genuinely different question
+from a stock's own return-distribution shape.
+
+**Honest conclusion**: this didn't turn up the collinearity problem this
+section set out to check for. The five categories carry meaningfully
+separate information at this sample size, so the weighting isn't
+double-counting one signal under five names — though `volatility`/`tail`
+sharing 0.672 correlation, and both drawing partly on `drawdown` (0.50 and
+0.46), means the 25/25/20 split across those three isn't fully
+independent either. Worth re-running at larger scale (this used 2 years;
+`validate_score.py`'s 36-ticker/5-year universe would sharpen the
+estimate) before treating the exact weight percentages as load-bearing.
 
 ## Historical-Scenario Stress Testing
 
@@ -369,12 +521,62 @@ python scripts/monitor.py --tickers AAPL MSFT TSLA --interval 3600
 
 ## Risk Score Interpretation
 
-| Score | Label | Description |
+| Score | Label | What it means |
 |-------|-------|-------------|
-| 0–25 | LOW | Low downside risk, stable volatility |
-| 26–50 | MODERATE | Some risk; standard diversification advised |
-| 51–75 | HIGH | Elevated risk; reduce position sizing |
-| 76–100 | EXTREME | High probability of significant drawdown |
+| 0–25 | LOW | Calmer than usual for this stock, relative to its own recent history |
+| 26–50 | MODERATE | Within a fairly normal range for this stock |
+| 51–75 | HIGH | More turbulent than usual for this stock |
+| 76–100 | EXTREME | Near the most turbulent levels seen in this stock's recent history |
+
+### Scores are not comparable across stocks
+
+Every category and metric behind `risk_score` is a percentile **within
+that one stock's own historical distribution** (see `risk_categories.py`,
+and the `risk_note` field every `/api/score/{ticker}` response carries —
+now also rendered on every card in the web UI, not just returned in the
+API). A stock that's calm by *its own* standards can outscore a stock
+that's turbulent by *its own* standards, if the second one happens to be
+sitting near its personal historical median at the moment — the score says
+nothing about which one is riskier in absolute terms. Putting two stocks'
+cards side by side (the web UI's normal layout) invites exactly the
+comparison the score can't support; the fix isn't hiding the layout, it's
+making sure the caveat travels with every card instead of living only in a
+field nobody was reading.
+
+If cross-stock comparability is ever needed, it requires a materially
+different design — e.g. ranking by an *absolute* metric (realized
+volatility, VaR in dollar terms) rather than a within-stock percentile — not
+a UI tweak on top of the current score.
+
+### Direction Signal — removed
+
+`score_timeseries` used to also return `up_prob`/`down_prob`, a sigmoid
+blend of four technical signals (RSI, Bollinger %B, distance from the
+20-day EMA, 63-day Sharpe), rendered front-and-center on every card as
+"↑ Upside 53% / ↓ Downside 47%" with an "Likely to INCREASE/DECREASE"
+verdict. It was never backtested before shipping — a percentage in a
+finance UI reads as calibrated confidence whether or not it's earned that,
+so this got checked directly: 14 tickers × 2 years, 6,453 (ticker, date)
+observations, comparing the signal's prediction against the *next* day's
+actual return.
+
+| | n | actual next-day up-rate |
+|---|---|---|
+| Predicted "up" (up_prob > 0.55) | 2,359 | **48.6%** |
+| Predicted "down" (up_prob < 0.45) | 1,854 | **50.9%** |
+| Unconditional baseline | 6,453 | 49.9% |
+
+Both numbers are on the wrong side of useless: "predicted up" days closed
+up *less* often than the unconditional baseline, and "predicted down" days
+closed up *more* often — the signal isn't just noisy, it's mildly
+anti-predictive on both branches. That rules out downgrading it to a bare
+qualitative arrow (↑/→/↓) as a middle ground — an arrow with no percentage
+attached still asserts a direction, and the direction it would assert is
+measurably wrong more often than a coin flip. Deleted rather than kept in
+any form: `RiskScorer._direction_probabilities` (backend),
+`up_prob`/`down_prob` from the `timeseries` response, and
+`DirectionSignal.jsx` (frontend) are gone, not hidden behind a flag —
+see `scorer.py`'s comment at the deletion site for the numbers in context.
 
 ## Project Structure
 

@@ -1,0 +1,83 @@
+# Cross-sector ticker universe for large-scale training/backtesting
+# (scripts/train.py --tickers-file, scripts/validate_score.py).
+# One ticker per line; # starts a comment.
+
+# Technology
+AAPL
+MSFT
+GOOGL
+NVDA
+META
+ORCL
+CSCO
+INTC
+AMD
+CRM
+ADBE
+IBM
+
+# Consumer discretionary
+AMZN
+TSLA
+HD
+MCD
+NKE
+SBUX
+
+# Consumer staples
+KO
+PG
+WMT
+COST
+PEP
+
+# Healthcare
+JNJ
+UNH
+PFE
+ABBV
+MRK
+
+# Financials
+JPM
+BAC
+GS
+MS
+V
+MA
+
+# Energy
+XOM
+CVX
+COP
+
+# Industrials
+BA
+CAT
+GE
+HON
+UPS
+
+# Communication services
+DIS
+NFLX
+CMCSA
+T
+
+# Utilities
+NEE
+DUK
+SO
+
+# Materials
+LIN
+APD
+
+# Real estate
+AMT
+PLD
+
+# High-volatility names for score-range coverage
+GME
+COIN
+PLTR

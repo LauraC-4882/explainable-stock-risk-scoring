@@ -77,10 +77,22 @@ def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20,
     logger.info("Training complete")
 
 
+def _load_tickers_file(path: Path) -> list[str]:
+    lines = path.read_text().splitlines()
+    return [
+        line.strip().upper() for line in lines if line.strip() and not line.strip().startswith("#")
+    ]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train stock risk models")
     parser.add_argument("--tickers", nargs="+", default=["AAPL", "MSFT", "GOOGL"])
+    parser.add_argument(
+        "--tickers-file", type=Path, default=None,
+        help="Path to a file with one ticker per line (# comments allowed) — overrides --tickers",
+    )
     parser.add_argument("--lookback", type=int, default=730, help="Days of history")
     parser.add_argument("--model-dir", type=Path, default=settings.model_dir)
     args = parser.parse_args()
-    train(args.tickers, args.lookback, args.model_dir)
+    tickers = _load_tickers_file(args.tickers_file) if args.tickers_file else args.tickers
+    train(tickers, args.lookback, args.model_dir)

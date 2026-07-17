@@ -255,7 +255,6 @@ class RiskScorer:
             score = self._heuristic_score_row(row)
             if np.isnan(score):
                 continue
-            up_prob, down_prob = self._direction_probabilities(row)
             vol = row.get("vol_21d")
             clipped = float(np.clip(score, 0, 100))
             results.append({
@@ -263,8 +262,6 @@ class RiskScorer:
                 "close": round(float(row["close"]), 2),
                 "risk_score": round(clipped, 1),
                 "risk_label": _label(clipped),
-                "up_prob": round(float(up_prob), 3),
-                "down_prob": round(float(down_prob), 3),
                 "volatility": round(float(vol), 4) if pd.notna(vol) else None,
             })
         return results
@@ -297,29 +294,12 @@ class RiskScorer:
 
         return c_vol + c_rsi + c_dd + c_var  # max = 100
 
-    def _direction_probabilities(self, row: pd.Series) -> tuple[float, float]:
-        """Estimate up/down probability via sigmoid aggregation of technical signals."""
-        signals: list[float] = []
-
-        rsi = row.get("rsi_14")
-        if pd.notna(rsi):
-            signals.append((50.0 - float(rsi)) / 50.0)   # < 50 = bullish
-
-        bb_pct = row.get("bb_pct")
-        if pd.notna(bb_pct):
-            signals.append(0.5 - float(bb_pct))           # near lower band = bullish
-
-        dist = row.get("dist_ema_20")
-        if pd.notna(dist):
-            signals.append(-np.clip(float(dist) * 3, -1.0, 1.0))  # mean reversion
-
-        sharpe = row.get("sharpe_63d")
-        if pd.notna(sharpe):
-            signals.append(np.clip(float(sharpe) / 3, -1.0, 1.0))  # trend quality
-
-        if not signals:
-            return 0.5, 0.5
-
-        avg = float(np.mean(signals))
-        up_prob = 1.0 / (1.0 + np.exp(-avg * 3))
-        return up_prob, 1.0 - up_prob
+    # _direction_probabilities (a sigmoid blend of RSI/Bollinger%B/EMA-distance/
+    # Sharpe, rendered as "Upside 53% / Downside 47%") was removed after a
+    # real backtest: 14 tickers x 2 years, 6,453 observations. Days it flagged
+    # "up" (up_prob > 0.55) actually closed up 48.6% of the time — *below*
+    # the 49.9% unconditional baseline — and days it flagged "down"
+    # (up_prob < 0.45) closed up 50.9% of the time, i.e. inverted. Not just
+    # noisy: measurably worse than a coin flip, on the exact claim ("likely
+    # to increase/decrease") it displayed most prominently in the UI. See
+    # README "Direction Signal" for the full writeup.
