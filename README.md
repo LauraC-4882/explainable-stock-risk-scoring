@@ -107,6 +107,58 @@ df  = TechnicalFeatures().compute(df)                      # indicators
 df  = RiskMetrics().compute(df)                            # risk metrics
 ```
 
+## Data Quality & Limitations
+
+**yfinance is an unofficial scrape of Yahoo Finance, not a licensed data
+feed.** No SLA, no uptime guarantee, endpoints can change or disappear
+without notice, and its own terms of service don't permit commercial use —
+appropriate for a student/portfolio project, not for anything that would
+need a real data contract with an accountable vendor. If this were headed
+to production, the first change would be a paid source (e.g. Polygon.io,
+IEX Cloud, Tiingo's paid tier) behind the same `MarketDataFetcher`
+interface, so nothing downstream would need to change.
+
+**Bad data is validated at the fetch boundary, not trusted.**
+`data/validation.py`'s `validate_ohlcv()` runs on every `fetch_history()`
+call before any other code sees the result, and rejects (raises
+`DataValidationError`, never silently drops or repairs):
+- non-positive open/high/low/close, or `high < low`
+- negative volume
+- a non-monotonic or duplicated date index
+- a gap between consecutive trading days bigger than what the preprocessor
+  can safely forward-fill (`MAX_GAP_TRADING_DAYS` in `validation.py`, kept
+  aligned with `DataPreprocessor.max_gap_days` — both are 8, not 5, because
+  CN A-share holidays (Spring Festival, National Day) create gaps up to 6
+  missing trading days, longer than any single US market holiday)
+
+A still-open "today" session (NaN OHLC on the most recent row, before the
+market closes) is explicitly *not* treated as bad data — it's normal,
+expected, and already handled by `DataPreprocessor`'s own `dropna()`.
+
+**The 6-sigma outlier filter deletes fat-finger ticks, not large moves.**
+An earlier version filtered purely on `|log return| > 6 sigma`, which
+verifiably deleted real market history (SPY's 2025-04-09 tariff-pause
+rally, +9.99%, one of the largest single-day gains since 2008) — self-
+defeating for a system whose whole job is measuring tail risk. It now also
+requires the next day to reverse more than half the move before treating a
+spike as bad data; see `DataPreprocessor._remove_price_outliers`'s
+docstring for the full reasoning.
+
+**Fundamentals (`fetch_info`) are a live snapshot, not point-in-time.**
+`sector`, `market_cap`, `trailing_pe`, analyst rating changes, and insider
+transaction counts all reflect *today's* values, not what they were on the
+date being scored — there's no free point-in-time fundamentals source.
+This is a real limitation, sidestepped by a deliberate design choice rather
+than papered over: analyst/insider activity is surfaced as informational
+`alt_data` only (see `scorer.py`) and never enters `risk_score`, which is
+built entirely from the price/volume history that *is* point-in-time.
+
+**Upgrade path**, roughly in order of effort: (1) a paid single source with
+an actual SLA, (2) cross-checking a sample of closes against a second free
+source (e.g. Tiingo's free tier) and warning — not blocking — on >0.5%
+divergence, (3) a real point-in-time fundamentals feed if fundamentals ever
+need to enter the score itself rather than staying informational.
+
 ## Model Training
 
 The primary risk score (`risk_score` in the API response) is a **percentile-based composite** over five categories — volatility, tail, drawdown, market sensitivity, liquidity — computed relative to each stock's own historical distribution (see `scoring/risk_categories.py`). It requires no training and is fully explainable via `risk_breakdown`.

@@ -1,11 +1,17 @@
 """Tests for data fetching and preprocessing."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pandas as pd
+import pytest
 
 from stock_risk.data.fetcher import MarketDataFetcher
 from stock_risk.data.preprocessor import DataPreprocessor
+from stock_risk.data.validation import DataValidationError, validate_ohlcv
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def _make_ohlcv(n: int = 100) -> pd.DataFrame:
@@ -136,3 +142,128 @@ def test_fetch_vix_returns_float():
 def test_fetch_vix_returns_none_on_error():
     with patch("stock_risk.data.fetcher.yf.Ticker", side_effect=RuntimeError("boom")):
         assert MarketDataFetcher().fetch_vix() is None
+
+
+def test_validate_ohlcv_accepts_clean_data():
+    df = _make_ohlcv()
+    result = validate_ohlcv(df, "TEST")
+    assert result is df
+
+
+def test_validate_ohlcv_rejects_negative_price():
+    df = _make_ohlcv()
+    df.loc[df.index[5], "close"] = -5.0
+    with pytest.raises(DataValidationError, match="close"):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_rejects_zero_price():
+    df = _make_ohlcv()
+    df.loc[df.index[5], "close"] = 0.0
+    with pytest.raises(DataValidationError, match="close"):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_rejects_high_below_low():
+    df = _make_ohlcv()
+    df.loc[df.index[5], "high"] = df.loc[df.index[5], "low"] - 1.0
+    with pytest.raises(DataValidationError, match=r"high.*low"):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_rejects_out_of_order_dates():
+    df = _make_ohlcv()
+    idx = list(df.index)
+    idx[5], idx[6] = idx[6], idx[5]
+    df.index = pd.DatetimeIndex(idx)
+    with pytest.raises(DataValidationError, match="strictly increasing"):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_rejects_gap_too_large():
+    df = _make_ohlcv()
+    idx = list(df.index)
+    # push everything from row 20 onward out by 30 calendar days — stays
+    # monotonic, but blows well past MAX_GAP_TRADING_DAYS between rows 19/20
+    idx = idx[:20] + [d + pd.Timedelta(days=30) for d in idx[20:]]
+    df.index = pd.DatetimeIndex(idx)
+    assert df.index.is_monotonic_increasing
+    with pytest.raises(DataValidationError, match="gap"):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_rejects_negative_volume():
+    df = _make_ohlcv()
+    df.loc[df.index[5], "volume"] = -100.0
+    with pytest.raises(DataValidationError, match="volume"):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_tolerates_nan_only_on_final_incomplete_session():
+    """A still-open "today" session legitimately comes back from yfinance as
+    a partial bar with NaN OHLC — not bad data, just incomplete data that
+    DataPreprocessor.process() already drops via dropna(). Only the *last*
+    row gets this pass; NaN anywhere else is still rejected."""
+    df = _make_ohlcv()
+    df.loc[df.index[-1], ["open", "high", "low", "close"]] = float("nan")
+    result = validate_ohlcv(df, "TEST")
+    assert result is df  # accepted, not stripped — preprocessing handles the drop
+
+
+def test_validate_ohlcv_rejects_nan_mid_history():
+    df = _make_ohlcv()
+    df.loc[df.index[5], "close"] = float("nan")
+    with pytest.raises(DataValidationError):
+        validate_ohlcv(df, "TEST")
+
+
+def test_validate_ohlcv_reproduces_issue_repro_case():
+    """The exact malformed data from the issue's repro: high < low, a zero
+    close, and negative volume — must raise with the violating column names
+    visible in the error message, not pass through silently."""
+    dates = pd.bdate_range("2024-01-01", periods=10)
+    df = pd.DataFrame({
+        "open": 100.0, "high": 99.0, "low": 101.0,  # high < low, physically impossible
+        "close": [100.0, 0.0] + [100.0] * 8,          # close = 0
+        "volume": -1.0,                                # negative volume
+    }, index=dates)
+    with pytest.raises(DataValidationError) as excinfo:
+        validate_ohlcv(df, "BADTICKER")
+    assert "BADTICKER" in str(excinfo.value)
+
+
+def test_outlier_filter_preserves_real_historic_event():
+    """Regression test: a pure `|log return| > 6 sigma` amplitude filter
+    deleted real market history, not just bad ticks — verified live against
+    SPY's real 2025-04-09 close (+9.99%, the tariff-pause rally, one of the
+    largest single-day gains since 2008). For a tail-risk scorer, silently
+    deleting the tail events it exists to measure is self-defeating.
+
+    Fixture is a real 2-year SPY OHLCV pull (tests/fixtures/
+    spy_2025_04_tariff_rally.csv) so this runs offline — no network, and no
+    dependency on yfinance still returning the same window by the time
+    someone runs this later. The next day (2025-04-10) was -4.48%, a ~45%
+    reversal of the move, well under a bad tick's near-total round-trip, so
+    the fixed filter (spike AND >50% next-day reversal) must keep the row
+    while a naive amplitude-only filter deletes it.
+    """
+    raw = pd.read_csv(
+        FIXTURES_DIR / "spy_2025_04_tariff_rally.csv", index_col="date", parse_dates=True
+    )
+
+    # Sanity-check the fixture itself still represents the real bug trigger
+    # before trusting the assertion below to mean anything. Compares on the
+    # date component since the raw fixture keeps its real yfinance
+    # time-of-day (e.g. 04:00:00) — preprocessing normalizes that away (see
+    # _fill_gaps), but the pre-preprocessing sanity check needs to too.
+    log_ret = np.log(raw["close"] / raw["close"].shift(1))
+    naive_mask = (log_ret - log_ret.mean()).abs() > 6 * log_ret.std()
+    assert pd.Timestamp("2025-04-09") in raw.index[naive_mask].normalize(), (
+        "fixture no longer reproduces the naive 6-sigma trigger this test exists to guard against"
+    )
+
+    result = DataPreprocessor().process(raw)
+    assert pd.Timestamp("2025-04-09") in result.index, (
+        "a real historic rally day was deleted by the outlier filter — "
+        "amplitude alone can't distinguish a real event from a bad tick"
+    )

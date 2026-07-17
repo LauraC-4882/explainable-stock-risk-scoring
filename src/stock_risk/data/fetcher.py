@@ -8,6 +8,8 @@ import pandas as pd
 import yfinance as yf
 from loguru import logger
 
+from .validation import validate_ohlcv
+
 
 class MarketDataFetcher:
     """Fetches OHLCV price history, fundamentals, and options data from Yahoo Finance."""
@@ -45,7 +47,8 @@ class MarketDataFetcher:
         df.index = pd.to_datetime(df.index, utc=True).tz_convert(None)
         df.index.name = "date"
         df.columns = [c.lower() for c in df.columns]
-        return df[["open", "high", "low", "close", "volume"]]
+        df = df[["open", "high", "low", "close", "volume"]]
+        return validate_ohlcv(df, ticker)
 
     def fetch_info(self, ticker: str) -> dict:
         """Return key fundamentals/metadata for *ticker*."""

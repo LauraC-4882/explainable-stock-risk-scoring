@@ -15,6 +15,7 @@ setup(
         "shap==0.49.1",  # pinned exactly, not just >=0.45 — see CLAUDE.md for why
         "arch>=6.3",
         "ta>=0.11.0",
+        "pandera[pandas]>=0.20",
         "fastapi>=0.111",
         "uvicorn[standard]>=0.29",
         "pydantic>=2.7",

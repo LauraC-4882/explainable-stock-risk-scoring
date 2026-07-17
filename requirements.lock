@@ -109,6 +109,8 @@ mdurl==0.1.2
     # via markdown-it-py
 multitasking==0.0.13
     # via yfinance
+mypy-extensions==1.1.0
+    # via typing-inspect
 narwhals==2.24.0
     # via
     #   altair
@@ -121,6 +123,7 @@ numpy==2.2.6
     #   arch
     #   numba
     #   pandas
+    #   pandera
     #   patsy
     #   pydeck
     #   scikit-learn
@@ -135,6 +138,7 @@ packaging==26.2
     # via
     #   altair
     #   arch
+    #   pandera
     #   plotly
     #   shap
     #   statsmodels
@@ -143,11 +147,14 @@ pandas==2.3.3
     # via
     #   -r requirements.txt
     #   arch
+    #   pandera
     #   shap
     #   statsmodels
     #   streamlit
     #   ta
     #   yfinance
+pandera==0.32.1
+    # via -r requirements.txt
 patsy==1.0.2
     # via statsmodels
 peewee==4.2.4
@@ -172,6 +179,7 @@ pydantic==2.13.4
     # via
     #   -r requirements.txt
     #   fastapi
+    #   pandera
     #   pydantic-settings
     #   sqlmodel
 pydantic-core==2.46.4
@@ -259,6 +267,8 @@ toml==0.10.2
     # via streamlit
 tqdm==4.68.4
     # via shap
+typeguard==4.5.2
+    # via pandera
 typing-extensions==4.16.0
     # via
     #   altair
@@ -266,6 +276,7 @@ typing-extensions==4.16.0
     #   beautifulsoup4
     #   exceptiongroup
     #   fastapi
+    #   pandera
     #   pydantic
     #   pydantic-core
     #   pyjwt
@@ -275,8 +286,12 @@ typing-extensions==4.16.0
     #   sqlmodel
     #   starlette
     #   streamlit
+    #   typeguard
+    #   typing-inspect
     #   typing-inspection
     #   uvicorn
+typing-inspect==0.9.0
+    # via pandera
 typing-inspection==0.4.2
     # via
     #   fastapi

@@ -10,7 +10,12 @@ from loguru import logger
 class DataPreprocessor:
     """Cleans raw OHLCV data: forward-fills gaps, removes outliers, computes returns."""
 
-    def __init__(self, max_gap_days: int = 5):
+    def __init__(self, max_gap_days: int = 8):
+        # Must match data/validation.py's MAX_GAP_TRADING_DAYS — 8, not 5:
+        # measured live against real CN A-share data, Spring Festival /
+        # National Day closures create gaps up to 6 missing trading days,
+        # longer than any single US holiday (which is what 5 was originally
+        # calibrated against, before this app supported HK/CN tickers).
         self.max_gap_days = max_gap_days
 
     def process(self, df: pd.DataFrame) -> pd.DataFrame:
