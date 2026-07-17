@@ -15,6 +15,7 @@ env/
 *.joblib
 models/artefacts/
 logs/
+/data/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

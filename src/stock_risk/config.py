@@ -18,9 +18,15 @@ class Settings(BaseSettings):
     risk_moderate_max: float = 50.0
     risk_high_max: float = 75.0
 
+    # Auth / persistence — SQLite by default so the app stays a single
+    # deployable unit with no external account/service required.
+    db_path: Path = Path("data/app.db")
+    jwt_secret_key: str = "dev-insecure-secret-change-me-before-deploying"
+
     def model_post_init(self, __context):
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.monitoring_log_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()

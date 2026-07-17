@@ -189,6 +189,12 @@ No paid data vendor required — all via yfinance:
 | GET | `/score/{ticker}/history` | Historical risk scores (JSONL log) |
 | GET | `/health` | Health check |
 | GET | `/metrics` | Prometheus-compatible metrics |
+| POST | `/api/auth/register` | Create an account, returns a JWT |
+| POST | `/api/auth/login` | Returns a JWT for an existing account |
+| GET | `/api/auth/me` | Current user (requires `Authorization: Bearer <token>`) |
+| GET | `/api/watchlist` | Current user's saved tickers |
+| POST | `/api/watchlist` | Save a ticker (`{ticker, market, notes?}`) |
+| DELETE | `/api/watchlist/{item_id}` | Remove a saved ticker |
 
 ### Example Response
 
@@ -268,9 +274,15 @@ No paid data vendor required — all via yfinance:
 
 `ui/web/` is a Vite + React 18 + Tailwind CSS single-page app (multi-ticker search, side-by-side risk cards, SVG gauge, Chart.js price/risk charts) served by FastAPI at `/` once built — see step 6 in Quick Start. Source lives in `ui/web/src/`; `npm run build` outputs to `ui/web/dist/`, which `api/app.py` mounts at `/assets` and serves `index.html` from at `/`. If `dist/` hasn't been built yet, `/` returns a 503 with instructions rather than a confusing 404.
 
-- `src/App.jsx` — top-level state (ticker list, selected timeframe)
-- `src/components/StockCard.jsx` — per-ticker fetch + render (score, gauge, direction signal, metric tiles, charts)
-- `src/api.js` — thin fetch wrappers over `/api/search`, `/api/score/{ticker}`, `/api/score/{ticker}/timeseries`
+- `src/App.jsx` — top-level state (ticker list, selected timeframe, market)
+- `src/components/StockCard.jsx` — per-ticker fetch + render (score, gauge, direction signal, metric tiles, charts, favorite star)
+- `src/api.js` — thin fetch wrappers over `/api/search`, `/api/score/{ticker}`, `/api/score/{ticker}/timeseries`, `/api/auth/*`, `/api/watchlist`
+- `src/i18n/` — English/Simplified Chinese locale files + a lightweight Context-based translator (no external i18n library, given the app's size)
+- `src/auth/` — `AuthContext` (JWT stored in `localStorage`, session restored on load via `/api/auth/me`), `AuthModal`, `WatchlistPanel`
+
+### Accounts & watchlist
+
+Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no external account is needed to run the app. Passwords are hashed with bcrypt; tokens are bearer JWTs valid for 7 days. Set `JWT_SECRET_KEY` in `.env` before deploying with real users — the app runs fine without it for local dev but logs a startup warning, since the fallback is a published placeholder value.
 - `tailwind.config.js` — theme colors matched to the original dark palette (risk label colors, accent gradient)
 
 Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { apiScore, apiTimeseries } from '../api'
+import { useAuth } from '../auth/AuthContext'
 import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
-import { riskColor } from '../utils'
+import { inferMarket, riskColor } from '../utils'
 import CardSkeleton from './CardSkeleton'
 import DirectionSignal from './DirectionSignal'
 import MetricTiles from './MetricTiles'
@@ -20,6 +21,8 @@ const BADGE_CLASS = {
 
 export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   const { t } = useLanguage()
+  const { isFavorited, toggleFavorite } = useAuth()
+  const [favBusy, setFavBusy] = useState(false)
   const [score, setScore] = useState(null)
   const [timeseries, setTimeseries] = useState([])
   const [error, setError] = useState(null)
@@ -72,6 +75,17 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
       ? score.name + (score.fundamentals?.sector ? ` · ${score.fundamentals.sector}` : '')
       : score?.fundamentals?.sector || (loading ? t('card.fetching') : ticker)
   const animatedScore = useCountUp(score?.risk_score)
+  const favorited = isFavorited(ticker)
+
+  async function handleToggleFavorite() {
+    if (favBusy) return
+    setFavBusy(true)
+    try {
+      await toggleFavorite(ticker, inferMarket(ticker))
+    } finally {
+      setFavBusy(false)
+    }
+  }
 
   return (
     <div
@@ -83,13 +97,25 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           <div className="text-xl font-extrabold tracking-tight">{ticker}</div>
           <div className="mt-0.5 text-xs text-muted">{subtitle}</div>
         </div>
-        <button
-          onClick={() => onRemove(ticker)}
-          title={t('card.remove')}
-          className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition-all duration-150 hover:bg-down/10 hover:text-down active:scale-90"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleToggleFavorite}
+            disabled={favBusy}
+            title={favorited ? t('watchlist.unfavorite') : t('watchlist.favorite')}
+            className={`rounded-md px-1.5 py-0.5 text-lg leading-none transition-all duration-150 hover:scale-110 active:scale-90 disabled:opacity-50 ${
+              favorited ? 'text-yellow-400' : 'text-muted hover:text-yellow-400'
+            }`}
+          >
+            {favorited ? '★' : '☆'}
+          </button>
+          <button
+            onClick={() => onRemove(ticker)}
+            title={t('card.remove')}
+            className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition-all duration-150 hover:bg-down/10 hover:text-down active:scale-90"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {loading && <CardSkeleton />}
