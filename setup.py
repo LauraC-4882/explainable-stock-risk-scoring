@@ -32,6 +32,7 @@ setup(
         "loguru>=0.7",
         "streamlit>=1.35",
         "plotly>=5.22",
+        "cachetools>=5.3",  # TTL cache for MarketDataFetcher — see [C3]
     ],
     extras_require={
         "dev": [

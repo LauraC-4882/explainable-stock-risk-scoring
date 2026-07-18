@@ -6,10 +6,27 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
+import requests
+from cachetools import TTLCache
 
-from stock_risk.data.fetcher import MarketDataFetcher
+from stock_risk.data.fetcher import MarketDataFetcher, _TimeoutSession
 from stock_risk.data.preprocessor import DataPreprocessor
 from stock_risk.data.validation import DataValidationError, validate_ohlcv
+
+
+class _FakeTimer:
+    """Deterministic stand-in for cachetools' default time.monotonic timer —
+    lets TTL-expiry tests advance time exactly, without a real time.sleep()
+    (flaky under load) or monkeypatching the time module globally."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -267,3 +284,108 @@ def test_outlier_filter_preserves_real_historic_event():
         "a real historic rally day was deleted by the outlier filter — "
         "amplitude alone can't distinguish a real event from a bad tick"
     )
+
+
+# ── [C3] TTL cache + timeout ─────────────────────────────────────────────────
+
+
+def test_fetch_vix_cache_hit_avoids_second_network_call():
+    mock_ticker = MagicMock()
+    mock_ticker.fast_info.last_price = 20.0
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker) as mock_cls:
+        assert fetcher.fetch_vix() == 20.0
+        assert fetcher.fetch_vix() == 20.0
+    assert mock_cls.call_count == 1  # second call served from cache
+
+
+def test_fetch_vix_cache_expires_after_ttl():
+    mock_ticker = MagicMock()
+    mock_ticker.fast_info.last_price = 20.0
+    fetcher = MarketDataFetcher()
+    timer = _FakeTimer()
+    fetcher._fast_cache = TTLCache(maxsize=256, ttl=900, timer=timer)  # 15 min, same as prod
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker) as mock_cls:
+        fetcher.fetch_vix()
+        timer.advance(901)  # just past the TTL
+        fetcher.fetch_vix()
+    assert mock_cls.call_count == 2  # cache expired -> refetched
+
+
+def test_fetch_vix_failure_is_not_cached():
+    """Exceptions/empty results must not be cached — a transient failure
+    should be retried on the next request, not pinned as a false "down for
+    15 minutes" result for the rest of the TTL window."""
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", side_effect=RuntimeError("boom")) as mock_cls:
+        assert fetcher.fetch_vix() is None
+        assert fetcher.fetch_vix() is None
+    assert mock_cls.call_count == 2  # not cached — both calls actually attempted
+
+
+def test_fetch_analyst_activity_empty_result_is_not_cached():
+    fetcher = MarketDataFetcher()
+    mock_ticker = MagicMock()
+    mock_ticker.upgrades_downgrades = pd.DataFrame()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker) as mock_cls:
+        fetcher.fetch_analyst_activity("XYZ")
+        fetcher.fetch_analyst_activity("XYZ")
+    assert mock_cls.call_count == 2  # empty result not cached — retried both times
+
+
+def test_fetch_history_cache_hit_avoids_second_network_call():
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = _make_ohlcv(50)
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        fetcher.fetch_history("AAPL", period="1y")
+        fetcher.fetch_history("AAPL", period="1y")
+    assert mock_ticker.history.call_count == 1
+
+
+def test_fetch_history_cache_key_includes_period():
+    """Different params must be different cache entries — caching by ticker
+    alone would silently serve a 1y fetch's data to a 2y request."""
+    mock_ticker = MagicMock()
+    mock_ticker.history.side_effect = [_make_ohlcv(50), _make_ohlcv(50)]
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        fetcher.fetch_history("AAPL", period="1y")
+        fetcher.fetch_history("AAPL", period="2y")
+    assert mock_ticker.history.call_count == 2
+
+
+def test_fetch_history_cache_expires_after_ttl():
+    mock_ticker = MagicMock()
+    mock_ticker.history.side_effect = [_make_ohlcv(50), _make_ohlcv(50)]
+    fetcher = MarketDataFetcher()
+    timer = _FakeTimer()
+    fetcher._fast_cache = TTLCache(maxsize=256, ttl=900, timer=timer)
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        fetcher.fetch_history("AAPL", period="1y")
+        timer.advance(901)
+        fetcher.fetch_history("AAPL", period="1y")
+    assert mock_ticker.history.call_count == 2
+
+
+def test_fetch_history_passes_configured_timeout():
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = _make_ohlcv(50)
+    fetcher = MarketDataFetcher(timeout=7)
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        fetcher.fetch_history("AAPL", period="1y")
+    assert mock_ticker.history.call_args.kwargs["timeout"] == 7
+
+
+def test_timeout_session_injects_default_timeout_when_unset():
+    session = _TimeoutSession(timeout=12)
+    with patch.object(requests.Session, "request", return_value=None) as base_request:
+        session.request("GET", "https://example.com")
+    assert base_request.call_args.kwargs["timeout"] == 12
+
+
+def test_timeout_session_respects_explicit_timeout():
+    session = _TimeoutSession(timeout=12)
+    with patch.object(requests.Session, "request", return_value=None) as base_request:
+        session.request("GET", "https://example.com", timeout=3)
+    assert base_request.call_args.kwargs["timeout"] == 3

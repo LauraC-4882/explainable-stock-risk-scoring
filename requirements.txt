@@ -25,3 +25,4 @@ loguru>=0.7
 streamlit>=1.35
 plotly>=5.22
 altair>=5.3
+cachetools>=5.3
