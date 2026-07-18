@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,11 +16,19 @@ from ..data.preprocessor import DataPreprocessor
 from ..features.risk_metrics import RiskMetrics
 from ..features.technical import TechnicalFeatures
 from ..llm.news_risk import extract_news_risk, summarize_news_risk
-from ..models.downside_risk import DownsideRiskModel
-from ..models.explain import explain_prediction
 from ..models.volatility import VolatilityModel
 from . import risk_categories
 from .stress_test import run_stress_test
+
+if TYPE_CHECKING:
+    # Not imported at runtime — see [F1]: DownsideRiskModel/explain_prediction
+    # pull in xgboost/shap at *their* module level, so importing them eagerly
+    # here means merely `import stock_risk.scoring.scorer` (e.g. from
+    # ui/dashboard.py, which never touches the ML leg until a user actually
+    # scores a ticker) drags both multi-hundred-MB libraries into every
+    # process that imports this module — including ones, like a 1GB free-tier
+    # Streamlit dashboard, that can't afford to carry them just sitting idle.
+    from ..models.downside_risk import DownsideRiskModel
 
 # "cn" uses the CSI 300 ETF (510300.SS) rather than the raw index (000300.SS):
 # the raw index ticker was found to have multi-day gaps via yfinance (verified
@@ -97,8 +105,10 @@ class RiskScorer:
         self.risk = RiskMetrics()
         self._dr_model = self._try_load_downside_model()
 
-    def _try_load_downside_model(self) -> Optional[DownsideRiskModel]:
+    def _try_load_downside_model(self) -> "Optional[DownsideRiskModel]":
         try:
+            from ..models.downside_risk import DownsideRiskModel  # deferred — see [F1]
+
             return DownsideRiskModel.load(self.model_dir)
         except Exception as exc:
             logger.debug(f"No pretrained DownsideRiskModel artefact found: {exc}")
@@ -154,6 +164,8 @@ class RiskScorer:
         ml_drawdown_explanation = None
         if self._dr_model is not None:
             try:
+                from ..models.explain import explain_prediction  # deferred — see [F1]
+
                 ml_drawdown_probability = round(
                     float(self._dr_model.predict(df)["downside_risk_score"]), 1
                 )
