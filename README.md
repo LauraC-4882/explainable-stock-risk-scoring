@@ -1,4 +1,18 @@
+---
+title: Explainable Stock Risk Scoring
+emoji: 📉
+colorFrom: blue
+colorTo: gray
+sdk: gradio
+app_file: ui/gradio_app.py
+pinned: false
+---
+
 # Stock Risk Scoring System
+
+**Live demo (FastAPI + React, [F2], cut-down — `ENABLE_ML=0`, no ML/SHAP leg):** https://explainable-stock-risk-scoring.onrender.com — free tier, spins down after 15 min idle (first request after that takes ~50s+ to wake; see [Deployment](#deployment)).
+
+**Live demo (full ML+SHAP, [F3]):** _pending — HF Space push in progress; see [Deployment](#deployment) for why this became a Gradio Space instead of the originally-planned Docker one, and the Render-vs-HF trade-off once it's live._
 
 A production-style system that predicts **downside risk** and **volatility** for individual stocks using live market data fetched via `yfinance`, technical indicators, and machine learning models (XGBoost + sklearn Pipeline).
 
@@ -509,6 +523,152 @@ Features:
 - Raw feature table and JSON scorecard expanders
 
 ## Deployment
+
+### Render ([F2]) — live at https://explainable-stock-risk-scoring.onrender.com
+
+The API and the built React SPA are one process — `app.py` mounts `ui/web/dist/assets`
+as static files and serves `dist/index.html` at `/`, so the whole app is a single
+Render Web Service, no separate frontend host needed.
+
+- **Build command:** `pip install -e . && cd ui/web && npm ci && npm run build`
+- **Start command:** `uvicorn src.stock_risk.api.app:app --host 0.0.0.0 --port $PORT`
+- **Health check path:** `/health`
+- **Environment variable:** `ENABLE_ML=0`
+
+**The `ENABLE_ML=0` decision.** Render's free tier is 512MB RAM / 0.15 CPU. Importing
+`RiskScorer` used to eagerly pull in `xgboost` (for the downside-risk classifier) and,
+transitively through `explain_prediction`, `shap` — multi-hundred-MB libraries loaded
+into every process regardless of whether anyone ever asks for the ML leg. `ENABLE_ML=0`
+makes `RiskScorer._try_load_downside_model()` skip the import entirely (not just
+discard the result — see `scoring/scorer.py`), so `shap`/`xgboost` never enter
+`sys.modules`. Verified locally:
+```bash
+ENABLE_ML=0 python -c "
+import sys
+from stock_risk.api.app import app
+assert 'shap' not in sys.modules and 'xgboost' not in sys.modules
+print('lazy OK')
+"
+```
+With `ENABLE_ML=0`, `ml_drawdown_probability`/`ml_drawdown_explanation` are `null` in
+the API response — the web UI's `MLSignalPanel` already treats a `null` explanation as
+"nothing to show" and just doesn't render, no frontend change needed.
+
+**What's actually verified post-deploy, and what isn't:**
+- `/health` → `{"status":"ok"}`, consistently (checked repeatedly over several minutes).
+- Render's **Events** log shows exactly one deploy, still `Live`, zero restarts —
+  i.e. the process has **not** OOM-crash-looped since going live. That's real evidence
+  against a memory problem, even though point 3 below means there's no RSS number to
+  quote directly.
+- `/api/score/{ticker}` currently returns `500 {"detail": "Internal scoring error"}`
+  for every ticker, real or not (`AAPL`, `TSLA`, even a plain search for "Apple").
+  Render's own logs show the actual cause is *not* an app bug:
+  `yfinance.exceptions.YFRateLimitError: Too Many Requests. Rate limited. Try after a
+  while.` — the identical external Yahoo Finance rate limit that was independently
+  blocking `make smoke` locally and in CI (GitHub Actions) during this same session.
+  The exception is caught and logged exactly as designed (`logger.exception` +
+  generic 500, no internals leaked) — this is [C3]'s existing error handling working
+  correctly under a real external outage, not a gap. Re-verify once the rate limit
+  clears: `curl -s https://explainable-stock-risk-scoring.onrender.com/api/score/TSLA`.
+- **No RSS/memory-graph number is quoted here on purpose.** Render's free tier hides
+  the Metrics tab's actual usage behind "Upgrade to any paid instance type to view
+  application metrics" — the panel shows the *limit* (512MB / 0.15 CPU, not the 0.1 CPU
+  the original issue assumed) but not a real usage curve. The zero-restarts evidence
+  above is the closest available proxy for "isn't OOMing," not a substitute for an
+  actual number.
+- **No personally-measured cold-start timing is quoted either.** The service has been
+  continuously warm (under active testing) since this deploy, so a genuine 15-minute
+  idle → cold request timing hasn't been observed yet, only Render's own platform-wide
+  claim ("can delay requests by 50 seconds or more"). Update this section with a real
+  number after leaving the service idle for 15+ minutes and timing the next request.
+
+### Hugging Face Spaces ([F3]) — full ML+SHAP, fallback/alternative to Render
+
+Render's `ENABLE_ML=0` cut-down deploy exists because 512MB doesn't comfortably fit
+`xgboost` + `shap` alongside everything else. HF Spaces' free CPU tier (2 vCPU / 16GB,
+48h-inactivity sleep) has no such pressure, so this deploy runs the **full** pipeline —
+`ml_drawdown_probability` and the SHAP `top_features` breakdown both populated, nothing
+cut.
+
+**This was originally planned as an HF Docker SDK Space** reusing the FastAPI+React app
+directly (a root `Dockerfile` was built and verified for exactly that — see below).
+Mid-deployment, HF's own Space-creation UI showed Docker SDK gated behind a "Paid"
+badge, requiring a PRO subscription even on otherwise-free hardware. Cross-checked
+against the Hugging Face community forums: this is a real, very recent (days-old at
+the time of writing), platform-wide, *unannounced* policy change — not specific to
+this account, not a misunderstanding of the free tier. [Docker SDK now marked as
+"Paid"](https://discuss.huggingface.co/t/docker-sdk-now-marked-as-paid-when-creating-a-new-space/177580)
+has the community reports; the [Docker Spaces
+docs](https://huggingface.co/docs/hub/en/spaces-sdks-docker) hadn't been updated to
+reflect it at the time this was checked. Gradio SDK remained free and selectable in
+the same account. That's the actual reason this deploy is a **Gradio Space**
+(`ui/gradio_app.py`) rather than the FastAPI+React container — not a design choice,
+a platform constraint discovered live.
+
+**The root `Dockerfile` stays in the repo, unused for now.** It's fully built and
+verified (see below) for whenever Docker SDK is free again, or if this account gets
+PRO — deleting working, verified infrastructure code over a reversible external policy
+change would be premature. `docker/Dockerfile` (Render/docker-compose target: port
+8000, no model artefact, runs as root) is a different file for a different target;
+the root one fixes four real, verified pitfalls specific to HF's Docker constraints:
+port `7860` not `8000`, bundling the otherwise-gitignored 509KB model artefact
+(`!models/artefacts/downside_risk_xgb.joblib` in `.gitignore`, no LFS needed — and
+deliberately not trained at build time, since real yfinance data changes daily and
+that would make every image non-reproducible), the `shap`/`llvmlite` build failure
+[N1] already pinned `shap==0.49.1` against, and HF's non-root (uid 1000) container
+execution needing `/app` chowned before `USER appuser`. **Verified locally**
+(Docker Desktop, this repo's actual `Dockerfile`):
+```bash
+docker build -t stock-risk-hf -f Dockerfile .
+docker run --rm stock-risk-hf pip show shap   # Version: 0.49.1
+docker run --rm stock-risk-hf whoami          # appuser (not root)
+docker run -d --rm -p 7860:7860 stock-risk-hf
+curl -s http://localhost:7860/health          # {"status":"ok"}
+```
+Build succeeds in one pass, model loads at startup with no permission errors,
+`/health` returns `200`. `/api/score/TSLA` against the local container hit the *same*
+external `YFRateLimitError` documented in the Render section above — the fourth
+independent confirmation of that outage in one session (local machine, GitHub Actions
+CI, Render, and this local container all hit it), strong evidence it's a broad
+Yahoo-side rate limit and not anything specific to this deployment.
+
+**The actual Gradio Space** (`ui/gradio_app.py`, entry point declared via this
+README's front-matter — `sdk: gradio`, `app_file: ui/gradio_app.py`) is a from-scratch
+Gradio Blocks UI, not a wrapper around the React frontend (Gradio Spaces run a Python
+entry point, not an arbitrary Dockerfile, so the built React SPA can't be reused
+as-is here). It calls `RiskScorer.score()` directly — same scoring pipeline the API
+uses, `ENABLE_ML` left at its default (unlike Render) — and renders the risk gauge,
+five-category breakdown, historical stress-test table, and the SHAP `top_features`
+table. **Verified locally end-to-end with mocked market data** (real yfinance was
+rate-limited at the time, same outage as above): a full run produces a real gauge
+figure, populated breakdown/stress-test tables, and genuine SHAP contributions, e.g.
+`volatility__cvar_95_21d: -1.479`, `volatility__vol_63d: -1.249` — confirming the
+rendering pipeline itself is correct independent of the live-data outage.
+
+**One thing worth noting for later, not yet acted on**: loading the model logged
+`InconsistentVersionWarning` — pickled with scikit-learn 1.7.2, but
+`requirements.txt`'s unpinned `scikit-learn>=1.4` resolved to 1.9.0 in a fresh
+install. It loaded and predicted without crashing, but this is the same *shape* of
+risk `shap`/`xgboost` already got an exact pin for (see [N1]/CLAUDE.md) — an
+unbounded floor letting the resolved version drift from what the artefact was
+actually trained against. Not fixed here since nothing observed actually broke, just
+flagged as a real, reproduced warning rather than a hypothetical one.
+
+**Render vs. HF Spaces — the actual trade-off, not just "both work":**
+
+| | Render ([F2]) | HF Spaces ([F3]) |
+|---|---|---|
+| Free tier resources | 512MB RAM / 0.15 CPU | 2 vCPU / 16GB RAM |
+| ML + SHAP leg | Off (`ENABLE_ML=0`) — cut for memory | On — full `ml_drawdown_explanation` |
+| Sleep after inactivity | 15 min (~50s+ cold start) | 48 hours |
+| Frontend | Full React SPA | Gradio Blocks UI (smaller-scope, ML-focused) |
+| SDK/build | Native Python (`pip install -e .`) | Gradio (Docker SDK would've matched Render's setup exactly, but now needs HF PRO) |
+| Best for | The full product experience, fast/cheap | The complete explainability story, incl. SHAP |
+
+Neither is "the real deploy" with the other as a fallback that didn't need to happen —
+they demonstrate different, deliberate resource/feature trade-offs on two different
+free tiers (and one real mid-flight platform constraint), which is the actual point
+of doing both rather than picking one.
 
 ```bash
 # Docker (API only)

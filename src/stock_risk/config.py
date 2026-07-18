@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     yfinance_timeout: int = 30
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    # [F2]: ENABLE_ML=0 on memory-constrained deploys (Render's 512MB free
+    # tier) skips loading DownsideRiskModel entirely, so xgboost/shap never
+    # enter sys.modules — see RiskScorer._try_load_downside_model.
+    enable_ml: bool = True
     model_dir: Path = Path("models/artefacts")
     monitoring_log_dir: Path = Path("logs/monitoring")
     mlflow_tracking_uri: str = "http://localhost:5000"

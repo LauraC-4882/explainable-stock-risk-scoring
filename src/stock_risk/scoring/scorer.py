@@ -106,6 +106,14 @@ class RiskScorer:
         self._dr_model = self._try_load_downside_model()
 
     def _try_load_downside_model(self) -> "Optional[DownsideRiskModel]":
+        if not settings.enable_ml:
+            # [F2]: skip the import entirely, not just the load — the goal is
+            # keeping xgboost (and, transitively via explain_prediction,
+            # shap) out of sys.modules on memory-constrained deploys, and an
+            # attempted-then-discarded import would already have paid that
+            # memory cost.
+            logger.info("ENABLE_ML=0 — skipping DownsideRiskModel load")
+            return None
         try:
             from ..models.downside_risk import DownsideRiskModel  # deferred — see [F1]
 

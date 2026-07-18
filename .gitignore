@@ -13,7 +13,14 @@ env/
 *.log
 *.pkl
 *.joblib
-models/artefacts/
+# A trailing-slash directory ignore (models/artefacts/) blocks git from ever
+# looking inside to apply a later file-level negation — using the glob form
+# (models/artefacts/*) instead is what actually lets the negation below work.
+models/artefacts/*
+# [F3]: HF Spaces needs a real trained model artefact baked into the image
+# (no way to train at build time reproducibly) — 553KB is well under the
+# LFS threshold, so it's tracked normally rather than needing Git LFS.
+!models/artefacts/downside_risk_xgb.joblib
 logs/
 /data/
 .pytest_cache/

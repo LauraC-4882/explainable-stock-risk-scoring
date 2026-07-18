@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from stock_risk.config import settings
 from stock_risk.scoring import risk_categories
 from stock_risk.scoring.scorer import (
     MARKET_BENCHMARKS,
@@ -14,6 +15,24 @@ from stock_risk.scoring.scorer import (
     _trim_to_display_period,
     market_for_ticker,
 )
+
+
+def test_enable_ml_false_skips_model_load_without_importing_downside_risk():
+    """[F2]: the sys.modules isolation itself can only be proven in a fresh
+    subprocess (see the issue's own verification command) since other tests
+    in this same pytest run may have already imported xgboost — what's
+    testable in-process is the functional behavior: settings.enable_ml=False
+    must make RiskScorer skip the model load entirely, not just discard the
+    result, and DownsideRiskModel.load must never even be called."""
+    original = settings.enable_ml
+    settings.enable_ml = False
+    try:
+        with patch("stock_risk.models.downside_risk.DownsideRiskModel.load") as mock_load:
+            scorer = RiskScorer()
+        assert scorer._dr_model is None
+        mock_load.assert_not_called()
+    finally:
+        settings.enable_ml = original
 
 
 @pytest.mark.parametrize("ticker,expected", [

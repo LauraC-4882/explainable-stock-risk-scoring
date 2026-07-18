@@ -26,3 +26,4 @@ streamlit>=1.35
 plotly>=5.22
 altair>=5.3
 cachetools>=5.3
+gradio>=5.0  # ui/gradio_app.py — [F3]'s Hugging Face Space (full ML+SHAP demo)
