@@ -6,10 +6,12 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { inferMarket, riskColor } from '../utils'
 import CardSkeleton from './CardSkeleton'
 import MetricTiles from './MetricTiles'
+import MLSignalPanel from './MLSignalPanel'
 import PriceChart from './PriceChart'
 import RiskChart from './RiskChart'
 import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
+import StressTestPanel from './StressTestPanel'
 
 const BADGE_CLASS = {
   LOW: 'bg-risk-low/15 text-risk-low',
@@ -140,6 +142,13 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           </div>
 
           <RiskExplainer riskLabel={score.risk_label} breakdown={score.risk_breakdown} />
+
+          <StressTestPanel stressTest={score.stress_test} />
+
+          <MLSignalPanel
+            probability={score.ml_drawdown_probability}
+            explanation={score.ml_drawdown_explanation}
+          />
 
           <MetricTiles score={score} />
 

@@ -44,6 +44,20 @@ def shoot(base_url: str, viewport: dict, out_path: Path, errors: list[str]) -> N
         page.wait_for_selector("text=risk score out of 100", timeout=20000)
         page.wait_for_timeout(800)  # let the count-up/gauge animation settle
 
+        # Expand every collapsible explainability panel (risk breakdown,
+        # stress test, ML signal — all collapsed by default) so the
+        # screenshot actually shows their content instead of just the
+        # closed toggle rows. [D2]'s checklist self-review can't verify
+        # rendering it never looks at.
+        # query_selector_all returns ElementHandles bound to concrete DOM
+        # nodes, unlike locator(...).all() (whose nth-based locators
+        # re-resolve the selector on each click — since clicking flips
+        # aria-expanded to "true", each click shrinks the live match set out
+        # from under the later locators, and the loop times out).
+        for toggle in page.query_selector_all('button[aria-expanded="false"]'):
+            toggle.click()
+        page.wait_for_timeout(400)  # let the grid-template-rows expand transition settle
+
         out_path.parent.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(out_path), full_page=True)
         browser.close()

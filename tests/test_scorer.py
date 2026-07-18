@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from stock_risk.scoring import risk_categories
 from stock_risk.scoring.scorer import (
     MARKET_BENCHMARKS,
     RiskScorer,
@@ -72,14 +73,18 @@ def _synthetic_ohlcv(n: int, seed: int = 1) -> pd.DataFrame:
 def test_score_timeseries_1mo_returns_nonempty_results():
     """Regression test: period="1mo" (the frontend default) used to return an
     empty list because vol_21d/max_drawdown_63d need 21-63 rows of rolling
-    history that a 1-month fetch alone can't provide — every row's heuristic
-    score came out NaN and got filtered. score_timeseries must now fetch
-    enough warm-up history for the rolling windows before trimming to "1mo"."""
+    history that a 1-month fetch alone can't provide. score_timeseries must
+    fetch enough warm-up history for the rolling windows before trimming to
+    "1mo" (and, since [E1], enough history overall to match score()'s
+    percentile-ranking window — see _SHORT_FETCH_PERIODS)."""
     full_history = _synthetic_ohlcv(300)
 
-    with patch(
-        "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
-        return_value=full_history,
+    with (
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
+            return_value=full_history,
+        ),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=15.0),
     ):
         results = RiskScorer().score_timeseries("AAPL", period="1mo")
 
@@ -89,18 +94,37 @@ def test_score_timeseries_1mo_returns_nonempty_results():
         assert 0 <= row["risk_score"] <= 100
 
 
-def test_heuristic_score_row_ignores_nan_via_or_operator():
-    """Regression test: `x or default` silently breaks for NaN because NaN is
-    truthy in Python (`float("nan") or 0.25` evaluates to NaN, not 0.25) — so
-    whenever max_drawdown_63d/var_95_21d were NaN (any row before their 63d/
-    21d rolling window has warmed up), the whole score came out NaN even
-    though vol_21d and rsi_14 were both present and valid."""
-    row = pd.Series({
-        "vol_21d": 0.3,
-        "rsi_14": 55.0,
-        "max_drawdown_63d": np.nan,
-        "var_95_21d": np.nan,
-    })
-    score = RiskScorer()._heuristic_score_row(row)
-    assert not np.isnan(score)
-    assert 0 <= score <= 100
+def test_score_timeseries_last_day_matches_composite_score_with_card_weights():
+    """[E1]: score_timeseries used to compute its own separate heuristic
+    (_heuristic_score_row), which visibly disagreed with the card's
+    risk_categories.composite_score() on the same data. Now both paths go
+    through composite_score, and the last day specifically must use the same
+    (VIX-regime-adjusted) weights the card uses — this is what makes the
+    gauge and the chart's last point agree instead of just coincidentally
+    being close."""
+    full_history = _synthetic_ohlcv(300)
+
+    with (
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
+            return_value=full_history,
+        ),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=35.0),
+    ):
+        results = RiskScorer().score_timeseries("AAPL", period="1mo")
+
+        preprocessor = RiskScorer().preprocessor
+        tech = RiskScorer().tech
+        risk = RiskScorer().risk
+        # fetch_history is mocked to return the same series for both AAPL and
+        # its SPY benchmark — mirrors what score_timeseries actually does
+        # (ticker != benchmark_ticker triggers a second fetch_history call
+        # for benchmark_returns), not a simplification of it.
+        benchmark_log_return = preprocessor.process(full_history)["log_return"]
+        df = risk.compute(
+            tech.compute(preprocessor.process(full_history)), benchmark_returns=benchmark_log_return
+        )
+        expected_weights = risk_categories.regime_adjusted_weights(35.0)  # panic regime
+        expected_last = risk_categories.composite_score(df, weights=expected_weights)
+
+    assert results[-1]["risk_score"] == expected_last["composite_score"]

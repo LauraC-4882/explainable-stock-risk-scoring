@@ -253,58 +253,85 @@ class RiskScorer:
 
     # ── Timeseries scoring ────────────────────────────────────────────────────
 
+    # _fetch_period_for_display's own floor only covers rolling-window warmup
+    # (21d/63d indicators). score()'s card path always fetches "2y" of history
+    # for percentile ranking; a short display period (e.g. "6mo" -> "1y" fetch)
+    # would rank the same current value against a materially shorter history
+    # than the card does, producing a different score for the same day even
+    # with identical weights — so the *fetch* period is floored at "2y" here,
+    # independent of the (smaller) display period, purely to keep the
+    # percentile-ranking history in sync with score()'s.
+    _SHORT_FETCH_PERIODS = {"6mo", "1y"}
+
     def score_timeseries(self, ticker: str, period: str = "6mo") -> list[dict]:
-        """Return a daily risk scorecard list for the requested *period*."""
+        """Return a daily risk scorecard list for the requested *period*,
+        computed via the same percentile composite score as score() — not a
+        separate heuristic. Each day's score uses only data up to and
+        including that day (composite_score(df.iloc[:i+1])), so this is
+        genuinely no-lookahead, not just a display-window slice of a
+        whole-history calculation (see tests/test_risk_categories.py::
+        test_composite_score_has_no_lookahead for the version of this
+        guarantee that's actually verified against a truncated raw series).
+        """
         logger.info(f"Timeseries for {ticker} | period={period}")
-        raw = self.fetcher.fetch_history(ticker, period=_fetch_period_for_display(period))
+        market = market_for_ticker(ticker)
+        benchmark_ticker = MARKET_BENCHMARKS.get(market, "SPY")
+
+        fetch_period = _fetch_period_for_display(period)
+        if fetch_period in self._SHORT_FETCH_PERIODS:
+            fetch_period = "2y"
+
+        raw = self.fetcher.fetch_history(ticker, period=fetch_period)
         df = self.preprocessor.process(raw)
         df = self.tech.compute(df)
-        df = self.risk.compute(df)
-        df = _trim_to_display_period(df, period)
+
+        # Same benchmark passthrough as score() — without it, beta_63d is
+        # never computed, the sensitivity category has no metrics, and
+        # composite_score drops it and renormalises the remaining four
+        # categories' weights, which systematically diverges from the card's
+        # score (which always has all five) rather than just adding noise.
+        benchmark_log_return = None
+        if ticker.upper() != benchmark_ticker:
+            try:
+                bench_raw = self.fetcher.fetch_history(benchmark_ticker, period=fetch_period)
+                benchmark_log_return = self.preprocessor.process(bench_raw)["log_return"]
+            except Exception as exc:
+                logger.warning(f"Could not fetch benchmark {benchmark_ticker}: {exc}")
+
+        df = self.risk.compute(df, benchmark_returns=benchmark_log_return)
+
+        # The card (score()) applies VIX-regime-adjusted weights for US
+        # tickers. Historical VIX isn't fetched here (fetch_vix() only
+        # returns the current level), so only the LAST day — the one that
+        # gets compared directly against the card's score — uses the current
+        # regime weights; earlier days use the base weights, which is a
+        # documented approximation, not a claim that every historical day's
+        # regime is known.
+        if market == "us":
+            vix = self.fetcher.fetch_vix()
+            last_day_weights = risk_categories.regime_adjusted_weights(vix)
+        else:
+            last_day_weights = risk_categories.CATEGORY_WEIGHTS
+
+        display = _trim_to_display_period(df, period)
+        start_pos = len(df) - len(display)
+        last_pos = len(df) - 1
 
         results = []
-        for idx, row in df.iterrows():
-            score = self._heuristic_score_row(row)
-            if np.isnan(score):
-                continue
+        for i in range(start_pos, len(df)):
+            row = df.iloc[i]
+            weights = last_day_weights if i == last_pos else risk_categories.CATEGORY_WEIGHTS
+            scorecard = risk_categories.composite_score(df.iloc[: i + 1], weights=weights)
+            score = scorecard["composite_score"]
             vol = row.get("vol_21d")
-            clipped = float(np.clip(score, 0, 100))
             results.append({
-                "date": idx.strftime("%Y-%m-%d"),
+                "date": df.index[i].strftime("%Y-%m-%d"),
                 "close": round(float(row["close"]), 2),
-                "risk_score": round(clipped, 1),
-                "risk_label": _label(clipped),
+                "risk_score": score,
+                "risk_label": _label(score),
                 "volatility": round(float(vol), 4) if pd.notna(vol) else None,
             })
         return results
-
-    def _heuristic_score_row(self, row: pd.Series) -> float:
-        """Compute a 0–100 heuristic risk score for a single feature row."""
-        vol = row.get("vol_21d")
-        rsi = row.get("rsi_14")
-        dd  = row.get("max_drawdown_63d")
-        var = row.get("var_95_21d")
-
-        if pd.isna(vol) and pd.isna(rsi):
-            return np.nan
-
-        # `x or default` silently breaks here: NaN is truthy in Python, so
-        # `float("nan") or 0.25` evaluates to NaN, not the default — and NaN
-        # propagates through the sum below, making the whole score NaN even
-        # though vol/rsi were present. Use explicit pd.notna() checks instead.
-        vol_v = float(vol) if pd.notna(vol) else 0.25
-        c_vol = min(vol_v / 0.80 * 40, 40)
-
-        rsi_v = float(rsi) if pd.notna(rsi) else 50.0
-        c_rsi = 20 if rsi_v >= 70 else (5 if rsi_v <= 30 else 10)
-
-        dd_v = float(dd) if pd.notna(dd) else 0.0
-        c_dd  = min(abs(dd_v) / 0.30 * 20, 20)
-
-        var_v = float(var) if pd.notna(var) else 0.02
-        c_var = min(abs(var_v) / 0.05 * 20, 20)
-
-        return c_vol + c_rsi + c_dd + c_var  # max = 100
 
     # _direction_probabilities (a sigmoid blend of RSI/Bollinger%B/EMA-distance/
     # Sharpe, rendered as "Upside 53% / Downside 47%") was removed after a

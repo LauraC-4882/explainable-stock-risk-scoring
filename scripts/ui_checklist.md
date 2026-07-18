@@ -54,11 +54,13 @@ to cover them — not produced by the current single-ticker screenshot)
 - [ ] The gauge/large-number score at the top of the card and the
       right-hand edge of the "Daily Risk Score" line chart at the bottom
       of the *same* card are showing numbers in the same ballpark (within
-      a few points). **This is currently expected to FAIL** — see [E1] —
-      the gauge comes from `RiskScorer.score()`'s percentile composite and
-      the chart comes from `score_timeseries()`'s older heuristic
-      (`_heuristic_score_row`), and they disagree by a visible margin on
-      real data (verified live: gauge showed 66.5, chart's most recent
-      points hovered ~70). Leave this item failing and pointing at [E1]
-      until that issue reconciles the two scoring paths — don't mark it
-      passing just to get a clean checklist.
+      a few points). **Fixed by [E1]**: `score_timeseries()` now computes
+      every day (including the last one) via the same
+      `risk_categories.composite_score()` the gauge uses, with the same
+      benchmark passthrough and the same VIX-regime weights applied to the
+      last day — not the old separate `_heuristic_score_row` heuristic
+      (deleted). Verified live: `curl .../api/score/TSLA` and
+      `curl .../api/score/TSLA/timeseries?period=6mo`'s last point now
+      return the *exact same* risk_score (diff 0, both TSLA and AAPL) —
+      not just "within a few points." If this item ever starts failing
+      again, that's a real regression, not a known/expected gap.

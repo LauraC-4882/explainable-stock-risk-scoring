@@ -89,6 +89,19 @@ export default {
     price: 'Price History',
     riskScore: 'Daily Risk Score (0–100)',
   },
+  stressTest: {
+    toggle: 'Historical stress test',
+    intro:
+      'How this stock’s risk score would move if conditions like these past crises recurred, based only on this stock’s own volatility/tail/drawdown/sensitivity/liquidity profile — not a forecast that any of these events will happen again.',
+    baseline: 'baseline',
+  },
+  mlSignal: {
+    toggle: 'ML downside-risk signal (secondary)',
+    intro:
+      'A separate machine-learning estimate of the probability of a 10%+ drawdown in the next 20 trading days — shown alongside, not instead of, the percentile score above. Backtested mean ROC-AUC 0.67 across 56 stocks over 5 years, but recall is low, so it misses more real drawdowns than it flags (see the README for the full validation writeup).',
+    probability: 'Estimated 20-day drawdown probability:',
+    topFeatures: 'Top contributing factors',
+  },
   auth: {
     signIn: 'Sign in',
     signUp: 'Create account',
