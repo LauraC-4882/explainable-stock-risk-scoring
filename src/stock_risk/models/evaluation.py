@@ -134,6 +134,9 @@ def walk_forward_evaluate(
     gap: int = 20,
     calibrate: bool = True,
     calib_frac: float = 0.2,
+    label_mode: str = "fixed",
+    k: float = 1.5,
+    extra_feature_cols: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Walk-forward backtest of the XGBoost classifier via per-ticker
     TimeSeriesSplit, pooled per fold — a single train/test split (as in
@@ -154,7 +157,14 @@ def walk_forward_evaluate(
     "mean"/"std" summary row, so a caller can see whether e.g. recall holds
     up or degrades in a particular period instead of only the average.
     """
-    per_ticker = build_dataset(dfs, horizon=horizon, threshold=threshold)
+    from .feature_sets import ALL_FEATURE_COLS
+
+    feature_cols = ALL_FEATURE_COLS + (extra_feature_cols or [])
+    per_ticker = build_dataset(
+        dfs, horizon=horizon, threshold=threshold,
+        label_mode=label_mode, k=k,
+        feature_cols=feature_cols if extra_feature_cols else None,
+    )
     usable = {
         t: (X, y) for t, (X, y) in per_ticker.items()
         if y.nunique() >= 2 and len(y) >= n_splits + 1
@@ -197,7 +207,7 @@ def walk_forward_evaluate(
         pos, neg = (y_train == 1).sum(), (y_train == 0).sum()
         scale_pos_weight = neg / max(pos, 1)
         pipe = Pipeline([
-            ("preprocessor", build_preprocessor()),
+            ("preprocessor", build_preprocessor(extra_cols=extra_feature_cols)),
             ("xgb", _xgb_classifier(scale_pos_weight)),
         ])
 

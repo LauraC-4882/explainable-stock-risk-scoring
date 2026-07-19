@@ -19,7 +19,15 @@ from stock_risk.models.feature_sets import build_dataset
 from stock_risk.models.evaluation import compare_classifiers, walk_forward_evaluate
 
 
-def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20, threshold: float = -0.10):
+def train(
+    tickers: list[str],
+    lookback: int,
+    model_dir: Path,
+    horizon: int = 20,
+    threshold: float = -0.10,
+    label_mode: str = "fixed",
+    label_k: float = 1.5,
+):
     fetcher = MarketDataFetcher()
     preprocessor = DataPreprocessor()
     tech = TechnicalFeatures()
@@ -50,9 +58,14 @@ def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20,
 
     # Build (X, y) per ticker *before* pooling — a forward-looking drawdown
     # label must never be computed across a ticker boundary.
-    dataset = build_dataset(per_ticker_dfs, horizon=horizon, threshold=threshold)
+    dataset = build_dataset(
+        per_ticker_dfs, horizon=horizon, threshold=threshold, label_mode=label_mode, k=label_k
+    )
     y_all = pd.concat([y_ for _, y_ in dataset.values()])
-    logger.info(f"Drawdown-event target: {int(y_all.sum())}/{len(y_all)} positive ({y_all.mean():.1%})")
+    logger.info(
+        f"Drawdown-event target [{label_mode}]: "
+        f"{int(y_all.sum())}/{len(y_all)} positive ({y_all.mean():.1%})"
+    )
 
     # fit_calibrated does its own internal per-ticker chronological fit/calibration
     # split (see downside_risk.py) — pass the per-ticker dict, not pooled X/y.
@@ -69,7 +82,10 @@ def train(tickers: list[str], lookback: int, model_dir: Path, horizon: int = 20,
 
     logger.info("Walk-forward backtest (TimeSeriesSplit, isotonic-calibrated)...")
     try:
-        backtest = walk_forward_evaluate(per_ticker_dfs, horizon=horizon, threshold=threshold)
+        backtest = walk_forward_evaluate(
+            per_ticker_dfs, horizon=horizon, threshold=threshold,
+            label_mode=label_mode, k=label_k,
+        )
         logger.info("\n" + backtest.to_string())
     except ValueError as exc:
         logger.warning(f"Skipped walk-forward backtest: {exc}")
@@ -93,6 +109,17 @@ if __name__ == "__main__":
     )
     parser.add_argument("--lookback", type=int, default=730, help="Days of history")
     parser.add_argument("--model-dir", type=Path, default=settings.model_dir)
+    parser.add_argument(
+        "--label-mode", choices=["fixed", "vol_scaled", "triple_barrier"], default="fixed",
+        help="Drawdown-event label definition — see models/feature_sets.py's module docstring",
+    )
+    parser.add_argument(
+        "--label-k", type=float, default=1.5,
+        help="k in the vol-scaled threshold -k*sigma*sqrt(horizon) (vol_scaled/triple_barrier)",
+    )
     args = parser.parse_args()
     tickers = _load_tickers_file(args.tickers_file) if args.tickers_file else args.tickers
-    train(tickers, args.lookback, args.model_dir)
+    train(
+        tickers, args.lookback, args.model_dir,
+        label_mode=args.label_mode, label_k=args.label_k,
+    )
