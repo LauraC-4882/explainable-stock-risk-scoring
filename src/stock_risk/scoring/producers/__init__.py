@@ -11,8 +11,10 @@ from .base import (
 from .signals import (
     AltDataProducer,
     GarchVolProducer,
+    HarVolProducer,
     MLDrawdownProducer,
     NewsRiskProducer,
+    OptionsImpliedProducer,
     PercentileCompositeProducer,
 )
 
@@ -23,6 +25,8 @@ def build_producers(dr_model) -> list[RiskProducer]:
         PercentileCompositeProducer(),
         MLDrawdownProducer(dr_model),
         GarchVolProducer(),
+        HarVolProducer(),
+        OptionsImpliedProducer(),
         NewsRiskProducer(),
         AltDataProducer(),
     ]
@@ -31,8 +35,10 @@ def build_producers(dr_model) -> list[RiskProducer]:
 __all__ = [
     "AltDataProducer",
     "GarchVolProducer",
+    "HarVolProducer",
     "MLDrawdownProducer",
     "NewsRiskProducer",
+    "OptionsImpliedProducer",
     "PercentileCompositeProducer",
     "ProducerOutput",
     "RiskProducer",

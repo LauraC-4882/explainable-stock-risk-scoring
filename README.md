@@ -31,7 +31,9 @@ ScoringContext            ← shared inputs fetched once (benchmark returns, ^VI
 ┌─ Producer layer (scoring/producers/, [G1]) ── each: score 0-100|None · raw · detail ─┐
 │  PercentileComposite   weight 1.0  validated (quintile+Kupiec)  → risk_score          │
 │  MLDrawdown            weight 0.0  validated (WF AUC 0.671)     → ml_drawdown_*       │
-│  GarchVol              weight 0.0  unvalidated (absolute σ)     → garch_volatility_*  │
+│  GarchVol (GJR-skewt)  weight 0.0  unvalidated (absolute σ)     → garch_volatility_*  │
+│  HarVol (HAR-RV on GK) weight 0.0  unvalidated (absolute σ)     → har_volatility_*    │
+│  OptionsImplied        weight 0.0  unvalidated (fwd-looking)    → options_implied     │
 │  NewsRisk              weight 0.0  unvalidated (mock extractor) → news_risk           │
 │  AltData               weight 0.0  unvalidated (raw counts)     → alt_data            │
 └──────────────────────────┬───────────────────────────────────────────────────────────┘
@@ -398,6 +400,32 @@ Baseline and stressed scores within one scenario always use the *same* category 
 **The actual Claude API call is not wired in yet** — `extract_news_risk()` returns a clearly-labeled stub (`"source": "mock"`, `severity: 0`) so the fetch → extract → aggregate pipeline runs end-to-end without spending API credits. The `news_risk.llm_configured` field in the API response is `false` until this is activated. To activate: `pip install anthropic`, set `ANTHROPIC_API_KEY`, and pass `llm.news_risk.call_claude_news_extractor` as the `call_llm` argument wherever `extract_news_risk()` is called in `scoring/scorer.py`.
 
 Model: **Claude Haiku 4.5**, not the usual Opus default — this is a high-volume, low-stakes classification task with output already constrained by the schema, so Opus's extra reasoning isn't load-bearing and Haiku is ~5x cheaper per token. Determinism comes from the fixed JSON schema, not a `temperature` parameter (current Claude models don't accept one).
+
+### Options-implied signals ([G4]) — the only forward-looking family
+
+Everything else in this system is derived from historical prices; option
+prices are the one input that encodes what the market is paying *today* for
+protection against *tomorrow*. The `options_implied` response block carries:
+
+- **put_skew** — OTM-put IV (strike ≈ 95% of spot; yfinance has no deltas, so
+  moneyness is the standard stand-in) minus ATM IV. Steepens when crash
+  insurance gets bid up; stock-level predictive evidence: Xing–Zhang–Zhao
+  (2010, JFQA). The SKEW-index-level story is mixed and deliberately not used.
+- **iv_hv_ratio** — ATM IV over realized `vol_21d` (both annualized): the fear
+  premium; >1 means the market expects more turbulence than recently realized.
+- **vix_term_structure** — VIX/VIX3M ratio + backwardation flag: near-term
+  fear above 3-month fear is the practitioner-standard market-level risk-off
+  switch, and the ONE options signal that is backtestable today
+  (`scripts/validate_vix_structure.py`; both legs have full daily history).
+
+All three ship at fusion weight 0 (unvalidated — the [G1] guard enforces
+this): yfinance provides no historical IV series, so put_skew/iv_hv cannot be
+walk-forward validated yet. `scripts/collect_iv_snapshots.py` appends a daily
+{date, ticker, atm_iv, put_skew} JSONL snapshot to start building that
+history — **stock-level IV rank (the same percentile machinery the composite
+already uses, fed a forward-looking series) unlocks after ~252 trading days
+of collection.** Tickers without options degrade gracefully: every field
+null, scoring unaffected.
 
 ### Free alt-data (analyst ratings, insider transactions, VIX regime)
 
@@ -820,5 +848,10 @@ Methodology sources (implemented from the papers/books — none of these are cod
 - **Alpha158 factor recipe** — Yang, X., et al. (2020). Qlib: An AI-oriented quantitative investment platform. arXiv:2009.11189. https://github.com/microsoft/qlib (`features/alpha_grid.py` transplants the operator-by-window recipe — K-bar shape features + rolling price/volume operator grid — **without** taking qlib as a dependency)
 - **Factor screening discipline (IC + FDR)** — Jansen, S. (2020). *Machine Learning for Algorithmic Trading* (2nd ed.), ch. 7. Packt. Combined with Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. *JRSS B*, 57(1), 289–300. (`scripts/factor_screen.py`)
 - **Isotonic probability calibration** — Zadrozny, B., & Elkan, C. (2002). Transforming classifier scores into accurate multiclass probability estimates. *KDD 2002*.
+- **GJR-GARCH** — Glosten, L., Jagannathan, R., & Runkle, D. (1993). On the relation between the expected value and the volatility of the nominal excess return on stocks. *Journal of Finance*, 48(5). (`models/volatility.py`, [G5])
+- **HAR-RV** — Corsi, F. (2009). A simple approximate long-memory model of realized volatility. *Journal of Financial Econometrics*, 7(2), 174–196. (`models/har_volatility.py`)
+- **Range volatility estimators** — Parkinson, M. (1980). *Journal of Business*, 53(1); Garman, M., & Klass, M. (1980). *Journal of Business*, 53(1). (`features/risk_metrics.py`'s `parkinson_vol_21d`/`gk_vol_21d`)
+- **QLIKE loss for vol-forecast evaluation** — Patton, A. (2011). Volatility forecast comparison using imperfect volatility proxies. *Journal of Econometrics*, 160(1). (`scripts/compare_vol_models.py`)
+- **Option-implied crash risk (stock-level put skew)** — Xing, Y., Zhang, X., & Zhao, R. (2010). What does the individual option volatility smirk tell us about future equity returns? *JFQA*, 45(3). (`fetch_options_signals`, [G4])
 
 Data sources: **Yahoo Finance** via yfinance (unofficial API — no SLA, personal/research use; see Data Quality & Limitations). Deployment platforms evaluated: **Render**, **Hugging Face Spaces**, **Streamlit Community Cloud**.

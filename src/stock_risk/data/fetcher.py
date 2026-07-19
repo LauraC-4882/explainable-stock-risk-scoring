@@ -234,36 +234,99 @@ class MarketDataFetcher:
 
         return self._cached(self._slow_cache, key, _do, is_empty=lambda r: r == empty)
 
-    def fetch_vix(self) -> Optional[float]:
-        """Return the latest CBOE VIX index level, or None on failure."""
-        key = ("vix",)
+    def _fetch_index_last(self, symbol: str) -> Optional[float]:
+        key = ("index_last", symbol)
 
         def _do() -> Optional[float]:
             try:
-                return float(yf.Ticker("^VIX", session=self._session).fast_info.last_price)
+                return float(yf.Ticker(symbol, session=self._session).fast_info.last_price)
             except Exception as exc:
-                logger.warning(f"Could not fetch VIX: {exc}")
+                logger.warning(f"Could not fetch {symbol}: {exc}")
                 return None
 
         return self._cached(self._fast_cache, key, _do)
 
-    def fetch_options_iv(self, ticker: str) -> Optional[float]:
-        """Return the nearest-expiry at-the-money implied volatility, or None."""
-        key = ("options_iv", ticker)
+    def fetch_vix(self) -> Optional[float]:
+        """Return the latest CBOE VIX index level, or None on failure."""
+        return self._fetch_index_last("^VIX")
 
-        def _do() -> Optional[float]:
+    def fetch_vix3m(self) -> Optional[float]:
+        """[G4] Latest 3-month VIX (^VIX3M) for the term-structure signal:
+        near VIX above 3-month VIX (backwardation) = fear concentrated in the
+        immediate future, the practitioner-standard market-level risk-off
+        switch. None on failure."""
+        return self._fetch_index_last("^VIX3M")
+
+    @staticmethod
+    def _iv_at_strike(frame, target_strike: float) -> Optional[float]:
+        """IV of the option whose strike is nearest *target_strike*, or None
+        when the chain side is missing/thin or the IV itself is junk."""
+        if frame is None or len(frame) == 0:
+            return None
+        if "strike" not in frame.columns or "impliedVolatility" not in frame.columns:
+            return None
+        row = frame.iloc[(frame["strike"] - target_strike).abs().argsort().iloc[0]]
+        iv = row.get("impliedVolatility")
+        if iv is None or pd.isna(iv) or iv <= 0:
+            return None
+        return float(iv)
+
+    _EMPTY_OPTIONS_SIGNALS = {
+        "atm_iv": None, "otm_put_iv": None, "put_skew": None, "expiry": None,
+    }
+
+    def fetch_options_signals(self, ticker: str) -> dict:
+        """[G4] Forward-looking signals from ONE nearest-expiry chain snapshot
+        (the same single tk.option_chain() call the old ATM-IV fetch already
+        paid for — the put side used to be discarded on the floor):
+
+          - atm_iv: median of the at-the-money call and put IVs;
+          - otm_put_iv: the put nearest moneyness 0.95 (strike ~= 95% of
+            spot — yfinance carries no deltas, so moneyness is the standard
+            stand-in for "the crash-insurance strike");
+          - put_skew: otm_put_iv - atm_iv (steepens when the market bids up
+            crash insurance; Xing-Zhang-Zhao 2010 for the stock-level
+            evidence — the SKEW-index-level story is mixed and not used).
+
+        Every field is None (never an exception) when the ticker has no
+        options, a one-sided/thin chain, or junk IVs — thin chains must not
+        degrade the main scoring request.
+        """
+        key = ("options_signals", ticker)
+        empty = dict(self._EMPTY_OPTIONS_SIGNALS)
+
+        def _do() -> dict:
             try:
                 tk = yf.Ticker(ticker, session=self._session)
                 expirations = tk.options
                 if not expirations:
-                    return None
-                chain = tk.option_chain(expirations[0])
-                spot = tk.fast_info.last_price
-                calls = chain.calls
-                atm = calls.iloc[(calls["strike"] - spot).abs().argsort().iloc[0]]
-                return float(atm.get("impliedVolatility", float("nan")))
+                    return dict(empty)
+                expiry = expirations[0]
+                chain = tk.option_chain(expiry)
+                spot = float(tk.fast_info.last_price)
+                atm_call = self._iv_at_strike(chain.calls, spot)
+                atm_put = self._iv_at_strike(chain.puts, spot)
+                atm_side_ivs = [v for v in (atm_call, atm_put) if v is not None]
+                atm_iv = float(pd.Series(atm_side_ivs).median()) if atm_side_ivs else None
+                otm_put_iv = self._iv_at_strike(chain.puts, spot * 0.95)
+                put_skew = (
+                    otm_put_iv - atm_iv
+                    if otm_put_iv is not None and atm_iv is not None
+                    else None
+                )
+                return {
+                    "atm_iv": atm_iv,
+                    "otm_put_iv": otm_put_iv,
+                    "put_skew": put_skew,
+                    "expiry": expiry,
+                }
             except Exception as exc:
-                logger.warning(f"Could not fetch options IV for {ticker}: {exc}")
-                return None
+                logger.warning(f"Could not fetch options signals for {ticker}: {exc}")
+                return dict(empty)
 
-        return self._cached(self._fast_cache, key, _do)
+        return self._cached(self._fast_cache, key, _do, is_empty=lambda r: r == empty)
+
+    def fetch_options_iv(self, ticker: str) -> Optional[float]:
+        """Nearest-expiry ATM implied volatility — kept for compatibility,
+        now a view over fetch_options_signals (one chain fetch, one cache)."""
+        return self.fetch_options_signals(ticker)["atm_iv"]

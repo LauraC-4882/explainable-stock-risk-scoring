@@ -99,6 +99,21 @@ class StressTest(BaseModel):
     scenarios: dict[str, StressScenario]
 
 
+class VixTermStructure(BaseModel):
+    vix: float
+    vix3m: float
+    ratio: float
+    backwardation: bool
+
+
+class OptionsImplied(BaseModel):
+    atm_iv: Optional[float] = None
+    put_skew: Optional[float] = None
+    iv_hv_ratio: Optional[float] = None
+    vix_term_structure: Optional[VixTermStructure] = None
+    expiry: Optional[str] = None
+
+
 class Indicators(BaseModel):
     rsi_14: Optional[float] = None
     bb_pct: Optional[float] = None
@@ -122,6 +137,8 @@ class ScoreResponse(BaseModel):
     ml_drawdown_probability: Optional[float] = None
     ml_drawdown_explanation: Optional[MLDrawdownExplanation] = None
     garch_volatility_forecast: Optional[GarchForecast] = None
+    har_volatility_forecast: Optional[GarchForecast] = None  # same {vol_1d, vol_30d} shape
+    options_implied: Optional[OptionsImplied] = None
     news_risk: NewsRisk
     alt_data: AltData
     stress_test: Optional[StressTest] = None

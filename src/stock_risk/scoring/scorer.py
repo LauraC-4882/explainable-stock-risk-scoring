@@ -147,7 +147,10 @@ class RiskScorer:
 
         df = self.risk.compute(df, benchmark_returns=benchmark_log_return)
         info = self.fetcher.fetch_info(ticker)
-        iv = self.fetcher.fetch_options_iv(ticker)
+        # [G4] one chain snapshot feeds both the compat implied_volatility
+        # field and the options_implied block (put skew etc.).
+        options_signals = self.fetcher.fetch_options_signals(ticker)
+        iv = options_signals["atm_iv"]
 
         latest = df.iloc[-1]
 
@@ -159,10 +162,12 @@ class RiskScorer:
         # rather than reusing VIX as a proxy it wasn't designed to represent.
         if market == "us":
             vix = self.fetcher.fetch_vix()
+            vix3m = self.fetcher.fetch_vix3m()  # [G4] term-structure leg
             regime = risk_categories.regime_for_vix(vix)
             weights = risk_categories.regime_adjusted_weights(vix)
         else:
             vix = None
+            vix3m = None
             regime = "not_available"
             weights = risk_categories.CATEGORY_WEIGHTS
 
@@ -176,9 +181,11 @@ class RiskScorer:
             benchmark_ticker=benchmark_ticker,
             category_weights=weights,
             vix=vix,
+            vix3m=vix3m,
             regime=regime,
             info=info,
             iv=iv,
+            options_signals=options_signals,
             news_articles=self.fetcher.fetch_news(ticker),
             analyst_activity=self.fetcher.fetch_analyst_activity(ticker),
             insider_activity=self.fetcher.fetch_insider_activity(ticker),
@@ -198,6 +205,8 @@ class RiskScorer:
         pct = outputs["percentile_composite"]  # required producer — never None
         ml = outputs["ml_drawdown"]
         garch = outputs["garch_vol"]
+        har = outputs["har_vol"]
+        opts = outputs["options_implied"]
         news = outputs["news_risk"]
         alt = outputs["alt_data"]
 
@@ -229,6 +238,11 @@ class RiskScorer:
             "ml_drawdown_probability": ml.raw["probability"] if ml else None,
             "ml_drawdown_explanation": ml.detail["explanation"] if ml else None,
             "garch_volatility_forecast": garch.raw if garch else None,
+            "har_volatility_forecast": har.raw if har else None,
+            "options_implied": opts.raw if opts else {
+                "atm_iv": None, "put_skew": None, "iv_hv_ratio": None,
+                "vix_term_structure": None, "expiry": None,
+            },
             # news/alt producers are pure computation over already-fetched
             # context and shouldn't fail, but keep the response shape stable
             # if one ever does (pre-refactor these fields were never null).

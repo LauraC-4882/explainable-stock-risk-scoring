@@ -15,6 +15,7 @@ from typing import Optional
 import pandas as pd
 
 from ...llm.news_risk import extract_news_risk, summarize_news_risk
+from ...models.har_volatility import HarVolatilityModel
 from ...models.volatility import VolatilityModel
 from .. import risk_categories
 from .base import ProducerOutput, RiskProducer, ScoringContext
@@ -104,6 +105,29 @@ class GarchVolProducer(RiskProducer):
         )
 
 
+class HarVolProducer(RiskProducer):
+    """[G5] HAR(1,5,22) on daily Garman-Klass realized vol — the modern
+    consensus baseline for vol forecasting, shipped ALONGSIDE the GJR leg
+    (not replacing it) until scripts/compare_vol_models.py's QLIKE shootout
+    picks a default on evidence. score=None for the same reason as GarchVol:
+    absolute sigma has no validated 0-100 mapping yet."""
+
+    name = "har_vol"
+    default_weight = 0.0
+    validation = None
+
+    def produce(self, df: pd.DataFrame, ctx: ScoringContext) -> ProducerOutput:
+        har = HarVolatilityModel().fit(df)
+        forecast = har.predict(df)
+        return ProducerOutput(
+            score=None,
+            raw={
+                "vol_1d": round(float(forecast["har_vol_1d"]), 4),
+                "vol_30d": round(float(forecast["har_vol_30d"]), 4),
+            },
+        )
+
+
 class NewsRiskProducer(RiskProducer):
     """Headline risk extraction — currently a labeled mock (no live LLM call),
     so score=None and validation=None until a real extractor is wired in."""
@@ -117,6 +141,59 @@ class NewsRiskProducer(RiskProducer):
         summary = summarize_news_risk(extractions)
         summary["llm_configured"] = False
         return ProducerOutput(score=None, raw=summary)
+
+
+class OptionsImpliedProducer(RiskProducer):
+    """[G4] The system's only FORWARD-looking signal family — everything else
+    is derived from historical prices. Option prices encode what participants
+    are paying today for protection against tomorrow: put skew (crash-
+    insurance demand, Xing-Zhang-Zhao 2010 at the stock level), IV/HV (the
+    fear premium: expected future vol over realized), and the VIX/VIX3M term
+    structure (backwardation = fear concentrated in the immediate future).
+
+    score=None + weight 0.0: yfinance provides only a current-chain snapshot,
+    no IV history, so skew/IV-HV cannot be walk-forward validated yet — the
+    daily snapshot collector (scripts/collect_iv_snapshots.py) is building
+    the history that unlocks IV rank + a real backtest after ~252 sessions.
+    The one immediately backtestable piece (VIX term structure, full history
+    on both legs) gets its verdict from scripts/validate_vix_structure.py.
+    """
+
+    name = "options_implied"
+    default_weight = 0.0
+    validation = None
+
+    def produce(self, df: pd.DataFrame, ctx: ScoringContext) -> ProducerOutput:
+        sig = ctx.options_signals or {}
+        atm_iv = sig.get("atm_iv")
+
+        # IV/HV: both legs annualized (yfinance IV is annualized; vol_21d is
+        # annualized by RiskMetrics), so the ratio is unit-consistent.
+        iv_hv_ratio = None
+        hv = df.iloc[-1].get("vol_21d")
+        if atm_iv is not None and hv is not None and pd.notna(hv) and hv > 0:
+            iv_hv_ratio = round(float(atm_iv) / float(hv), 4)
+
+        vix_term = None
+        if ctx.vix is not None and ctx.vix3m is not None and ctx.vix3m > 0:
+            ratio = ctx.vix / ctx.vix3m
+            vix_term = {
+                "vix": round(float(ctx.vix), 2),
+                "vix3m": round(float(ctx.vix3m), 2),
+                "ratio": round(float(ratio), 4),
+                "backwardation": bool(ratio > 1.0),
+            }
+
+        return ProducerOutput(
+            score=None,
+            raw={
+                "atm_iv": round(atm_iv, 4) if atm_iv is not None else None,
+                "put_skew": round(sig["put_skew"], 4) if sig.get("put_skew") is not None else None,
+                "iv_hv_ratio": iv_hv_ratio,
+                "vix_term_structure": vix_term,
+                "expiry": sig.get("expiry"),
+            },
+        )
 
 
 class AltDataProducer(RiskProducer):

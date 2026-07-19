@@ -20,6 +20,24 @@ class RiskMetrics:
         df["vol_21d"] = r.rolling(21).std() * np.sqrt(self.TRADING_DAYS)
         df["vol_63d"] = r.rolling(63).std() * np.sqrt(self.TRADING_DAYS)
 
+        # [G5] Range-based volatility from the day's own OHLC — ~5-7x more
+        # statistically efficient than close-to-close std on the same data
+        # (the intraday range carries information a single close throws away).
+        # Parkinson (1980): high/low range only. Garman-Klass (1980): range
+        # plus open-to-close drift correction.
+        log_hl_sq = np.log(df["high"] / df["low"]) ** 2
+        log_co_sq = np.log(df["close"] / df["open"]) ** 2
+        park_daily_var = log_hl_sq / (4 * np.log(2))
+        gk_daily_var = 0.5 * log_hl_sq - (2 * np.log(2) - 1) * log_co_sq
+        df["parkinson_vol_21d"] = np.sqrt(
+            park_daily_var.rolling(21).mean() * self.TRADING_DAYS
+        )
+        # GK daily variance can go slightly negative on degenerate bars
+        # (huge open-close drift inside a tiny range) — clip before sqrt.
+        df["gk_vol_21d"] = np.sqrt(
+            gk_daily_var.clip(lower=0).rolling(21).mean() * self.TRADING_DAYS
+        )
+
         # Value-at-Risk (parametric, 95 % and 99 %)
         df["var_95_21d"] = r.rolling(21).quantile(0.05)
         df["var_99_21d"] = r.rolling(21).quantile(0.01)

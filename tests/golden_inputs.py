@@ -53,7 +53,11 @@ GOLDEN_NEWS = [
 GOLDEN_ANALYST = {"downgrade_count": 2, "upgrade_count": 1}
 GOLDEN_INSIDER = {"sale_count": 3, "purchase_count": 1, "net_transaction_count": -2}
 GOLDEN_VIX = 22.5  # "elevated" regime — exercises the regime-adjusted weights branch
+GOLDEN_VIX3M = 24.0  # contango (vix < vix3m) — the calm-market term structure
 GOLDEN_IV = 0.31
+GOLDEN_OPTIONS_SIGNALS = {
+    "atm_iv": GOLDEN_IV, "otm_put_iv": 0.36, "put_skew": 0.05, "expiry": "2026-08-21",
+}
 
 
 @contextmanager
@@ -63,8 +67,10 @@ def golden_environment():
     with (
         patch(f"{_FETCH}.fetch_history", return_value=df),
         patch(f"{_FETCH}.fetch_info", return_value=dict(GOLDEN_INFO)),
-        patch(f"{_FETCH}.fetch_options_iv", return_value=GOLDEN_IV),
+        patch(f"{_FETCH}.fetch_options_signals",
+              return_value=dict(GOLDEN_OPTIONS_SIGNALS)),
         patch(f"{_FETCH}.fetch_vix", return_value=GOLDEN_VIX),
+        patch(f"{_FETCH}.fetch_vix3m", return_value=GOLDEN_VIX3M),
         patch(f"{_FETCH}.fetch_news", return_value=[dict(a) for a in GOLDEN_NEWS]),
         patch(f"{_FETCH}.fetch_analyst_activity", return_value=dict(GOLDEN_ANALYST)),
         patch(f"{_FETCH}.fetch_insider_activity", return_value=dict(GOLDEN_INSIDER)),

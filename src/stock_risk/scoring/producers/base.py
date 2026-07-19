@@ -43,9 +43,11 @@ class ScoringContext:
     benchmark_ticker: str
     category_weights: dict[str, float]
     vix: Optional[float] = None
+    vix3m: Optional[float] = None  # [G4] 3-month VIX for the term-structure signal
     regime: str = "not_available"
     info: dict = field(default_factory=dict)
     iv: Optional[float] = None
+    options_signals: dict = field(default_factory=dict)  # [G4] atm_iv/otm_put_iv/put_skew/expiry
     news_articles: list[dict] = field(default_factory=list)
     analyst_activity: dict = field(default_factory=dict)
     insider_activity: dict = field(default_factory=dict)
