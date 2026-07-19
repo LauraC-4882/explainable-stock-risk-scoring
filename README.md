@@ -664,14 +664,18 @@ figure, populated breakdown/stress-test tables, and genuine SHAP contributions, 
 rendering pipeline itself is correct independent of the live-data outage. Runnable
 locally anytime: `python ui/gradio_app.py` → http://127.0.0.1:7860.
 
-**One thing worth noting for later, not yet acted on**: loading the model logged
-`InconsistentVersionWarning` — pickled with scikit-learn 1.7.2, but
-`requirements.txt`'s unpinned `scikit-learn>=1.4` resolved to 1.9.0 in a fresh
-install. It loaded and predicted without crashing, but this is the same *shape* of
-risk `shap`/`xgboost` already got an exact pin for (see [N1]/CLAUDE.md) — an
-unbounded floor letting the resolved version drift from what the artefact was
-actually trained against. Not fixed here since nothing observed actually broke, just
-flagged as a real, reproduced warning rather than a hypothetical one.
+**A flagged risk that later broke for real — now closed.** When this container first
+ran, loading the model logged `InconsistentVersionWarning` (artefact pickled with
+scikit-learn 1.7.2, fresh installs resolving the then-unbounded `scikit-learn>=1.4`
+to 1.9.0). It was deliberately left unfixed at the time — "nothing observed actually
+broke" — and documented here as the same *shape* of risk `shap`/`xgboost` got exact
+pins for. Within a day it graduated from warning to failure: in CI's fresh
+environment, 1.9.0's `SimpleImputer` raised `'SimpleImputer' object has no attribute
+'_fill_dtype'` on the 1.7.2 pickle at predict time, the ML producer degraded to
+null, and [G1]'s golden test caught the behavioral difference (pre-[G1], this would
+have been a silent warning and silently-null ML fields). Fixed with
+`scikit-learn>=1.7,<1.8` in `requirements.txt`/`setup.py`, matching the committed
+artefact and the existing `requirements.lock` pin (already 1.7.2).
 
 **Final state of the two-platform plan ([F2]+[F3]), summarized honestly:**
 

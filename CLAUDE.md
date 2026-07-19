@@ -36,9 +36,13 @@ the file in the same PR that breaks it.
   reintroducing the same incompatibility silently on a fresh install. The
   exact pin removes that risk instead of hoping it doesn't recur.
   ```bash
-  .venv/bin/python -m pip show shap xgboost | grep -E "Name|Version"
+  .venv/bin/python -m pip show shap xgboost scikit-learn | grep -E "Name|Version"
   # Version: 0.49.1   (shap)
   # Version: 2.1.4    (xgboost, or anything <3.0)
+  # Version: 1.7.2    (scikit-learn, or anything >=1.7,<1.8 — the committed
+  #                    models/artefacts pickle is from 1.7.x; sklearn 1.9.0
+  #                    broke unpickling in CI with a missing-attribute error
+  #                    at predict time, caught by the [G1] golden test)
   ```
 
 ## 2. Verification commands

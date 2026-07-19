@@ -10,7 +10,7 @@ setup(
         "yfinance>=0.2.40",
         "pandas>=2.0",
         "numpy>=1.26",
-        "scikit-learn>=1.4",
+        "scikit-learn>=1.7,<1.8",  # committed model artefact is a 1.7.x pickle — 1.9.0 broke it in CI
         "xgboost>=2.0,<3.0",  # shap 0.49.1 can't parse XGBoost 3.x's base_score serialization format
         "shap==0.49.1",  # pinned exactly, not just >=0.45 — see CLAUDE.md for why
         "arch>=6.3",
