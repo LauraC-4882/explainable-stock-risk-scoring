@@ -22,12 +22,12 @@
     "vol_30d": 0.064
   },
   "har_volatility_forecast": {
-    "vol_1d": 0.0174,
-    "vol_30d": 0.0951
+    "vol_1d": 0.0175,
+    "vol_30d": 0.096
   },
   "implied_volatility": 0.31,
   "indicators": {
-    "atr_14": 2.3911,
+    "atr_14": 2.3061,
     "bb_pct": -0.0108,
     "rsi_14": 37.96
   },
@@ -42,32 +42,32 @@
     "base_probability": 0.5968810684830773,
     "calibrated_probability": 0.07599999755620956,
     "note": "shap_contribution is in log-odds units (additive: base_probability's log-odds plus every feature's shap_contribution equals predicted_probability's log-odds). Positive values push the 20-day severe-drawdown probability up; negative values push it down. Only the top_n largest-magnitude features are listed. predicted_probability is the raw (pre-calibration) model's output that this SHAP breakdown explains — calibrated_probability is what model.predict() actually serves; isotonic calibration has no per-feature attribution of its own.",
-    "predicted_probability": 0.005011024394756683,
+    "predicted_probability": 0.0061212909002562816,
     "top_features": [
       {
         "feature": "volatility__vol_63d",
         "raw_value": 0.1918368857712115,
-        "shap_contribution": -2.352527141571045
+        "shap_contribution": -2.320603609085083
       },
       {
         "feature": "momentum__bb_pct",
         "raw_value": -0.010825800708280759,
-        "shap_contribution": -1.991282343864441
-      },
-      {
-        "feature": "volatility__vol_regime_change",
-        "raw_value": 1.0756535276751722,
-        "shap_contribution": -0.578890860080719
-      },
-      {
-        "feature": "volatility__var_95_21d",
-        "raw_value": -0.021299544715705658,
-        "shap_contribution": 0.5665932893753052
+        "shap_contribution": -1.9771130084991455
       },
       {
         "feature": "quality__sortino_63d",
         "raw_value": -4.535618987255315,
-        "shap_contribution": 0.561018168926239
+        "shap_contribution": 0.5790051817893982
+      },
+      {
+        "feature": "volatility__vol_regime_change",
+        "raw_value": 1.0756535276751722,
+        "shap_contribution": -0.5676797032356262
+      },
+      {
+        "feature": "volatility__var_95_21d",
+        "raw_value": -0.021299544715705658,
+        "shap_contribution": 0.5363964438438416
       }
     ]
   },
@@ -126,11 +126,11 @@
     },
     "liquidity": {
       "metrics": {
-        "amihud_illiq_21d": 96.5,
-        "dollar_volume_21d": 70.0,
-        "volume_vol_21d": 39.6
+        "amihud_illiq_21d": 94.7,
+        "dollar_volume_21d": 93.2,
+        "volume_vol_21d": 57.3
       },
-      "score": 74.1,
+      "score": 83.2,
       "weight": 0.15
     },
     "sensitivity": {
@@ -162,15 +162,15 @@
   },
   "risk_label": "EXTREME",
   "risk_note": "Score reflects this stock's risk relative to its own historical distribution (and market sensitivity vs. SPY) — it is not a probability of loss, default probability, or investment recommendation.",
-  "risk_score": 75.0,
+  "risk_score": 76.3,
   "stress_test": {
-    "live_score": 74.1,
+    "live_score": 75.5,
     "scenarios": {
       "2008_financial_crisis": {
-        "baseline_score": 73.0,
-        "delta": 13.1,
+        "baseline_score": 74.4,
+        "delta": 12.4,
         "label": "2008 Global Financial Crisis",
-        "narrative": "If 2008 Global Financial Crisis conditions recurred, this stock's risk score would move from 73.0 to 86.1 (+13.1).",
+        "narrative": "If 2008 Global Financial Crisis conditions recurred, this stock's risk score would move from 74.4 to 86.8 (+12.4).",
         "stressed_categories": {
           "drawdown": {
             "metrics": {
@@ -184,10 +184,10 @@
           "liquidity": {
             "metrics": {
               "amihud_illiq_21d": 100.0,
-              "dollar_volume_21d": 70.0,
+              "dollar_volume_21d": 93.2,
               "volume_vol_21d": 100.0
             },
-            "score": 94.0,
+            "score": 98.6,
             "weight": 0.15
           },
           "sensitivity": {
@@ -217,13 +217,13 @@
             "weight": 0.2
           }
         },
-        "stressed_score": 86.1
+        "stressed_score": 86.8
       },
       "2020_covid_crash": {
-        "baseline_score": 73.0,
-        "delta": 13.1,
+        "baseline_score": 74.4,
+        "delta": 12.4,
         "label": "2020 COVID-19 Crash",
-        "narrative": "If 2020 COVID-19 Crash conditions recurred, this stock's risk score would move from 73.0 to 86.1 (+13.1).",
+        "narrative": "If 2020 COVID-19 Crash conditions recurred, this stock's risk score would move from 74.4 to 86.8 (+12.4).",
         "stressed_categories": {
           "drawdown": {
             "metrics": {
@@ -237,10 +237,10 @@
           "liquidity": {
             "metrics": {
               "amihud_illiq_21d": 100.0,
-              "dollar_volume_21d": 70.0,
+              "dollar_volume_21d": 93.2,
               "volume_vol_21d": 100.0
             },
-            "score": 94.0,
+            "score": 98.6,
             "weight": 0.15
           },
           "sensitivity": {
@@ -270,13 +270,13 @@
             "weight": 0.2
           }
         },
-        "stressed_score": 86.1
+        "stressed_score": 86.8
       },
       "2022_rate_hike_selloff": {
-        "baseline_score": 75.0,
-        "delta": 14.1,
+        "baseline_score": 76.3,
+        "delta": 13.7,
         "label": "2022 Rate Hike Bear Market",
-        "narrative": "If 2022 Rate Hike Bear Market conditions recurred, this stock's risk score would move from 75.0 to 89.1 (+14.1).",
+        "narrative": "If 2022 Rate Hike Bear Market conditions recurred, this stock's risk score would move from 76.3 to 90.0 (+13.7).",
         "stressed_categories": {
           "drawdown": {
             "metrics": {
@@ -290,10 +290,10 @@
           "liquidity": {
             "metrics": {
               "amihud_illiq_21d": 100.0,
-              "dollar_volume_21d": 70.0,
-              "volume_vol_21d": 96.7
+              "dollar_volume_21d": 93.2,
+              "volume_vol_21d": 100.0
             },
-            "score": 93.0,
+            "score": 98.6,
             "weight": 0.15
           },
           "sensitivity": {
@@ -323,7 +323,7 @@
             "weight": 0.25
           }
         },
-        "stressed_score": 89.1
+        "stressed_score": 90.0
       }
     }
   },

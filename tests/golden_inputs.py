@@ -26,10 +26,19 @@ _FETCH = "stock_risk.scoring.scorer.MarketDataFetcher"
 def golden_ohlcv(n: int = 600, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     close = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.012))
+    # Intraday ranges VARY day to day (real markets never have a constant
+    # relative range): a constant-multiple high/low made Garman-Klass daily
+    # vol a constant series, whose perfectly-collinear HAR design matrix
+    # either pseudo-solved or raised "Singular matrix" depending on the
+    # numpy version — an environment-dependent golden input is exactly what
+    # this fixture must never be.
+    width = 0.012 * rng.uniform(0.4, 1.8, n)
     dates = pd.bdate_range("2023-06-01", periods=n)
     df = pd.DataFrame({
-        "open": close * 0.995, "high": close * 1.012,
-        "low": close * 0.987, "close": close,
+        "open": close * (1 - width * 0.3),
+        "high": close * (1 + width),
+        "low": close * (1 - width * 0.9),
+        "close": close,
         "volume": rng.integers(2_000_000, 8_000_000, n).astype(float),
     }, index=dates)
     df.index.name = "date"

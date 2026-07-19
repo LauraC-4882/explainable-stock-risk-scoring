@@ -128,3 +128,22 @@ def test_har_requires_enough_history():
     df = _ohlcv_from_returns(rng.standard_normal(40) * 0.01)
     with pytest.raises(ValueError, match="HAR needs"):
         HarVolatilityModel().fit(df)
+
+
+def test_har_flat_fallback_on_constant_range_series():
+    """A constant relative range makes GK vol constant and the HAR design
+    matrix singular — solver behavior then differs across numpy versions
+    (observed live: local 2.2 tolerated it, CI's 2.4 raised). The model must
+    detect that case and forecast flat instead of depending on the solver."""
+    dates = pd.bdate_range("2023-01-01", periods=200)
+    close = pd.Series(100.0, index=dates)
+    df = pd.DataFrame({
+        "open": close * 0.995, "high": close * 1.012,
+        "low": close * 0.987, "close": close, "volume": 1e6,
+    }, index=dates)
+    model = HarVolatilityModel().fit(df)
+    forecast = model.predict(df)
+    from stock_risk.models.har_volatility import gk_daily_vol as _gk
+    const_vol = _gk(df).iloc[0]
+    assert forecast["har_vol_1d"] == pytest.approx(const_vol, rel=1e-9)
+    assert forecast["har_vol_30d"] == pytest.approx(const_vol * np.sqrt(30), rel=1e-9)

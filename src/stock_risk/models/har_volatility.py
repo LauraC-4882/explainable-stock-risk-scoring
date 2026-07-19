@@ -49,26 +49,56 @@ class HarVolatilityModel(BaseRiskModel):
         self.rescale = rescale
         self._fit_result = None
         self._last_vol = None
+        self._flat_daily_vol = None
 
     def fit(self, df: pd.DataFrame) -> "HarVolatilityModel":
         vol = gk_daily_vol(df).dropna() * self.rescale
         if len(vol) < _MIN_OBS:
             raise ValueError(f"HAR needs >= {_MIN_OBS} rows of OHLC, got {len(vol)}")
         self._last_vol = vol
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # HARX as a pure mean model for the vol series itself (constant
-            # residual variance) — the standard HAR-RV setup.
-            model = HARX(vol, lags=self.lags)
-            self._fit_result = model.fit(disp="off", show_warning=False)
+        self._flat_daily_vol = None
+
+        # A (near-)constant vol series makes the HAR design matrix perfectly
+        # collinear (every lag average IS the series) — whether that raises
+        # "Singular matrix" or silently pseudo-solves depends on the numpy/
+        # BLAS version (observed live: local numpy 2.2 tolerated it, CI's
+        # 2.4 raised, and the golden test caught the behavioral difference).
+        # The mathematically right forecast for a constant series needs no
+        # regression at all: the constant. Detect it and forecast flat, so
+        # behavior never depends on solver tolerance.
+        rel_std = float(vol.std()) / max(float(vol.mean()), 1e-12)
+        if not np.isfinite(rel_std) or rel_std < 1e-8:
+            self._flat_daily_vol = float(vol.iloc[-1]) / self.rescale
+            logger.info(f"HAR{tuple(self.lags)}: near-constant vol series — flat forecast")
+            return self
+
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # HARX as a pure mean model for the vol series itself (constant
+                # residual variance) — the standard HAR-RV setup.
+                model = HARX(vol, lags=self.lags)
+                self._fit_result = model.fit(disp="off", show_warning=False)
+        except np.linalg.LinAlgError:
+            # Belt-and-suspenders for collinearity the rel_std gate missed.
+            self._flat_daily_vol = float(vol.iloc[-1]) / self.rescale
+            logger.warning(f"HAR{tuple(self.lags)}: singular design — flat forecast fallback")
+            return self
+
         r2 = self._fit_result.rsquared
-        # Near-constant vol series (degenerate/synthetic inputs) make R2
-        # numerically meaningless — report it only when it is one.
+        # Near-degenerate fits can still make R2 numerically meaningless —
+        # report it only when it is one.
         r2_note = f"R2={r2:.3f}" if np.isfinite(r2) and -1 <= r2 <= 1 else "R2=n/a (degenerate)"
         logger.info(f"HAR{tuple(self.lags)} fitted | {r2_note}")
         return self
 
     def predict(self, df: pd.DataFrame) -> pd.Series:
+        if self._flat_daily_vol is not None:
+            v = self._flat_daily_vol
+            return pd.Series({
+                "har_vol_1d": v,
+                "har_vol_30d": float(np.sqrt(30 * v**2)),
+            })
         if self._fit_result is None:
             raise RuntimeError("Model not fitted. Call .fit() first.")
         with warnings.catch_warnings():
