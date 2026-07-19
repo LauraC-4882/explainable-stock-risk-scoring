@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
+
+
+def _utc_now() -> datetime:
+    """Timezone-aware default factory (the naive-UTC datetime API is deprecated)."""
+    return datetime.now(timezone.utc)
 
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
     hashed_password: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utc_now)
 
 
 class WatchlistItem(SQLModel, table=True):
@@ -25,4 +30,4 @@ class WatchlistItem(SQLModel, table=True):
     # so the frontend can group/label without re-deriving it on every render.
     market: str
     notes: Optional[str] = None
-    added_at: datetime = Field(default_factory=datetime.utcnow)
+    added_at: datetime = Field(default_factory=_utc_now)

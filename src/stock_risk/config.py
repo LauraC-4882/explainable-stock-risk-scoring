@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     enable_ml: bool = True
     model_dir: Path = Path("models/artefacts")
     monitoring_log_dir: Path = Path("logs/monitoring")
-    mlflow_tracking_uri: str = "http://localhost:5000"
 
     # Risk score thresholds
     risk_low_max: float = 25.0

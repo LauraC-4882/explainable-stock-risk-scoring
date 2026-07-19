@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -223,7 +223,10 @@ class RiskScorer:
 
         return {
             "ticker": ticker.upper(),
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            # timezone-aware now() (the naive-UTC variant is deprecated);
+            # .replace keeps the ISO string's trailing "Z" format instead of
+            # "+00:00" so API consumers see no change.
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "risk_score": round(composite_score, 1),
             "risk_label": _label(composite_score),
             "risk_note": _risk_note(benchmark_ticker),

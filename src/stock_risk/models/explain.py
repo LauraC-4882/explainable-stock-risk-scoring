@@ -69,13 +69,17 @@ def explain_prediction(
     ]
     contributions.sort(key=lambda c: abs(c["shap_contribution"]), reverse=True)
 
+    # Probabilities are emitted at full precision — rounding belongs to the
+    # display layer (API serialization / UI), not here: mid-layer rounding
+    # once made this "explanation equals serving output" contract fail at the
+    # 4th decimal against model.predict()'s full-precision value.
     result = {
-        "base_probability": round(float(_sigmoid(base_value)), 4),
+        "base_probability": float(_sigmoid(base_value)),
         # values.sum() is float32 (SHAP/XGBoost's native dtype) — cast before
-        # it propagates through the sigmoid and round(), or the response dict
-        # ends up carrying a numpy.float32 that json.dumps can't serialize
-        # (unlike numpy.float64, float32 isn't a subclass of Python's float).
-        "predicted_probability": round(float(_sigmoid(base_value + float(values.sum()))), 4),
+        # it propagates through the sigmoid, or the response dict ends up
+        # carrying a numpy.float32 that json.dumps can't serialize (unlike
+        # numpy.float64, float32 isn't a subclass of Python's float).
+        "predicted_probability": float(_sigmoid(base_value + float(values.sum()))),
         "top_features": contributions[:top_n],
         "note": (
             "shap_contribution is in log-odds units (additive: base_probability's "
@@ -86,7 +90,7 @@ def explain_prediction(
     }
     if model.calibrated is not None:
         calibrated_proba = float(model.calibrated.predict_proba(feat)[0, 1])
-        result["calibrated_probability"] = round(calibrated_proba, 4)
+        result["calibrated_probability"] = calibrated_proba
         result["note"] += (
             " predicted_probability is the raw (pre-calibration) model's output that "
             "this SHAP breakdown explains — calibrated_probability is what model.predict() "
