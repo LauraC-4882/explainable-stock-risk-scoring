@@ -58,6 +58,16 @@ dir, temp DB, OS-assigned free port — never touches `models/artefacts/`,
 a developer's real DB, or port 8000) and self-cleaning (temp dirs and the
 server subprocess are gone whether it passes or fails).
 
+`make smoke` exit codes: `0` = gate ran and passed; `75` = Yahoo
+rate-limited the data fetch and the gate **did not run** — a skip, not a
+pass; anything else = real failure. Datacenter IPs (GitHub runners, Render)
+get intermittently throttled by Yahoo — observed live 2026-07-18/19, three
+consecutive CI runs dead at the smoke step with `YFRateLimitError` right
+after five green runs on the same workflow — so `.github/workflows/ci.yml`
+maps 75 to a `::warning` + neutral pass instead of failing every push
+during an external outage. Locally, exit 75 means rerun later; it never
+counts as the verification rule 1 requires.
+
 `scripts/ui_shot.sh` runs against `STOCK_RISK_MOCK=1` (fixture data captured
 from a real `/api/score/TSLA` + `/api/score/TSLA/timeseries` response,
 `tests/fixtures/mock_api/`), not a live yfinance call — a real request takes
@@ -76,14 +86,19 @@ Every rule here is a **must**, each with the command that proves you did it.
 
 1. **Any backend change → run the test suite *and* the smoke test before
    calling it done.** Unit tests alone already missed the bug in rule 4 —
-   every unit test uses `RiskScorer` with no model loaded (the `None`
-   fallback path), so none of them ever exercised a real trained model
-   through a real HTTP response the way `make smoke` does.
+   at the time, every unit test used `RiskScorer` with no model loaded (the
+   `None` fallback path), so none of them exercised a real trained model
+   through a real HTTP response the way `make smoke` does. (Since [F3]
+   committed the model artefact and [G1] added the offline golden test,
+   unit tests do load the real model — but still never a real HTTP
+   round-trip, so smoke keeps its job.)
    ```bash
    .venv/bin/python -m pytest tests/ -q
    make smoke   # or: .venv/bin/python scripts/smoke.py
    ```
-   Both must exit 0.
+   Both must exit 0. (`make smoke` exiting 75 = Yahoo rate-limited the
+   fetch and the gate did not run — that's a skip, not a pass; rerun it
+   once the limit clears before calling the change verified. See §2.)
 
 2. **Any `ui/web` change → run `scripts/ui_shot.sh` and look at both PNGs,
    self-review against `scripts/ui_checklist.md`, iterate up to 3 rounds,

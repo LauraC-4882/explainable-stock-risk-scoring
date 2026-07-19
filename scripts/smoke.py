@@ -46,6 +46,34 @@ LOOKBACK_DAYS = 365
 READY_TIMEOUT_S = 45
 HTTP_TIMEOUT_S = 30
 
+# EX_TEMPFAIL: the smoke gate DID NOT run because Yahoo throttled the data
+# fetch — distinct from exit 1 (a real app/harness failure) so CI can warn
+# loudly and stay neutral instead of failing every push during an external
+# outage. Verified live 2026-07-18/19: three consecutive CI runs died at
+# this step with YFRateLimitError while the same commits' test suites
+# passed, and the same workflow had passed smoke five times on 2026-07-17 —
+# i.e. GitHub-runner IPs are *intermittently* rate-limited, so keeping the
+# gate active (rather than deleting it from CI) still buys real coverage
+# on the runs where Yahoo lets the fetch through.
+EXIT_RATE_LIMITED = 75
+
+
+def is_rate_limit_failure(exc: BaseException) -> bool:
+    """True when *exc* is (or was caused by) yfinance's rate-limit error.
+
+    Matched by class name and message rather than importing yfinance's
+    exception type — smoke must be able to classify the failure even if the
+    import context differs, and the message check catches re-wrapped errors.
+    """
+    seen: list[BaseException] = []
+    e: BaseException | None = exc
+    while e is not None and e not in seen:
+        seen.append(e)
+        if type(e).__name__ == "YFRateLimitError" or "Rate limited" in str(e):
+            return True
+        e = e.__cause__ or e.__context__
+    return False
+
 
 def _step(msg: str) -> None:
     print(f"[smoke] {msg}", flush=True)
@@ -246,6 +274,23 @@ def main() -> int:
 
     except Exception as exc:
         elapsed = time.time() - start
+        # Server-log check covers the case where the rate limit hits inside
+        # the *served* process (scoring request 500s -> our assertion raises
+        # a plain AssertionError, but the server log carries the real cause).
+        # Sound in this harness specifically: no smoke request before the
+        # scoring calls triggers a yfinance fetch, so a YFRateLimitError in
+        # the log can only belong to the request whose failure we're
+        # classifying — not some unrelated earlier one.
+        rate_limited = is_rate_limit_failure(exc) or (
+            log_path.exists() and "YFRateLimitError" in _tail(log_path)
+        )
+        if rate_limited:
+            _step(
+                f"SKIPPED after {elapsed:.1f}s — Yahoo rate-limited the data fetch "
+                f"(exit {EXIT_RATE_LIMITED}). The smoke gate DID NOT run: this is "
+                "a skip, not a pass. Rerun once the limit clears."
+            )
+            return EXIT_RATE_LIMITED
         _step(f"FAILED after {elapsed:.1f}s: {exc}")
         if proc is not None and proc.poll() is None:
             proc.terminate()
