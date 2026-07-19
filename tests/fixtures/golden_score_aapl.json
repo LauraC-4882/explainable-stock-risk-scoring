@@ -1,0 +1,317 @@
+{
+  "alt_data": {
+    "analyst_activity": {
+      "downgrade_count": 2,
+      "upgrade_count": 1
+    },
+    "insider_activity": {
+      "net_transaction_count": -2,
+      "purchase_count": 1,
+      "sale_count": 3
+    }
+  },
+  "beta": 1.2,
+  "cvar_95": -0.0251,
+  "fundamentals": {
+    "market_cap": 3000000000000.0,
+    "sector": "Technology",
+    "trailing_pe": 28.5
+  },
+  "garch_volatility_forecast": {
+    "vol_1d": 0.0123,
+    "vol_30d": 0.0671
+  },
+  "implied_volatility": 0.31,
+  "indicators": {
+    "atr_14": 2.3911,
+    "bb_pct": -0.0108,
+    "rsi_14": 37.96
+  },
+  "market_regime": {
+    "benchmark": "SPY",
+    "market": "us",
+    "regime": "elevated",
+    "vix": 22.5
+  },
+  "max_drawdown_90d": -0.2244,
+  "ml_drawdown_explanation": {
+    "base_probability": 0.5968810684830773,
+    "calibrated_probability": 0.07599999755620956,
+    "note": "shap_contribution is in log-odds units (additive: base_probability's log-odds plus every feature's shap_contribution equals predicted_probability's log-odds). Positive values push the 20-day severe-drawdown probability up; negative values push it down. Only the top_n largest-magnitude features are listed. predicted_probability is the raw (pre-calibration) model's output that this SHAP breakdown explains — calibrated_probability is what model.predict() actually serves; isotonic calibration has no per-feature attribution of its own.",
+    "predicted_probability": 0.005011024394756683,
+    "top_features": [
+      {
+        "feature": "volatility__vol_63d",
+        "raw_value": 0.1918368857712115,
+        "shap_contribution": -2.352527141571045
+      },
+      {
+        "feature": "momentum__bb_pct",
+        "raw_value": -0.010825800708280759,
+        "shap_contribution": -1.991282343864441
+      },
+      {
+        "feature": "volatility__vol_regime_change",
+        "raw_value": 1.0756535276751722,
+        "shap_contribution": -0.578890860080719
+      },
+      {
+        "feature": "volatility__var_95_21d",
+        "raw_value": -0.021299544715705658,
+        "shap_contribution": 0.5665932893753052
+      },
+      {
+        "feature": "quality__sortino_63d",
+        "raw_value": -4.535618987255315,
+        "shap_contribution": 0.561018168926239
+      }
+    ]
+  },
+  "ml_drawdown_probability": 7.6,
+  "name": "Apple Inc.",
+  "news_risk": {
+    "articles": [
+      {
+        "confidence": 0.0,
+        "event_type": "none",
+        "evidence": [],
+        "risk_category": "none",
+        "sentiment": "neutral",
+        "severity": 0,
+        "source": "mock",
+        "time_horizon": "unknown",
+        "title": "Company reports quarterly results"
+      },
+      {
+        "confidence": 0.0,
+        "event_type": "none",
+        "evidence": [],
+        "risk_category": "none",
+        "sentiment": "neutral",
+        "severity": 0,
+        "source": "mock",
+        "time_horizon": "unknown",
+        "title": "Analysts weigh in on product launch"
+      }
+    ],
+    "llm_configured": false,
+    "max_severity": 0,
+    "negative_count": 0
+  },
+  "risk_breakdown": {
+    "drawdown": {
+      "metrics": {
+        "drawdown": 99.7,
+        "drawdown_duration": 99.9,
+        "max_drawdown_63d": 88.2
+      },
+      "score": 94.6,
+      "weight": 0.2
+    },
+    "liquidity": {
+      "metrics": {
+        "amihud_illiq_21d": 96.5,
+        "dollar_volume_21d": 70.0,
+        "volume_vol_21d": 39.6
+      },
+      "score": 74.1,
+      "weight": 0.15
+    },
+    "sensitivity": {
+      "metrics": {
+        "beta_63d": 50.0
+      },
+      "score": 50.0,
+      "weight": 0.1
+    },
+    "tail": {
+      "metrics": {
+        "cvar_95_21d": 84.9,
+        "kurt_63d": 35.5,
+        "skew_63d": 42.0,
+        "var_95_21d": 88.5
+      },
+      "score": 67.3,
+      "weight": 0.3
+    },
+    "volatility": {
+      "metrics": {
+        "downside_dev_63d": 93.6,
+        "vol_21d": 91.6,
+        "vol_63d": 54.1
+      },
+      "score": 79.0,
+      "weight": 0.25
+    }
+  },
+  "risk_label": "EXTREME",
+  "risk_note": "Score reflects this stock's risk relative to its own historical distribution (and market sensitivity vs. SPY) — it is not a probability of loss, default probability, or investment recommendation.",
+  "risk_score": 75.0,
+  "stress_test": {
+    "live_score": 74.1,
+    "scenarios": {
+      "2008_financial_crisis": {
+        "baseline_score": 73.0,
+        "delta": 13.1,
+        "label": "2008 Global Financial Crisis",
+        "narrative": "If 2008 Global Financial Crisis conditions recurred, this stock's risk score would move from 73.0 to 86.1 (+13.1).",
+        "stressed_categories": {
+          "drawdown": {
+            "metrics": {
+              "drawdown": 100.0,
+              "drawdown_duration": 99.9,
+              "max_drawdown_63d": 100.0
+            },
+            "score": 100.0,
+            "weight": 0.15
+          },
+          "liquidity": {
+            "metrics": {
+              "amihud_illiq_21d": 100.0,
+              "dollar_volume_21d": 70.0,
+              "volume_vol_21d": 100.0
+            },
+            "score": 94.0,
+            "weight": 0.15
+          },
+          "sensitivity": {
+            "metrics": {
+              "beta_63d": 50.0
+            },
+            "score": 50.0,
+            "weight": 0.1
+          },
+          "tail": {
+            "metrics": {
+              "cvar_95_21d": 100.0,
+              "kurt_63d": 0.0,
+              "skew_63d": 100.0,
+              "var_95_21d": 100.0
+            },
+            "score": 80.0,
+            "weight": 0.4
+          },
+          "volatility": {
+            "metrics": {
+              "downside_dev_63d": 100.0,
+              "vol_21d": 100.0,
+              "vol_63d": 100.0
+            },
+            "score": 100.0,
+            "weight": 0.2
+          }
+        },
+        "stressed_score": 86.1
+      },
+      "2020_covid_crash": {
+        "baseline_score": 73.0,
+        "delta": 13.1,
+        "label": "2020 COVID-19 Crash",
+        "narrative": "If 2020 COVID-19 Crash conditions recurred, this stock's risk score would move from 73.0 to 86.1 (+13.1).",
+        "stressed_categories": {
+          "drawdown": {
+            "metrics": {
+              "drawdown": 100.0,
+              "drawdown_duration": 99.9,
+              "max_drawdown_63d": 100.0
+            },
+            "score": 100.0,
+            "weight": 0.15
+          },
+          "liquidity": {
+            "metrics": {
+              "amihud_illiq_21d": 100.0,
+              "dollar_volume_21d": 70.0,
+              "volume_vol_21d": 100.0
+            },
+            "score": 94.0,
+            "weight": 0.15
+          },
+          "sensitivity": {
+            "metrics": {
+              "beta_63d": 50.0
+            },
+            "score": 50.0,
+            "weight": 0.1
+          },
+          "tail": {
+            "metrics": {
+              "cvar_95_21d": 100.0,
+              "kurt_63d": 0.0,
+              "skew_63d": 100.0,
+              "var_95_21d": 100.0
+            },
+            "score": 80.0,
+            "weight": 0.4
+          },
+          "volatility": {
+            "metrics": {
+              "downside_dev_63d": 100.0,
+              "vol_21d": 100.0,
+              "vol_63d": 100.0
+            },
+            "score": 100.0,
+            "weight": 0.2
+          }
+        },
+        "stressed_score": 86.1
+      },
+      "2022_rate_hike_selloff": {
+        "baseline_score": 75.0,
+        "delta": 14.1,
+        "label": "2022 Rate Hike Bear Market",
+        "narrative": "If 2022 Rate Hike Bear Market conditions recurred, this stock's risk score would move from 75.0 to 89.1 (+14.1).",
+        "stressed_categories": {
+          "drawdown": {
+            "metrics": {
+              "drawdown": 100.0,
+              "drawdown_duration": 99.9,
+              "max_drawdown_63d": 100.0
+            },
+            "score": 100.0,
+            "weight": 0.2
+          },
+          "liquidity": {
+            "metrics": {
+              "amihud_illiq_21d": 100.0,
+              "dollar_volume_21d": 70.0,
+              "volume_vol_21d": 96.7
+            },
+            "score": 93.0,
+            "weight": 0.15
+          },
+          "sensitivity": {
+            "metrics": {
+              "beta_63d": 50.0
+            },
+            "score": 50.0,
+            "weight": 0.1
+          },
+          "tail": {
+            "metrics": {
+              "cvar_95_21d": 100.0,
+              "kurt_63d": 21.6,
+              "skew_63d": 97.8,
+              "var_95_21d": 100.0
+            },
+            "score": 83.9,
+            "weight": 0.3
+          },
+          "volatility": {
+            "metrics": {
+              "downside_dev_63d": 100.0,
+              "vol_21d": 100.0,
+              "vol_63d": 100.0
+            },
+            "score": 100.0,
+            "weight": 0.25
+          }
+        },
+        "stressed_score": 89.1
+      }
+    }
+  },
+  "ticker": "AAPL",
+  "var_95": -0.0213,
+  "volatility_30d": 0.1918
+}

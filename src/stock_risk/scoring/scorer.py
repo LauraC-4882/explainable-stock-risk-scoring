@@ -15,9 +15,8 @@ from ..data.fetcher import MarketDataFetcher
 from ..data.preprocessor import DataPreprocessor
 from ..features.risk_metrics import RiskMetrics
 from ..features.technical import TechnicalFeatures
-from ..llm.news_risk import extract_news_risk, summarize_news_risk
-from ..models.volatility import VolatilityModel
 from . import risk_categories
+from .producers import ScoringContext, build_producers, fuse, resolve_weights, run_producer
 from .stress_test import run_stress_test
 
 if TYPE_CHECKING:
@@ -104,6 +103,11 @@ class RiskScorer:
         self.tech = TechnicalFeatures()
         self.risk = RiskMetrics()
         self._dr_model = self._try_load_downside_model()
+        # [G1] producer layer: the five risk signals as uniform RiskProducer
+        # instances. resolve_weights applies the validation guard at startup
+        # (unvalidated producer with nonzero weight -> warned + zeroed).
+        self.producers = build_producers(self._dr_model)
+        self.producer_weights = resolve_weights(self.producers)
 
     def _try_load_downside_model(self) -> "Optional[DownsideRiskModel]":
         if not settings.enable_ml:
@@ -162,55 +166,40 @@ class RiskScorer:
             regime = "not_available"
             weights = risk_categories.CATEGORY_WEIGHTS
 
-        # Percentile-based composite score across volatility/tail/drawdown/
-        # sensitivity/liquidity categories (see risk_categories.py) — the
-        # explainable baseline. XGBoost is a secondary, ML-derived signal.
-        scorecard = risk_categories.composite_score(df, weights=weights)
-        composite_score = scorecard["composite_score"]
+        # [G1] Shared inputs are fetched exactly once here and handed to every
+        # producer via the context — a producer can never add a hidden network
+        # call. The per-signal computation (and its degradation policy) lives
+        # in scoring/producers/, not in this method anymore.
+        ctx = ScoringContext(
+            ticker=ticker.upper(),
+            market=market,
+            benchmark_ticker=benchmark_ticker,
+            category_weights=weights,
+            vix=vix,
+            regime=regime,
+            info=info,
+            iv=iv,
+            news_articles=self.fetcher.fetch_news(ticker),
+            analyst_activity=self.fetcher.fetch_analyst_activity(ticker),
+            insider_activity=self.fetcher.fetch_insider_activity(ticker),
+        )
 
-        ml_drawdown_probability = None
-        ml_drawdown_explanation = None
-        if self._dr_model is not None:
-            try:
-                from ..models.explain import explain_prediction  # deferred — see [F1]
+        outputs = {p.name: run_producer(p, df, ctx) for p in self.producers}
 
-                ml_drawdown_probability = round(
-                    float(self._dr_model.predict(df)["downside_risk_score"]), 1
-                )
-                ml_drawdown_explanation = explain_prediction(self._dr_model, df)
-            except Exception as exc:
-                logger.warning(
-                    f"DownsideRiskModel prediction/explanation failed for {ticker}: {exc}"
-                )
+        # Current weight config is {percentile_composite: 1.0, rest: 0.0}, so
+        # the fused score equals the percentile composite exactly — turning on
+        # another producer's weight is a deliberate future behavior change,
+        # gated on its validation record (see producers/base.py). The fallback
+        # is unreachable today (composite_score always returns a number and
+        # percentile is a required producer) but keeps the None-contract honest.
+        fused = fuse(outputs, self.producer_weights)
+        composite_score = fused if fused is not None else 50.0
 
-        # GARCH is fit live on this ticker's own return series — unlike the
-        # pretrained XGBoost classifier, volatility clustering parameters are
-        # instrument-specific and can't be learned once and reused cross-sectionally.
-        garch_volatility_forecast = None
-        try:
-            garch = VolatilityModel().fit(df)
-            forecast = garch.predict(df)
-            garch_volatility_forecast = {
-                "vol_1d": round(float(forecast["garch_vol_1d"]), 4),
-                "vol_30d": round(float(forecast["garch_vol_30d"]), 4),
-            }
-        except Exception as exc:
-            logger.warning(f"GARCH volatility forecast failed for {ticker}: {exc}")
-
-        # News/event risk layer: real headlines via yfinance, but extraction is
-        # currently a labeled mock (no live LLM call wired in — see llm/news_risk.py)
-        news_articles = self.fetcher.fetch_news(ticker)
-        news_extractions = [extract_news_risk(a) for a in news_articles]
-        news_risk = summarize_news_risk(news_extractions)
-        news_risk["llm_configured"] = False
-
-        # Free alt-data via yfinance: analyst rating changes + insider transactions.
-        # Informational for now — not folded into risk_score (see risk_categories.py's
-        # calibrated weights); surfaced so the report can point to a concrete signal.
-        alt_data = {
-            "analyst_activity": self.fetcher.fetch_analyst_activity(ticker),
-            "insider_activity": self.fetcher.fetch_insider_activity(ticker),
-        }
+        pct = outputs["percentile_composite"]  # required producer — never None
+        ml = outputs["ml_drawdown"]
+        garch = outputs["garch_vol"]
+        news = outputs["news_risk"]
+        alt = outputs["alt_data"]
 
         # Historical-scenario stress test on the explainable percentile score
         # only (not the XGBoost leg) — see stress_test.py's module docstring
@@ -230,18 +219,26 @@ class RiskScorer:
             "risk_score": round(composite_score, 1),
             "risk_label": _label(composite_score),
             "risk_note": _risk_note(benchmark_ticker),
-            "risk_breakdown": scorecard["categories"],
+            "risk_breakdown": pct.detail["categories"],
             "market_regime": {
                 "vix": vix,
                 "regime": regime,
                 "market": market,
                 "benchmark": benchmark_ticker,
             },
-            "ml_drawdown_probability": ml_drawdown_probability,
-            "ml_drawdown_explanation": ml_drawdown_explanation,
-            "garch_volatility_forecast": garch_volatility_forecast,
-            "news_risk": news_risk,
-            "alt_data": alt_data,
+            "ml_drawdown_probability": ml.raw["probability"] if ml else None,
+            "ml_drawdown_explanation": ml.detail["explanation"] if ml else None,
+            "garch_volatility_forecast": garch.raw if garch else None,
+            # news/alt producers are pure computation over already-fetched
+            # context and shouldn't fail, but keep the response shape stable
+            # if one ever does (pre-refactor these fields were never null).
+            "news_risk": news.raw if news else {
+                "max_severity": 0, "negative_count": 0, "articles": [], "llm_configured": False,
+            },
+            "alt_data": alt.raw if alt else {
+                "analyst_activity": ctx.analyst_activity,
+                "insider_activity": ctx.insider_activity,
+            },
             "stress_test": stress_test,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
             "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),

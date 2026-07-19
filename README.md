@@ -30,14 +30,23 @@ TechnicalFeatures         ← RSI, MACD, Bollinger Bands, ATR, OBV, EMA
        ▼
 RiskMetrics               ← VaR, CVaR, Sharpe, Sortino, drawdown, EWMA vol, liquidity, beta,
        │                     vol_regime_change, vol_of_vol, drawdown_acceleration, skew_momentum
-       ├──► risk_categories.py  (percentile composite, VIX-regime-weighted) ← primary risk_score
-       ├──► XGBoost classifier, isotonic-calibrated  (P[drawdown ≤ -10% / 20d])
-       │      + SHAP on the raw pre-calibration model  ← secondary ml_drawdown_probability
-       └──► GARCH(1,1), fit live per ticker              ← secondary garch_volatility_forecast
+       ▼
+ScoringContext            ← shared inputs fetched once (benchmark returns, ^VIX regime,
+       │                     info/IV, news headlines, analyst+insider counts)
+       ▼
+┌─ Producer layer (scoring/producers/, [G1]) ── each: score 0-100|None · raw · detail ─┐
+│  PercentileComposite   weight 1.0  validated (quintile+Kupiec)  → risk_score          │
+│  MLDrawdown            weight 0.0  validated (WF AUC 0.671)     → ml_drawdown_*       │
+│  GarchVol              weight 0.0  unvalidated (absolute σ)     → garch_volatility_*  │
+│  NewsRisk              weight 0.0  unvalidated (mock extractor) → news_risk           │
+│  AltData               weight 0.0  unvalidated (raw counts)     → alt_data            │
+└──────────────────────────┬───────────────────────────────────────────────────────────┘
+                           ▼
+        fuse(): Σwᵢsᵢ/Σwᵢ over available scores — unvalidated producers are
+        FORCED to weight 0 at startup (typed guard, not convention). Current
+        config {percentile: 1.0, rest: 0} ⇒ fused score ≡ percentile composite;
+        raising any other weight is a deliberate, validation-gated future step.
 
-yfinance news        ──► llm/news_risk.py (schema+prompt ready, Haiku 4.5; call mocked) ─ news_risk
-yfinance analyst/insider ──────────────────────────────────────────────────────────────── alt_data
-^VIX                 ──► risk_categories.regime_adjusted_weights ─────────────── market_regime
 2008/2020/2022 scenarios ──► stress_test.py (percentile score only, beta-scaled shocks) ─ stress_test
                 │
                 ▼
