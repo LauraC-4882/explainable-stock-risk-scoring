@@ -4,6 +4,12 @@
 
 A production-style system that predicts **downside risk** and **volatility** for individual stocks using live market data fetched via `yfinance`, technical indicators, and machine learning models (XGBoost + sklearn Pipeline).
 
+**Project status (as of 2026-07-19):**
+
+- **Validated & live**: percentile composite score (quintile backtest + Kupiec POF, see *Score Validation*); ML drawdown leg (walk-forward AUC 0.671 on 56 tickers × 5y); producer-layer architecture with typed validation-gated fusion weights ([G1]); TTL-cached fetcher with real timeouts ([C3]); end-to-end smoke + visual-regression harnesses ([D1]/[D2]); Render deploy (full pipeline).
+- **Landed, experiments pending a data window**: [G2] label engineering (vol-scaled dynamic thresholds + triple-barrier first-touch labels, unit-tested; the three-way walk-forward comparison needs a fresh 56×5y fetch, currently blocked by the Yahoo datacenter-IP throttling documented under *Deployment*) and [G3] Alpha158-style factor grid + IC/FDR screen (89 factors implemented and golden-tested; screening + feature-surface comparison queued behind the same data fetch).
+- **Known limits, documented not hidden**: `var_95_21d` under-states risk ~2× (Kupiec-rejected — measured, unpatched); ML recall is low (0.11); scores are not comparable across stocks (by construction); yfinance has no SLA and throttles datacenter IPs for extended windows.
+
 ## Architecture
 
 ```
@@ -783,14 +789,36 @@ stock_risk/
 
 ## Dependencies & Citations
 
+Libraries (backend):
+
 - **yfinance** — Aroussi, R. (2019). *yfinance: Download market data from Yahoo Finance's API*. https://github.com/ranaroussi/yfinance
 - **XGBoost** — Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. *Proceedings of KDD 2016*, 785–794. https://doi.org/10.1145/2939672.2939785
 - **scikit-learn** — Pedregosa et al. (2011). Scikit-learn: Machine Learning in Python. *JMLR*, 12, 2825–2830. https://jmlr.org/papers/v12/pedregosa11a.html
+- **SHAP** — Lundberg, S. M., & Lee, S.-I. (2017). A unified approach to interpreting model predictions. *NeurIPS 30*. https://github.com/shap/shap
+- **pandas / NumPy / SciPy** — the scientific-Python stack every computation here rests on. https://pandas.pydata.org · https://numpy.org · https://scipy.org
 - **pandas-ta** — Twang (2021). *pandas_ta: A Technical Analysis Library in Python*. https://github.com/twopirllc/pandas-ta
 - **arch** — Sheppard, K. (2023). *ARCH: Autoregressive Conditional Heteroskedasticity models in Python*. https://github.com/bashtage/arch
-- **FastAPI** — Ramírez, S. (2021). *FastAPI*. https://fastapi.tiangolo.com
+- **pandera** — Niels Bantilan (2020). pandera: Statistical data validation of pandas dataframes. *Proceedings of SciPy 2020*. https://pandera.readthedocs.io
+- **cachetools** — Kemmler, T. *cachetools: Extensible memoizing collections and decorators*. https://github.com/tkem/cachetools
+- **FastAPI** — Ramírez, S. (2021). *FastAPI*. https://fastapi.tiangolo.com — plus **Pydantic**, **SQLModel**, **uvicorn**, **PyJWT**, **bcrypt** for the API/auth layer
 - **Streamlit** — Streamlit Inc. (2019–2026). *Streamlit: The fastest way to build data apps*. https://streamlit.io
+- **Gradio** — Abid et al. (2019). Gradio: Hassle-free sharing and testing of ML models in the wild. https://gradio.app (`ui/gradio_app.py`)
 - **Plotly** — Plotly Technologies Inc. (2015–2026). *Plotly Python graphing library*. https://plotly.com/python
 - **Prometheus / prometheus-client** — Prometheus Authors (2012–2026). https://prometheus.io
-- **Value at Risk methodology** — Jorion, P. (2006). *Value at Risk: The New Benchmark for Managing Financial Risk* (3rd ed.). McGraw-Hill.
-- **GARCH models** — Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. *Journal of Econometrics*, 31(3), 307–327. https://doi.org/10.1016/0304-4076(86)90063-1
+- **loguru**, **pytest**, **ruff**, **Playwright** (screenshot harness `scripts/ui_shot.sh`) — logging/test/lint/visual-regression tooling
+
+Libraries (web frontend): **React** (https://react.dev), **Chart.js** + react-chartjs-2 (https://www.chartjs.org), **Tailwind CSS** (https://tailwindcss.com), **Vite** (https://vitejs.dev).
+
+Methodology sources (implemented from the papers/books — none of these are code dependencies):
+
+- **Value at Risk** — Jorion, P. (2006). *Value at Risk: The New Benchmark for Managing Financial Risk* (3rd ed.). McGraw-Hill.
+- **GARCH** — Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. *Journal of Econometrics*, 31(3), 307–327. https://doi.org/10.1016/0304-4076(86)90063-1
+- **VaR backtesting (POF test)** — Kupiec, P. (1995). Techniques for verifying the accuracy of risk measurement models. *Journal of Derivatives*, 3(2), 73–84. (`scripts/validate_score.py`)
+- **EWMA volatility** — J.P. Morgan/Reuters (1996). *RiskMetrics — Technical Document* (4th ed.). (`features/risk_metrics.py`, λ=0.94)
+- **Amihud illiquidity** — Amihud, Y. (2002). Illiquidity and stock returns. *Journal of Financial Markets*, 5(1), 31–56.
+- **Triple-barrier labeling & the fixed-horizon critique** — López de Prado, M. (2018). *Advances in Financial Machine Learning*, ch. 3. Wiley. (`models/feature_sets.py`'s `vol_scaled`/`triple_barrier` label modes, [G2]; the concept's reference implementations — mlfinlab, now frozen/commercial, and its active successors vectorbt/skfolio/mlfinpy — were consulted as prior art, but the ~30-line pandas implementation here is original and dependency-free)
+- **Alpha158 factor recipe** — Yang, X., et al. (2020). Qlib: An AI-oriented quantitative investment platform. arXiv:2009.11189. https://github.com/microsoft/qlib (`features/alpha_grid.py` transplants the operator-by-window recipe — K-bar shape features + rolling price/volume operator grid — **without** taking qlib as a dependency)
+- **Factor screening discipline (IC + FDR)** — Jansen, S. (2020). *Machine Learning for Algorithmic Trading* (2nd ed.), ch. 7. Packt. Combined with Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate. *JRSS B*, 57(1), 289–300. (`scripts/factor_screen.py`)
+- **Isotonic probability calibration** — Zadrozny, B., & Elkan, C. (2002). Transforming classifier scores into accurate multiclass probability estimates. *KDD 2002*.
+
+Data sources: **Yahoo Finance** via yfinance (unofficial API — no SLA, personal/research use; see Data Quality & Limitations). Deployment platforms evaluated: **Render**, **Hugging Face Spaces**, **Streamlit Community Cloud**.
