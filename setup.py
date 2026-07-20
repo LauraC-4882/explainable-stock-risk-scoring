@@ -10,6 +10,11 @@ setup(
         "yfinance>=0.2.40",  # kept: options chain/news + index symbols + US fallback w/o a Twelve Data key
         "akshare>=1.18",  # CN A-shares + HK equities — verified live over eastmoney's Yahoo-style throttle
         "pandas>=2.0",
+        "pyarrow>=14.0",  # parquet engine for the snapshot fallback (fetcher.py) — pandas needs
+                          # pyarrow/fastparquet explicitly for to_parquet/read_parquet; this used
+                          # to be pulled in transitively by streamlit, which masked the missing
+                          # declaration until streamlit was removed and CI (a clean install, unlike
+                          # a long-lived local venv) broke on it
         "numpy>=1.26",
         "scikit-learn>=1.7,<1.8",  # committed model artefact is a 1.7.x pickle — 1.9.0 broke it in CI
         "xgboost>=2.0,<3.0",  # shap 0.49.1 can't parse XGBoost 3.x's base_score serialization format
