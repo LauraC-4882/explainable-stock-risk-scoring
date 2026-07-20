@@ -1,4 +1,4 @@
-.PHONY: install train score api dashboard monitor test lint format smoke validate analyze-categories
+.PHONY: install train score api monitor test lint format smoke validate analyze-categories
 
 install:
 	pip install -e ".[dev]"
@@ -11,9 +11,6 @@ score:
 
 api:
 	uvicorn src.stock_risk.api.app:app --reload --host 0.0.0.0 --port 8000
-
-dashboard:
-	streamlit run ui/dashboard.py
 
 monitor:
 	python scripts/monitor.py --interval 3600

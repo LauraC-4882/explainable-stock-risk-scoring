@@ -54,12 +54,11 @@ ScoringContext            ← shared inputs fetched once (benchmark returns, ^VI
                 ▼
           Risk Scorecard (0–100 + label + category breakdown)
                 │
-       ┌────────┬────────┐
-       ▼        ▼        ▼
-  FastAPI   React SPA   Streamlit
-  REST API  ui/web/     Dashboard
-  /api/*    (built,     ui/dashboard.py
-            served at /)
+       ┌────────┐
+       ▼        ▼
+  FastAPI   React SPA
+  REST API  ui/web/
+  /api/*    (built, served at /)
 ```
 
 ## Components
@@ -81,7 +80,6 @@ ScoringContext            ← shared inputs fetched once (benchmark returns, ^VI
 | `monitoring/drift.py` | PSI + KS-test feature drift detection |
 | `monitoring/metrics.py` | Prometheus gauges and JSONL score logging |
 | `api/app.py` | **FastAPI** REST endpoints with Prometheus `/metrics` |
-| `ui/dashboard.py` | **Streamlit** interactive dashboard with Plotly charts |
 
 ## Quick Start
 
@@ -102,14 +100,10 @@ python scripts/train.py --tickers AAPL MSFT GOOGL --lookback 730
 # 4. Score a single ticker (CLI)
 python scripts/score.py --ticker TSLA
 
-# 5. Launch the Streamlit dashboard
-streamlit run ui/dashboard.py
-# or:  make dashboard
-
-# 6. Build the React web frontend (one-time / after any ui/web change)
+# 5. Build the React web frontend (one-time / after any ui/web change)
 cd ui/web && npm install && npm run build && cd ../..
 
-# 7. Start the REST API — serves the built React app at http://localhost:8000/
+# 6. Start the REST API — serves the built React app at http://localhost:8000/
 uvicorn src.stock_risk.api.app:app --reload
 # or:  make api
 
@@ -546,19 +540,6 @@ Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no e
 
 Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.
 
-## Streamlit Dashboard
-
-Run `streamlit run ui/dashboard.py` (or `make dashboard`) and open `http://localhost:8501`.
-
-Features:
-- Risk gauge (0–100) with colour-coded label
-- Key metric tiles: volatility, VaR, CVaR, max drawdown, beta, implied vol
-- Interactive candlestick chart with Bollinger Bands and EMAs
-- RSI panel with overbought/oversold lines
-- Rolling volatility comparison (21d vs 63d)
-- Rolling drawdown from peak
-- Raw feature table and JSON scorecard expanders
-
 ## Deployment
 
 ### Render ([F2]) — live at https://explainable-stock-risk-scoring.onrender.com
@@ -818,7 +799,6 @@ stock_risk/
 │   ├── api/           app.py  (FastAPI)
 │   └── config.py
 ├── ui/
-│   ├── dashboard.py   (Streamlit)
 │   └── web/           React + Vite + Tailwind SPA (src/, package.json, dist/ after build)
 ├── scripts/           train.py · score.py · monitor.py
 ├── tests/             test_data · test_features · test_llm · test_models ·
@@ -842,9 +822,7 @@ Libraries (backend):
 - **pandera** — Niels Bantilan (2020). pandera: Statistical data validation of pandas dataframes. *Proceedings of SciPy 2020*. https://pandera.readthedocs.io
 - **cachetools** — Kemmler, T. *cachetools: Extensible memoizing collections and decorators*. https://github.com/tkem/cachetools
 - **FastAPI** — Ramírez, S. (2021). *FastAPI*. https://fastapi.tiangolo.com — plus **Pydantic**, **SQLModel**, **uvicorn**, **PyJWT**, **bcrypt** for the API/auth layer
-- **Streamlit** — Streamlit Inc. (2019–2026). *Streamlit: The fastest way to build data apps*. https://streamlit.io
 - **Gradio** — Abid et al. (2019). Gradio: Hassle-free sharing and testing of ML models in the wild. https://gradio.app (`ui/gradio_app.py`)
-- **Plotly** — Plotly Technologies Inc. (2015–2026). *Plotly Python graphing library*. https://plotly.com/python
 - **Prometheus / prometheus-client** — Prometheus Authors (2012–2026). https://prometheus.io
 - **loguru**, **pytest**, **ruff**, **Playwright** (screenshot harness `scripts/ui_shot.sh`) — logging/test/lint/visual-regression tooling
 
@@ -867,4 +845,4 @@ Methodology sources (implemented from the papers/books — none of these are cod
 - **QLIKE loss for vol-forecast evaluation** — Patton, A. (2011). Volatility forecast comparison using imperfect volatility proxies. *Journal of Econometrics*, 160(1). (`scripts/compare_vol_models.py`)
 - **Option-implied crash risk (stock-level put skew)** — Xing, Y., Zhang, X., & Zhao, R. (2010). What does the individual option volatility smirk tell us about future equity returns? *JFQA*, 45(3). (`fetch_options_signals`, [G4])
 
-Data sources: **Yahoo Finance** via yfinance (unofficial API — no SLA, personal/research use; see Data Quality & Limitations). Deployment platforms evaluated: **Render**, **Hugging Face Spaces**, **Streamlit Community Cloud**.
+Data sources: **Yahoo Finance** via yfinance (unofficial API — no SLA, personal/research use; see Data Quality & Limitations). Deployment platforms evaluated: **Render** (live), **Hugging Face Spaces** ([F3], closed by platform paywalls, see Deployment), **Streamlit Community Cloud** (deployed under [F1], later retired in favor of a single canonical product on Render — the standalone `ui/dashboard.py` frontend was removed from the repo).

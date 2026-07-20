@@ -30,8 +30,6 @@ setup(
         "PyYAML>=6.0",
         "python-dotenv>=1.0",
         "loguru>=0.7",
-        "streamlit>=1.35",
-        "plotly>=5.22",
         "cachetools>=5.3",  # TTL cache for MarketDataFetcher — see [C3]
         "gradio>=5.0",  # ui/gradio_app.py — [F3]'s Hugging Face Space
     ],
