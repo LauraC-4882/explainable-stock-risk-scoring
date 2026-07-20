@@ -1,10 +1,38 @@
-"""Live market data fetcher using yfinance."""
+"""Live market data fetcher.
+
+[Data-source migration, 2026-07] Price history no longer comes from a single
+source. yfinance's chronic datacenter-IP throttling (see README "Deployment")
+motivated splitting fetch_history by market, each routed to whichever source
+was actually verified live (not assumed) to work for that market:
+
+  - US equities  -> Twelve Data (a real commercial API, not a scrape) when
+    TWELVE_DATA_KEY is configured; yfinance otherwise (unchanged behavior
+    for local dev/CI without a key).
+  - CN A-shares   -> akshare, Sina-backed (`stock_zh_a_daily`) — verified
+    live; akshare's eastmoney-backed functions (the library's own most
+    common examples, incl. `stock_zh_a_hist`) got connection-reset from
+    this dev machine on every attempt, Sina/Tencent-backed ones didn't.
+  - CN ETFs (the CSI 300 benchmark) -> akshare `fund_etf_hist_sina` — the
+    stock-only Sina endpoint above 404s on ETF codes, so the CN path tries
+    the stock endpoint first and falls back to the ETF one.
+  - HK equities   -> akshare, Tencent-backed (`stock_hk_daily`) — verified
+    live, full OHLCV including real volume.
+  - Index symbols (^VIX, ^VIX3M, ^HSI — the HK benchmark) stay on
+    yfinance unconditionally: none of the above are equity/ETF data
+    sources, and index-level fetches are low-volume (a handful of calls,
+    not the per-scoring-request hot path this migration targets).
+
+Every path still funnels through the same OHLCV contract (validate_ohlcv),
+the same TTL cache, and the same snapshot fallback below — a provider
+outage degrades exactly like a yfinance outage always has.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+import akshare as ak
 import pandas as pd
 import requests
 import yfinance as yf
@@ -20,6 +48,40 @@ _FAST_TTL_SECONDS = 15 * 60
 # Fundamentals/news/analyst/insider activity change far less often; caching
 # them for a day cuts real request volume without materially staling the data.
 _SLOW_TTL_SECONDS = 24 * 60 * 60
+
+# period string -> calendar days of history to request/keep. Padded above the
+# trading-day equivalent (roughly 0.69x calendar days) so weekends/holidays
+# never leave a request short; only "2y" and "5y" are actually reached by the
+# app today (see scorer.py's _fetch_period_for_display), the rest are kept
+# for completeness/robustness against future callers.
+_PERIOD_TO_DAYS = {
+    "5d": 7, "1mo": 31, "3mo": 93, "6mo": 186,
+    "1y": 370, "2y": 740, "5y": 1830, "10y": 3660,
+}
+
+
+def _is_index_symbol(ticker: str) -> bool:
+    return ticker.startswith("^")
+
+
+def _is_cn_ticker(ticker: str) -> bool:
+    return ticker.upper().endswith((".SS", ".SZ"))
+
+
+def _is_hk_ticker(ticker: str) -> bool:
+    return ticker.upper().endswith(".HK")
+
+
+def _akshare_cn_symbol(ticker: str) -> str:
+    """"600519.SS" -> "sh600519", "000001.SZ" -> "sz000001"."""
+    code, _, suffix = ticker.upper().partition(".")
+    prefix = "sz" if suffix == "SZ" else "sh"
+    return f"{prefix}{code}"
+
+
+def _akshare_hk_symbol(ticker: str) -> str:
+    """"0700.HK" -> "00700" — akshare's HK functions want a 5-digit code."""
+    return ticker.upper().removesuffix(".HK").zfill(5)
 
 
 class _TimeoutSession(requests.Session):
@@ -98,25 +160,26 @@ class MarketDataFetcher:
                 logger.info(
                     f"Fetching history for {ticker} | period={period} interval={interval}"
                 )
-                tk = yf.Ticker(ticker, session=self._session)
-                if start or end:
-                    df = tk.history(
-                        start=start, end=end, interval=interval,
-                        auto_adjust=True, timeout=self.timeout,
-                    )
+                # Only the plain period-based path (no explicit date window)
+                # is covered by the new per-market sources — every current
+                # caller uses period=, and start/end is kept on the original
+                # yfinance path since no caller actually exercises it today
+                # (see the module docstring for why each market routes where
+                # it does).
+                if not (start or end) and interval == "1d":
+                    if _is_cn_ticker(ticker):
+                        df = self._fetch_cn_akshare(ticker, period)
+                    elif _is_hk_ticker(ticker):
+                        df = self._fetch_hk_akshare(ticker, period)
+                    elif not _is_index_symbol(ticker) and settings.twelve_data_key:
+                        df = self._fetch_us_twelvedata(ticker, period)
+                    else:
+                        df = self._fetch_yfinance(ticker, period, interval, start, end)
                 else:
-                    df = tk.history(
-                        period=period, interval=interval,
-                        auto_adjust=True, timeout=self.timeout,
-                    )
+                    df = self._fetch_yfinance(ticker, period, interval, start, end)
 
                 if df.empty:
                     raise ValueError(f"No data returned for ticker '{ticker}'")
-
-                df.index = pd.to_datetime(df.index, utc=True).tz_convert(None)
-                df.index.name = "date"
-                df.columns = [c.lower() for c in df.columns]
-                df = df[["open", "high", "low", "close", "volume"]]
                 df = validate_ohlcv(df, ticker)
             except Exception as exc:
                 # [IP-block resilience] Yahoo throttles shared datacenter IPs
@@ -137,6 +200,98 @@ class MarketDataFetcher:
             return df
 
         return self._cached(self._fast_cache, key, _do)
+
+    def _fetch_yfinance(
+        self, ticker: str, period: str, interval: str,
+        start: Optional[str], end: Optional[str],
+    ) -> pd.DataFrame:
+        """The original path — still used for indices, US without a Twelve
+        Data key, and any explicit start/end window."""
+        tk = yf.Ticker(ticker, session=self._session)
+        if start or end:
+            df = tk.history(
+                start=start, end=end, interval=interval,
+                auto_adjust=True, timeout=self.timeout,
+            )
+        else:
+            df = tk.history(
+                period=period, interval=interval,
+                auto_adjust=True, timeout=self.timeout,
+            )
+        if df.empty:
+            return df
+        df.index = pd.to_datetime(df.index, utc=True).tz_convert(None)
+        df.index.name = "date"
+        df.columns = [c.lower() for c in df.columns]
+        return df[["open", "high", "low", "close", "volume"]]
+
+    def _fetch_us_twelvedata(self, ticker: str, period: str) -> pd.DataFrame:
+        """US equities via Twelve Data's REST API directly (no SDK — one
+        endpoint, and this keeps the same timeout/error-handling shape as
+        every other source here). Response shape verified against Twelve
+        Data's own docs: {"values": [{"datetime", "open", "high", "low",
+        "close", "volume"}, ...], "status": "ok"|"error"}, newest-first."""
+        days = _PERIOD_TO_DAYS.get(period, 740)
+        outputsize = min(5000, max(30, int(days * 0.75)))  # ~0.69 trading-days/calendar-day, padded
+        resp = requests.get(
+            "https://api.twelvedata.com/time_series",
+            params={
+                "symbol": ticker,
+                "interval": "1day",
+                "outputsize": outputsize,
+                "apikey": settings.twelve_data_key,
+            },
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        if payload.get("status") == "error":
+            raise ValueError(f"Twelve Data error for {ticker}: {payload.get('message')}")
+        values = payload.get("values")
+        if not values:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
+        df = pd.DataFrame(values)
+        df["datetime"] = pd.to_datetime(df["datetime"])
+        df = df.set_index("datetime").sort_index()
+        df.index.name = "date"
+        return df[["open", "high", "low", "close", "volume"]].astype(float)
+
+    def _fetch_cn_akshare(self, ticker: str, period: str) -> pd.DataFrame:
+        """CN A-shares via akshare's Sina-backed stock_zh_a_daily; falls back
+        to the Sina ETF endpoint for ETF codes (e.g. the CSI 300 benchmark
+        510300.SS), which 404s on the stock-only endpoint. Both verified
+        live — akshare's eastmoney-backed equivalents did not (see module
+        docstring)."""
+        symbol = _akshare_cn_symbol(ticker)
+        try:
+            df = ak.stock_zh_a_daily(symbol=symbol, adjust="qfq")
+        except Exception:
+            df = ak.fund_etf_hist_sina(symbol=symbol)
+        return self._normalize_akshare_history(df, period)
+
+    def _fetch_hk_akshare(self, ticker: str, period: str) -> pd.DataFrame:
+        """HK equities via akshare's Tencent-backed stock_hk_daily — verified
+        live, full OHLCV including real volume."""
+        symbol = _akshare_hk_symbol(ticker)
+        df = ak.stock_hk_daily(symbol=symbol, adjust="qfq")
+        return self._normalize_akshare_history(df, period)
+
+    @staticmethod
+    def _normalize_akshare_history(df: pd.DataFrame, period: str) -> pd.DataFrame:
+        """akshare's history functions return full available history, not a
+        windowed period — trim to the requested window here, uniformly for
+        every akshare-backed market."""
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        df = df.copy()
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date").sort_index()
+        df.index.name = "date"
+        df = df[["open", "high", "low", "close", "volume"]].astype(float)
+        days = _PERIOD_TO_DAYS.get(period, 740)
+        cutoff = df.index.max() - pd.Timedelta(days=days)
+        return df[df.index >= cutoff]
 
     @staticmethod
     def _snapshot_path(ticker: str, period: str, interval: str) -> Path:

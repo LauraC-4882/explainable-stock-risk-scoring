@@ -7,7 +7,8 @@ setup(
     package_dir={"": "src"},
     python_requires=">=3.10",
     install_requires=[
-        "yfinance>=0.2.40",
+        "yfinance>=0.2.40",  # kept: options chain/news + index symbols + US fallback w/o a Twelve Data key
+        "akshare>=1.18",  # CN A-shares + HK equities — verified live over eastmoney's Yahoo-style throttle
         "pandas>=2.0",
         "numpy>=1.26",
         "scikit-learn>=1.7,<1.8",  # committed model artefact is a 1.7.x pickle — 1.9.0 broke it in CI

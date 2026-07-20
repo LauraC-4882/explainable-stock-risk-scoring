@@ -164,7 +164,16 @@ class RiskScorer:
                 logger.warning(f"Could not fetch benchmark {benchmark_ticker}: {exc}")
 
         df = self.risk.compute(df, benchmark_returns=benchmark_log_return)
-        info = self.fetcher.fetch_info(ticker)
+        # fetch_info is still yfinance-only (unlike fetch_history — see
+        # data/fetcher.py's migration) and every downstream use is
+        # info.get(...)-safe, so a failure here degrades to an empty dict
+        # (matching the benchmark-fetch pattern above) instead of taking
+        # down a request whose actual price history fetch already succeeded.
+        try:
+            info = self.fetcher.fetch_info(ticker)
+        except Exception as exc:
+            logger.warning(f"Could not fetch info for {ticker}: {exc}")
+            info = {}
         # [G4] one chain snapshot feeds both the compat implied_volatility
         # field and the options_implied block (put skew etc.).
         options_signals = self.fetcher.fetch_options_signals(ticker)

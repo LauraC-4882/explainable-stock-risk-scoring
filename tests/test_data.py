@@ -437,3 +437,154 @@ def test_fetch_history_still_raises_without_snapshot():
     ):
         with pytest.raises(RuntimeError, match="Rate limited"):
             fetcher.fetch_history("NOSNAP", period="1y")
+
+
+# ── [Data-source migration] per-market dispatch ──────────────────────────────
+# Real akshare/Twelve Data shapes verified live (see fetcher.py's module
+# docstring); these tests mock those exact shapes so CI never depends on a
+# live external call.
+
+
+def _akshare_cn_df(n: int = 60) -> pd.DataFrame:
+    """Shape verified live against ak.stock_zh_a_daily (Sina-backed)."""
+    dates = pd.bdate_range("2024-01-01", periods=n)
+    close = 100 * (1 + np.random.randn(n).cumsum() * 0.01)
+    return pd.DataFrame({
+        "date": dates,
+        "open": close * 0.99, "high": close * 1.01, "low": close * 0.98, "close": close,
+        "volume": np.random.randint(1_000_000, 10_000_000, n),
+        "amount": close * 1_000_000, "outstanding_share": 1.25e9, "turnover": 0.005,
+    })
+
+
+def _akshare_hk_df(n: int = 60) -> pd.DataFrame:
+    """Shape verified live against ak.stock_hk_daily (Tencent-backed)."""
+    dates = pd.bdate_range("2024-01-01", periods=n)
+    close = 100 * (1 + np.random.randn(n).cumsum() * 0.01)
+    return pd.DataFrame({
+        "date": dates,
+        "open": close * 0.99, "high": close * 1.01, "low": close * 0.98, "close": close,
+        "volume": np.random.randint(1_000_000, 10_000_000, n), "amount": close * 1_000_000,
+    })
+
+
+@pytest.mark.parametrize(
+    "ticker, expected",
+    [("600519.SS", "sh600519"), ("000001.SZ", "sz000001"), ("600519", "sh600519")],
+)
+def test_akshare_cn_symbol_conversion(ticker, expected):
+    from stock_risk.data.fetcher import _akshare_cn_symbol
+    assert _akshare_cn_symbol(ticker) == expected
+
+
+@pytest.mark.parametrize("ticker, expected", [("0700.HK", "00700"), ("700.hk", "00700")])
+def test_akshare_hk_symbol_conversion(ticker, expected):
+    from stock_risk.data.fetcher import _akshare_hk_symbol
+    assert _akshare_hk_symbol(ticker) == expected
+
+
+def test_fetch_history_routes_cn_ticker_to_akshare_stock_endpoint():
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.ak.stock_zh_a_daily", return_value=_akshare_cn_df()) as m, \
+         patch("stock_risk.data.fetcher.yf.Ticker") as yf_ticker:
+        df = fetcher.fetch_history("600519.SS", period="1y")
+    m.assert_called_once_with(symbol="sh600519", adjust="qfq")
+    yf_ticker.assert_not_called()
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+    assert df.index.name == "date"
+
+
+def test_fetch_history_falls_back_to_etf_endpoint_for_cn_etf_codes():
+    """The stock-only Sina endpoint 404s on ETF codes (verified live against
+    the CSI 300 benchmark, 510300.SS) — fall back to the ETF endpoint."""
+    fetcher = MarketDataFetcher()
+    with patch(
+        "stock_risk.data.fetcher.ak.stock_zh_a_daily",
+        side_effect=ValueError("no JSON object could be decoded"),
+    ), patch(
+        "stock_risk.data.fetcher.ak.fund_etf_hist_sina", return_value=_akshare_cn_df()
+    ) as etf_mock:
+        df = fetcher.fetch_history("510300.SS", period="1y")
+    etf_mock.assert_called_once_with(symbol="sh510300")
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+
+
+def test_fetch_history_routes_hk_ticker_to_akshare():
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.ak.stock_hk_daily", return_value=_akshare_hk_df()) as m, \
+         patch("stock_risk.data.fetcher.yf.Ticker") as yf_ticker:
+        df = fetcher.fetch_history("0700.HK", period="1y")
+    m.assert_called_once_with(symbol="00700", adjust="qfq")
+    yf_ticker.assert_not_called()
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+
+
+def test_fetch_history_index_symbols_stay_on_yfinance():
+    """^VIX/^VIX3M/^HSI are never equities/ETFs — akshare/Twelve Data don't
+    apply, regardless of any configured Twelve Data key."""
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = _make_ohlcv(50)
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker) as yf_ticker, \
+         patch("stock_risk.data.fetcher.ak.stock_zh_a_daily") as ak_mock:
+        fetcher.fetch_history("^VIX", period="1y")
+    yf_ticker.assert_called_once()
+    ak_mock.assert_not_called()
+
+
+def test_fetch_history_us_ticker_uses_yfinance_without_a_twelve_data_key():
+    """Default (no TWELVE_DATA_KEY configured) — unchanged local-dev/CI
+    behavior, not a silent dependency on an external paid-ish service."""
+    from stock_risk.config import settings
+    assert settings.twelve_data_key is None  # the untouched default
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = _make_ohlcv(50)
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker) as yf_ticker:
+        fetcher.fetch_history("AAPL", period="1y")
+    yf_ticker.assert_called_once()
+
+
+def test_fetch_history_us_ticker_uses_twelvedata_when_key_configured(monkeypatch):
+    from stock_risk.config import settings
+    monkeypatch.setattr(settings, "twelve_data_key", "fake-key")
+
+    payload = {
+        "status": "ok",
+        "values": [
+            {"datetime": "2024-01-02", "open": "100", "high": "101", "low": "99",
+             "close": "100.5", "volume": "1000000"},
+            {"datetime": "2024-01-03", "open": "100.5", "high": "102", "low": "100",
+             "close": "101.5", "volume": "1100000"},
+        ],
+    }
+    mock_response = MagicMock()
+    mock_response.json.return_value = payload
+    mock_response.raise_for_status.return_value = None
+
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.requests.get", return_value=mock_response) as get_mock, \
+         patch("stock_risk.data.fetcher.yf.Ticker") as yf_ticker:
+        df = fetcher.fetch_history("AAPL", period="1y")
+
+    assert get_mock.call_args.kwargs["params"]["symbol"] == "AAPL"
+    assert get_mock.call_args.kwargs["params"]["apikey"] == "fake-key"
+    yf_ticker.assert_not_called()
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+    # Twelve Data returns newest-first — normalized output must be ascending.
+    assert df.index.is_monotonic_increasing
+    assert df.iloc[0]["open"] == 100.0
+
+
+def test_fetch_history_twelvedata_error_status_raises(monkeypatch):
+    from stock_risk.config import settings
+    monkeypatch.setattr(settings, "twelve_data_key", "fake-key")
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"status": "error", "message": "invalid symbol"}
+    mock_response.raise_for_status.return_value = None
+
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.requests.get", return_value=mock_response):
+        with pytest.raises(ValueError, match="invalid symbol"):
+            fetcher.fetch_history("BOGUS", period="1y")

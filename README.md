@@ -120,7 +120,7 @@ from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
 
 fetcher = MarketDataFetcher()
-raw = fetcher.fetch_history("AAPL", period="2y")          # yfinance live
+raw = fetcher.fetch_history("AAPL", period="2y")          # Twelve Data (US) / akshare (CN, HK)
 df  = DataPreprocessor().process(raw)                      # clean
 df  = TechnicalFeatures().compute(df)                      # indicators
 df  = RiskMetrics().compute(df)                            # risk metrics
@@ -128,14 +128,35 @@ df  = RiskMetrics().compute(df)                            # risk metrics
 
 ## Data Quality & Limitations
 
-**yfinance is an unofficial scrape of Yahoo Finance, not a licensed data
-feed.** No SLA, no uptime guarantee, endpoints can change or disappear
-without notice, and its own terms of service don't permit commercial use —
-appropriate for a student/portfolio project, not for anything that would
-need a real data contract with an accountable vendor. If this were headed
-to production, the first change would be a paid source (e.g. Polygon.io,
-IEX Cloud, Tiingo's paid tier) behind the same `MarketDataFetcher`
-interface, so nothing downstream would need to change.
+**Price history is now split by market, not single-sourced from yfinance**
+(2026-07 migration, prompted by the chronic datacenter-IP throttling
+documented in Deployment below):
+
+| Market | Source | Why |
+|---|---|---|
+| US equities | **Twelve Data** (real commercial API) if `TWELVE_DATA_KEY` is set, else yfinance | A real API vendor built for programmatic/cloud traffic isn't subject to the same IP-reputation throttle as scraping Yahoo's unofficial endpoint — the actual fix for the Render/CI throttling problem. Free plan: US-only, no options, 800 req/day. |
+| CN A-shares + the CSI 300 benchmark ETF | **akshare**, Sina-backed (`stock_zh_a_daily` / `fund_etf_hist_sina`) | Free, no key. akshare's own most-documented functions (eastmoney-backed, e.g. `stock_zh_a_hist`) got connection-reset on every attempt from this project's dev machine — verified live, not assumed; the Sina/Tencent-backed ones didn't. |
+| HK equities | **akshare**, Tencent-backed (`stock_hk_daily`) | Same reasoning; verified live with real OHLCV including volume. |
+| Index symbols (`^VIX`, `^VIX3M`, the HK benchmark `^HSI`) | yfinance, unconditionally | Not equities/ETFs — out of scope for the migration, and a low-volume path (a handful of calls, not the per-request hot path this migration targets). |
+
+All four paths still funnel through the same `validate_ohlcv()` contract,
+TTL cache, and snapshot fallback (below) — a provider outage degrades
+exactly like a yfinance outage always has. yfinance itself remains the
+source for options chains and news (`fetch_options_signals`, `fetch_news`)
+— both already optional, gracefully-degrading producers (see
+`RiskProducer`), so keeping them on the less-reliable free source costs
+nothing when it fails and doesn't block the higher-stakes fix above.
+`fetch_info` (fundamentals metadata) is also still yfinance-only; its
+call site in `scorer.py` now degrades to `{}` on failure rather than
+failing the whole request, matching the pattern the benchmark fetch
+already used.
+
+None of these are licensed, SLA-backed data feeds — akshare and yfinance
+are both unofficial scrapes, and even Twelve Data's free tier is meant for
+development/light use, not a production data contract. This remains a
+student/portfolio project's data layer, just a more resilient one; a real
+production deployment would still want a paid, accountable vendor for
+every market, not just US equities.
 
 **Bad data is validated at the fetch boundary, not trusted.**
 `data/validation.py`'s `validate_ohlcv()` runs on every `fetch_history()`
@@ -612,6 +633,14 @@ Consequences, stated plainly:
 - CI handles the same root cause explicitly: `make smoke` exits 75 when Yahoo
   throttles the runner, and CI surfaces that as a loud warning instead of a false
   "commit broken" red (see CLAUDE.md §2).
+- **Actual upstream fix shipped (2026-07-20): Twelve Data for US, akshare for
+  CN/HK.** The prediction two bullets up ("still requires an upstream-source
+  change") is exactly what happened — see "Data Quality & Limitations" above
+  for the full per-market breakdown. Set `TWELVE_DATA_KEY` on Render to route
+  US equities off yfinance entirely; CN/HK already do by default, no key
+  needed. The snapshot layer above stays as the safety net for whatever's
+  left on yfinance (options, news, index symbols) and for the free tiers'
+  own rate limits.
 
 **Still unmeasured, deliberately not guessed at:** a true cold-start number (the
 service was continuously warm during testing; Render's own claim is "50s or more"
@@ -816,6 +845,8 @@ stock_risk/
 Libraries (backend):
 
 - **yfinance** — Aroussi, R. (2019). *yfinance: Download market data from Yahoo Finance's API*. https://github.com/ranaroussi/yfinance
+- **Twelve Data** — Twelve Data Inc. *Twelve Data API*. https://twelvedata.com (US equity history when `TWELVE_DATA_KEY` is set)
+- **akshare** — Albert King & contributors. *AKShare: an elegant and simple financial data interface library*. https://github.com/akfamily/akshare (CN A-share + HK equity history)
 - **XGBoost** — Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. *Proceedings of KDD 2016*, 785–794. https://doi.org/10.1145/2939672.2939785
 - **scikit-learn** — Pedregosa et al. (2011). Scikit-learn: Machine Learning in Python. *JMLR*, 12, 2825–2830. https://jmlr.org/papers/v12/pedregosa11a.html
 - **SHAP** — Lundberg, S. M., & Lee, S.-I. (2017). A unified approach to interpreting model predictions. *NeurIPS 30*. https://github.com/shap/shap

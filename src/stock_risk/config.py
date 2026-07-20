@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     database_url: str | None = None
     jwt_secret_key: str = "dev-insecure-secret-change-me-before-deploying"
 
+    # [Data-source migration] Yahoo throttles shared datacenter IPs for
+    # extended windows (see README "Deployment") — Twelve Data is a real
+    # commercial API built for exactly this traffic pattern, unlike
+    # yfinance's scrape of Yahoo's unofficial endpoint. Unset, US equities
+    # fall back to yfinance (unchanged local-dev/CI behavior); set
+    # TWELVE_DATA_KEY to route US history through Twelve Data instead. Free
+    # plan is US-only (no HK, no options) — CN/HK already route through
+    # akshare (free, no key) regardless of this setting; see fetcher.py.
+    twelve_data_key: str | None = None
+
     def model_post_init(self, __context):
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.monitoring_log_dir.mkdir(parents=True, exist_ok=True)
