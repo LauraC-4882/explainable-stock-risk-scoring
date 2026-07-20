@@ -41,13 +41,18 @@ to loop.
 - [ ] Header/search/market-switcher controls don't overflow or overlap
       each other at this width.
 
-## Loading / empty states (capture separately if the harness is extended
-to cover them — not produced by the current single-ticker screenshot)
+## Empty state (`ui-empty.png`, desktop — captured since the Riscore rebrand)
 
-- [ ] Loading state shows the skeleton placeholder, not a broken/blank
-      card.
-- [ ] Empty state (no tickers added) shows the intended prompt text and
-      quick-pick chips, not a blank page.
+- [ ] The brand hero lockup renders complete and in order: shield-in-ring
+      icon, the Ri·score wordmark, the INVEST SMARTER · RISK SAFER
+      tagline, the circular slogan ring ("Know your risk." / INVEST WITH
+      CLARITY), then the search prompt and quick-pick chips.
+- [ ] The slogan ring's gradient arc is fully drawn (the harness waits out
+      the draw animation — a partially-drawn arc means the timing broke).
+- [ ] Quick-pick chips are legible and none of the ambient dots/orbs sit
+      on top of interactive content.
+- [ ] Loading state (skeleton) is still not captured by the harness — check
+      it manually if you touched CardSkeleton.
 
 ## Cross-check: do the two score displays on the same card agree?
 

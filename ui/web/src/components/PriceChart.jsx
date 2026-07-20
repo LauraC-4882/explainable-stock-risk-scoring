@@ -39,8 +39,8 @@ export default function PriceChart({ timeseries, color }) {
     scales: {
       x: { display: false },
       y: {
-        grid: { color: '#21262d' },
-        ticks: { color: '#8b949e', font: { size: 10 } },
+        grid: { color: '#2b1c45' },
+        ticks: { color: '#9d7cb8', font: { size: 10 } },
         border: { display: false },
       },
     },

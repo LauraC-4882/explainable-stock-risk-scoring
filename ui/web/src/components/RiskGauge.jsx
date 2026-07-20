@@ -29,11 +29,11 @@ export default function RiskGauge({ score, color }) {
           y1={t.y1.toFixed(1)}
           x2={t.x2.toFixed(1)}
           y2={t.y2.toFixed(1)}
-          stroke="#21262d"
+          stroke="#2b1c45"
           strokeWidth="2"
         />
       ))}
-      <path d={track} fill="none" stroke="#21262d" strokeWidth="9" strokeLinecap="round" />
+      <path d={track} fill="none" stroke="#2b1c45" strokeWidth="9" strokeLinecap="round" />
       {fill && (
         <path
           d={fill}
@@ -47,13 +47,13 @@ export default function RiskGauge({ score, color }) {
       <text x={cx} y="56" textAnchor="middle" fill={color} fontSize="14" fontWeight="900">
         {Math.round(score)}
       </text>
-      <text x="8" y="66" fill="#8b949e" fontSize="8.5">
+      <text x="8" y="66" fill="#9d7cb8" fontSize="8.5">
         0
       </text>
-      <text x={cx - 6} y="10" fill="#8b949e" fontSize="8.5">
+      <text x={cx - 6} y="10" fill="#9d7cb8" fontSize="8.5">
         50
       </text>
-      <text x="98" y="66" fill="#8b949e" fontSize="8.5">
+      <text x="98" y="66" fill="#9d7cb8" fontSize="8.5">
         100
       </text>
     </svg>

@@ -28,7 +28,21 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <div className="min-h-screen bg-bg text-slate-100">
+        <div className="relative min-h-screen text-slate-100">
+          {/* Ambient sci-fi/fintech backdrop: two slow breathing orbs and a
+              few twinkle dots on top of the fixed gradient+grid from
+              index.css — deliberately sparse, animated via transform/opacity
+              only, and stilled under prefers-reduced-motion. */}
+          <div aria-hidden="true">
+            <div className="bg-orb animate-breathe" style={{ width: 260, height: 260, top: -70, left: -70, background: '#7c3aed', opacity: 0.15 }} />
+            <div className="bg-orb animate-breathe" style={{ width: 220, height: 220, bottom: -50, right: -50, background: '#db2777', opacity: 0.13, animationDelay: '2s' }} />
+            <span className="animate-twinkle fixed left-[3%] top-[40%] h-1 w-1 rounded-full bg-accent" />
+            <span className="animate-twinkle fixed right-[4%] top-[26%] h-[3px] w-[3px] rounded-full bg-rose" style={{ animationDelay: '0.6s' }} />
+            <span className="animate-twinkle fixed bottom-[14%] left-[4%] h-[5px] w-[5px] rounded-full bg-gold" style={{ animationDelay: '1.1s' }} />
+            <span className="animate-twinkle fixed bottom-[30%] right-[3%] h-[3px] w-[3px] rounded-full bg-accent2" style={{ animationDelay: '1.6s' }} />
+          </div>
+
+          <div className="relative z-10">
           <Header />
 
           <div className="flex max-w-2xl flex-col gap-3.5 px-6 pt-6 sm:px-8">
@@ -49,6 +63,7 @@ export default function App() {
 
           <AuthModal />
           <WatchlistPanel onAdd={addStock} />
+          </div>
         </div>
       </AuthProvider>
     </LanguageProvider>

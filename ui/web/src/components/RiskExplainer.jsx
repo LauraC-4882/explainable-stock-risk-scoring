@@ -4,10 +4,10 @@ import { useLanguage } from '../i18n/LanguageContext'
 import InfoTooltip from './InfoTooltip'
 
 const BAR_COLOR = (score) => {
-  if (score >= 75) return '#f85149'
-  if (score >= 50) return '#f0883e'
-  if (score >= 25) return '#d29922'
-  return '#3fb950'
+  if (score >= 75) return '#f43f5e'
+  if (score >= 50) return '#fb923c'
+  if (score >= 25) return '#fbbf24'
+  return '#34d399'
 }
 
 // Beginner-friendly, expandable "what does this score mean" panel. Collapsed by

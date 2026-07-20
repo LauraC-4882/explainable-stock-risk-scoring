@@ -20,7 +20,13 @@ DESKTOP_VIEWPORT = {"width": 1280, "height": 900}
 MOBILE_VIEWPORT = {"width": 375, "height": 812}
 
 
-def shoot(base_url: str, viewport: dict, out_path: Path, errors: list[str]) -> None:
+def shoot(
+    base_url: str,
+    viewport: dict,
+    out_path: Path,
+    errors: list[str],
+    empty_out_path: Path | None = None,
+) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=viewport)
@@ -31,6 +37,14 @@ def shoot(base_url: str, viewport: dict, out_path: Path, errors: list[str]) -> N
         page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
+
+        if empty_out_path is not None:
+            # Brand hero (logo lockup + slogan ring) only renders in the
+            # empty state — capture it before adding a ticker so the visual
+            # review covers it too.
+            page.wait_for_timeout(3000)  # slogan arc: 0.8s delay + 1.8s draw — wait it out
+            empty_out_path.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(empty_out_path), full_page=True)
 
         # Fill + Enter immediately (no wait for the dropdown): SearchBar's
         # Enter handler only picks a dropdown suggestion if the debounced
@@ -72,17 +86,20 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     errors: list[str] = []
 
-    for label, viewport, filename in [
-        ("desktop", DESKTOP_VIEWPORT, "ui-desktop.png"),
-        ("mobile", MOBILE_VIEWPORT, "ui-mobile.png"),
+    for label, viewport, filename, empty_name in [
+        ("desktop", DESKTOP_VIEWPORT, "ui-desktop.png", "ui-empty.png"),
+        ("mobile", MOBILE_VIEWPORT, "ui-mobile.png", None),
     ]:
         out_path = out_dir / filename
-        shoot(args.base_url, viewport, out_path, errors)
-        size = out_path.stat().st_size if out_path.exists() else 0
-        print(f"[ui_shot] {label} -> {out_path} ({size} bytes)")
-        if size == 0:
-            print(f"[ui_shot] FAILED: {out_path} is empty or missing", file=sys.stderr)
-            return 1
+        empty_path = out_dir / empty_name if empty_name else None
+        shoot(args.base_url, viewport, out_path, errors, empty_out_path=empty_path)
+        checks = [(label, out_path)] + ([(f"{label}-empty", empty_path)] if empty_path else [])
+        for check_label, path in checks:
+            size = path.stat().st_size if path.exists() else 0
+            print(f"[ui_shot] {check_label} -> {path} ({size} bytes)")
+            if size == 0:
+                print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
+                return 1
 
     if errors:
         print("[ui_shot] console/page errors detected during capture:", file=sys.stderr)

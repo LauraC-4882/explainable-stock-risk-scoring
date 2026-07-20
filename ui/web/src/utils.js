@@ -1,12 +1,12 @@
 const RISK_COLORS = {
-  LOW: '#3fb950',
-  MODERATE: '#d29922',
-  HIGH: '#f0883e',
-  EXTREME: '#f85149',
+  LOW: '#34d399',
+  MODERATE: '#fbbf24',
+  HIGH: '#fb923c',
+  EXTREME: '#f43f5e',
 }
 
 export function riskColor(label) {
-  return RISK_COLORS[label] || '#8b949e'
+  return RISK_COLORS[label] || '#9d7cb8'
 }
 
 export function fmt(value, mul = 1, dp = 1, suffix = '') {

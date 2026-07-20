@@ -67,7 +67,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period])
 
-  const color = score ? riskColor(score.risk_label) : '#8b949e'
+  const color = score ? riskColor(score.risk_label) : '#9d7cb8'
   const subtitle =
     score?.name && score.name !== ticker
       ? score.name + (score.fundamentals?.sector ? ` · ${score.fundamentals.sector}` : '')
@@ -87,7 +87,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
   return (
     <div
-      className="animate-fade-in overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#30363d] hover:shadow-2xl hover:shadow-black/40"
+      className="animate-fade-in overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#3b2a5e] hover:shadow-2xl hover:shadow-black/40"
       style={{ animationDelay: `${Math.min(index, 8) * 60}ms`, animationFillMode: 'backwards' }}
     >
       <div className="flex items-start justify-between border-b border-border px-4 py-3.5">

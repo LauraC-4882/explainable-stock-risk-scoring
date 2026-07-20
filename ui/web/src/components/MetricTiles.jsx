@@ -28,8 +28,8 @@ export default function MetricTiles({ score }) {
 
 function Tile({ label, value, valueClass = '', tooltip, tooltipAlign = 'center' }) {
   return (
-    <div className="px-3.5 py-2.5 transition-colors duration-150 hover:bg-surface2/50">
-      <div className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+    <div className="px-2 py-2.5 transition-colors duration-150 hover:bg-surface2/50 sm:px-3.5">
+      <div className="flex items-center gap-1 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-wide text-muted sm:text-[0.65rem]">
         {label}
         {tooltip && <InfoTooltip text={tooltip} align={tooltipAlign} />}
       </div>

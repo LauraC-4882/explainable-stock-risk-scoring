@@ -1,22 +1,27 @@
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import LanguageSwitcher from './LanguageSwitcher'
+import { RiscoreIcon, RiscoreWordmark } from './Logo'
 
 export default function Header() {
   const { t } = useLanguage()
   const { user, watchlist, logout, openAuthModal, openWatchlistPanel } = useAuth()
 
   return (
-    <header className="relative overflow-hidden border-b border-border bg-gradient-to-br from-surface via-[#0d1117] to-[#111827] px-6 py-5 sm:px-8">
+    <header className="relative z-10 overflow-hidden border-b border-border bg-gradient-to-br from-surface via-[#140d20] to-[#1a1030] px-6 py-4 sm:px-8">
       <div className="pointer-events-none absolute -top-24 left-1/3 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
       <div className="relative flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="text-3xl drop-shadow-[0_0_12px_rgba(88,166,255,0.35)]">📉</div>
+        <div className="flex items-center gap-3.5">
+          <div className="drop-shadow-[0_0_14px_rgba(192,132,252,0.35)]">
+            <RiscoreIcon size={46} idPrefix="hdr" />
+          </div>
           <div>
-            <h1 className="bg-gradient-to-r from-accent to-[#bc8cff] bg-clip-text text-xl font-extrabold tracking-tight text-transparent sm:text-2xl">
-              {t('header.title')}
+            <h1 className="leading-none">
+              <RiscoreWordmark className="text-[1.55rem] sm:text-3xl" />
             </h1>
-            <p className="mt-0.5 text-xs text-muted sm:text-sm">{t('header.subtitle')}</p>
+            <p className="mt-1 text-[0.7rem] tracking-wide text-muted sm:text-xs">
+              {t('header.subtitle')}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">

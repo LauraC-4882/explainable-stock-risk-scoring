@@ -1,7 +1,7 @@
 export default {
   header: {
-    title: '股票风险分析器',
-    subtitle: '实时下行风险 · 方向信号 · yfinance 实时数据',
+    title: 'Riscore',
+    subtitle: 'Invest smarter, risk safer · 实时可解释风险评分 · 真实市场数据',
   },
   market: {
     us: '美股',
@@ -22,6 +22,7 @@ export default {
     '2y': '2年',
   },
   emptyState: {
+    slogan: 'Invest smarter · Risk safer',
     heading: '搜索任意股票，查看风险评分',
     body: '在上方输入公司名称或股票代码，评分基于真实市场数据实时更新。',
   },

@@ -7,16 +7,97 @@
     box-sizing: border-box;
   }
   body {
-    background: #07090f;
+    /* Riscore backdrop: deep-violet gradient + a faint fintech grid.
+       Restrained on purpose — the animated layer is two slow blurred orbs
+       and a few twinkle dots (see .bg-decor in App.jsx), nothing busier. */
+    background: linear-gradient(135deg, #0d0814 0%, #160d24 50%, #0f0a1a 100%) fixed;
     min-height: 100vh;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(168, 85, 247, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168, 85, 247, 0.05) 1px, transparent 1px);
+    background-size: 36px 36px;
+    pointer-events: none;
+    z-index: 0;
   }
 }
 
 @layer utilities {
   .glass {
-    background: rgba(13, 17, 23, 0.6);
+    background: rgba(20, 13, 32, 0.6);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+  }
+  .text-gradient-purple {
+    background: linear-gradient(135deg, #c084fc, #e879f9);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .text-gradient-rose {
+    background: linear-gradient(135deg, #f43f5e, #fb923c);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* ── Logo animations (see components/Logo.jsx) ────────────────────────────── */
+.logo-ring-spin {
+  transform-origin: 55px 55px;
+  animation: logo-spin 12s linear infinite;
+}
+.slogan-ring-spin-reverse {
+  transform-origin: 80px 80px;
+  animation: logo-spin 20s linear infinite reverse;
+}
+@keyframes logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.logo-chart-line {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: logo-draw 1.4s ease 0.4s forwards;
+}
+.slogan-arc-draw {
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  animation: logo-draw 1.8s ease 0.8s forwards;
+}
+@keyframes logo-draw {
+  to { stroke-dashoffset: 0; }
+}
+.logo-dot-pulse {
+  animation: logo-dot 2s ease-in-out infinite 1.5s;
+}
+@keyframes logo-dot {
+  0%, 100% { r: 4; }
+  50% { r: 6; }
+}
+.bg-orb {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-ring-spin,
+  .slogan-ring-spin-reverse,
+  .logo-chart-line,
+  .slogan-arc-draw,
+  .logo-dot-pulse,
+  .animate-breathe,
+  .animate-twinkle {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 
@@ -28,9 +109,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #21262d;
+  background: #2b1c45;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #30363d;
+  background: #3b2a5e;
 }

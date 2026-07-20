@@ -1,7 +1,7 @@
 export default {
   header: {
-    title: 'Stock Risk Analyzer',
-    subtitle: 'Real-time downside risk · direction signals · live data via yfinance',
+    title: 'Riscore',
+    subtitle: 'Invest smarter, risk safer — real-time explainable risk scoring on live market data',
   },
   market: {
     us: 'US',
@@ -22,6 +22,7 @@ export default {
     '2y': '2Y',
   },
   emptyState: {
+    slogan: 'Invest smarter · Risk safer',
     heading: 'Search any stock to see its risk',
     body: 'Type a company name or ticker above. Scores update live using real market data.',
   },
