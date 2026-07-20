@@ -16,7 +16,13 @@ from ..data.preprocessor import DataPreprocessor
 from ..features.risk_metrics import RiskMetrics
 from ..features.technical import TechnicalFeatures
 from . import risk_categories
-from .producers import ScoringContext, build_producers, fuse, resolve_weights, run_producer
+from .producers import (
+    ScoringContext,
+    build_producers,
+    fuse_with_composition,
+    resolve_weights,
+    run_producer,
+)
 from .stress_test import run_stress_test
 
 if TYPE_CHECKING:
@@ -78,7 +84,19 @@ def _trim_to_display_period(df: pd.DataFrame, period: str) -> pd.DataFrame:
     return df.tail(days) if days else df
 
 
-def _risk_note(benchmark_ticker: str) -> str:
+def _risk_note(benchmark_ticker: str, ml_share: float = 0.0) -> str:
+    """The per-response disclaimer, reflecting what THIS response's score is
+    actually made of (a request where the ML leg was unavailable renormalises
+    to pure percentile, and its note must say the pre-fusion thing)."""
+    if ml_share > 0:
+        pct = round((1 - ml_share) * 100)
+        ml = round(ml_share * 100)
+        return (
+            f"Score blends this stock's risk percentile relative to its own history ({pct}%) "
+            f"with a walk-forward-validated ML estimate of its 20-day severe-drawdown "
+            f"probability ({ml}%), plus market sensitivity vs. {benchmark_ticker} — it is "
+            "not a probability of loss, default probability, or investment recommendation."
+        )
     return (
         "Score reflects this stock's risk relative to its own historical distribution "
         f"(and market sensitivity vs. {benchmark_ticker}) — it is not a probability of loss, "
@@ -193,14 +211,18 @@ class RiskScorer:
 
         outputs = {p.name: run_producer(p, df, ctx) for p in self.producers}
 
-        # Current weight config is {percentile_composite: 1.0, rest: 0.0}, so
-        # the fused score equals the percentile composite exactly — turning on
-        # another producer's weight is a deliberate future behavior change,
-        # gated on its validation record (see producers/base.py). The fallback
-        # is unreachable today (composite_score always returns a number and
-        # percentile is a required producer) but keeps the None-contract honest.
-        fused = fuse(outputs, self.producer_weights)
+        # Fusion gate open (see build_producers): {percentile: 0.85,
+        # ml_drawdown: 0.15} by default. When the ML leg is unavailable the
+        # weights renormalise to the percentile alone — identical to the
+        # pre-fusion score — and risk_score_composition reports what actually
+        # contributed. The 50.0 fallback is unreachable today (composite_score
+        # always returns a number and percentile is a required producer) but
+        # keeps the None-contract honest.
+        fused, composition = fuse_with_composition(outputs, self.producer_weights)
         composite_score = fused if fused is not None else 50.0
+        ml_share = next(
+            (c["weight"] for c in composition if c["producer"] == "ml_drawdown"), 0.0
+        )
 
         pct = outputs["percentile_composite"]  # required producer — never None
         ml = outputs["ml_drawdown"]
@@ -227,7 +249,8 @@ class RiskScorer:
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "risk_score": round(composite_score, 1),
             "risk_label": _label(composite_score),
-            "risk_note": _risk_note(benchmark_ticker),
+            "risk_note": _risk_note(benchmark_ticker, ml_share),
+            "risk_score_composition": composition,
             "risk_breakdown": pct.detail["categories"],
             "market_regime": {
                 "vix": vix,

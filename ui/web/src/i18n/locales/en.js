@@ -99,7 +99,7 @@ export default {
   mlSignal: {
     toggle: 'ML downside-risk signal (secondary)',
     intro:
-      'A separate machine-learning estimate of the probability of a 10%+ drawdown in the next 20 trading days — shown alongside, not instead of, the percentile score above. Backtested mean ROC-AUC 0.67 across 56 stocks over 5 years, but recall is low, so it misses more real drawdowns than it flags (see the README for the full validation writeup).',
+      'A machine-learning estimate of the probability of a 10%+ drawdown in the next 20 trading days. Since validation (mean ROC-AUC 0.67, 56 stocks x 5 years) it contributes 15% of the headline risk score — the percentile composite carries the rest. Recall is low, so it misses more real drawdowns than it flags (see the README for the full writeup).',
     probability: 'Estimated 20-day drawdown probability:',
     topFeatures: 'Top contributing factors',
   },

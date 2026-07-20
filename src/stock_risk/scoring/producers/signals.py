@@ -1,8 +1,7 @@
-"""[G1] The five concrete producers — algorithms moved verbatim from
-RiskScorer.score(), zero behavior change. Only the percentile composite has a
-nonzero fusion weight; the ML leg is validated (see its metadata) but turning
-its weight on is a deliberate future behavior change, not part of this
-refactor. GARCH/news/alt-data emit score=None: absolute volatility, mock
+"""[G1] The concrete producers. The percentile composite and the validated
+ML drawdown leg share risk_score (default 0.85/0.15 — the fusion gate opened
+once [A1]/[A2] validations landed; see build_producers).
+GARCH/HAR/options/news/alt-data emit score=None: absolute volatility, mock
 severity labels, and raw counts have no defensible 0-100 risk-unit mapping
 today, and pretending otherwise would launder unvalidated numbers into
 risk_score.
@@ -22,7 +21,7 @@ from .base import ProducerOutput, RiskProducer, ScoringContext
 
 
 class PercentileCompositeProducer(RiskProducer):
-    """The explainable baseline — sole contributor to risk_score today."""
+    """The explainable baseline — majority contributor to risk_score (85% by default)."""
 
     name = "percentile_composite"
     default_weight = 1.0
@@ -49,14 +48,17 @@ class PercentileCompositeProducer(RiskProducer):
 class MLDrawdownProducer(RiskProducer):
     """XGBoost 20-day severe-drawdown probability + SHAP explanation.
 
-    Validated (walk-forward AUC 0.671) but still weight 0.0: granting it a
-    share of risk_score would change every API response, which is exactly the
-    behavior change this refactor-only issue defers. When that step happens,
-    only this default_weight (and the README weight table) should move.
+    Validated (walk-forward AUC 0.671, 56 tickers x 5y) — and since the
+    fusion gate opened (see build_producers), it carries a real share of
+    risk_score (default 15%, ML_FUSION_WEIGHT-configurable). The share is
+    deliberately small: recall is low (0.11, documented), and the leg's
+    unit is an absolute calibrated probability blended into a relative
+    percentile — a small absolute anchor, not an equal partner. Requests
+    where this leg is unavailable renormalise to pure percentile.
     """
 
     name = "ml_drawdown"
-    default_weight = 0.0
+    default_weight = 0.15  # overridden per-instance from settings in build_producers
     validation = {
         "method": "walk-forward TimeSeriesSplit (gap=20), 56 tickers x 5y, 68,430 rows",
         "roc_auc": 0.671,

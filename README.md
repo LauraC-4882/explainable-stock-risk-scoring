@@ -6,7 +6,7 @@ A production-style system that predicts **downside risk** and **volatility** for
 
 **Project status (as of 2026-07-19):**
 
-- **Validated & live**: percentile composite score (quintile backtest + Kupiec POF, see *Score Validation*); ML drawdown leg (walk-forward AUC 0.671 on 56 tickers × 5y); producer-layer architecture with typed validation-gated fusion weights ([G1]); TTL-cached fetcher with real timeouts ([C3]); end-to-end smoke + visual-regression harnesses ([D1]/[D2]); Render deploy (full pipeline).
+- **Validated & live**: percentile composite score (quintile backtest + Kupiec POF, see *Score Validation*); ML drawdown leg (walk-forward AUC 0.671 on 56 tickers × 5y) — **fusion gate opened 2026-07-19**: risk_score now blends percentile (85%) + ML crash probability (15%), with per-response composition reporting; producer-layer architecture with typed validation-gated fusion weights ([G1]); TTL-cached fetcher with real timeouts + snapshot fallback against Yahoo's datacenter-IP throttling ([C3]+); end-to-end smoke + visual-regression harnesses ([D1]/[D2]); Render deploy (full pipeline).
 - **Landed, experiments pending a data window**: [G2] label engineering (vol-scaled dynamic thresholds + triple-barrier first-touch labels, unit-tested; the three-way walk-forward comparison needs a fresh 56×5y fetch, currently blocked by the Yahoo datacenter-IP throttling documented under *Deployment*) and [G3] Alpha158-style factor grid + IC/FDR screen (89 factors implemented and golden-tested; screening + feature-surface comparison queued behind the same data fetch).
 - **Known limits, documented not hidden**: `var_95_21d` under-states risk ~2× (Kupiec-rejected — measured, unpatched); ML recall is low (0.11); scores are not comparable across stocks (by construction); yfinance has no SLA and throttles datacenter IPs for extended windows.
 
@@ -29,8 +29,8 @@ ScoringContext            ← shared inputs fetched once (benchmark returns, ^VI
        │                     info/IV, news headlines, analyst+insider counts)
        ▼
 ┌─ Producer layer (scoring/producers/, [G1]) ── each: score 0-100|None · raw · detail ─┐
-│  PercentileComposite   weight 1.0  validated (quintile+Kupiec)  → risk_score          │
-│  MLDrawdown            weight 0.0  validated (WF AUC 0.671)     → ml_drawdown_*       │
+│  PercentileComposite   weight 0.85 validated (quintile+Kupiec)  → risk_score          │
+│  MLDrawdown            weight 0.15 validated (WF AUC 0.671)     → + ml_drawdown_*     │
 │  GarchVol (GJR-skewt)  weight 0.0  unvalidated (absolute σ)     → garch_volatility_*  │
 │  HarVol (HAR-RV on GK) weight 0.0  unvalidated (absolute σ)     → har_volatility_*    │
 │  OptionsImplied        weight 0.0  unvalidated (fwd-looking)    → options_implied     │
@@ -39,9 +39,15 @@ ScoringContext            ← shared inputs fetched once (benchmark returns, ^VI
 └──────────────────────────┬───────────────────────────────────────────────────────────┘
                            ▼
         fuse(): Σwᵢsᵢ/Σwᵢ over available scores — unvalidated producers are
-        FORCED to weight 0 at startup (typed guard, not convention). Current
-        config {percentile: 1.0, rest: 0} ⇒ fused score ≡ percentile composite;
-        raising any other weight is a deliberate, validation-gated future step.
+        FORCED to weight 0 at startup (typed guard, not convention). Fusion
+        gate OPENED 2026-07-19 after [A1]/[A2] validations: {percentile: 0.85,
+        ml_drawdown: 0.15} (ML_FUSION_WEIGHT-configurable; 0 reproduces the
+        pure-percentile score). The ML share blends an absolute calibrated
+        crash probability into the relative percentile — a small absolute
+        anchor, kept small because ML recall is low (0.11). When the ML leg
+        is unavailable (no artefact / ENABLE_ML=0) weights renormalise to
+        percentile-only, and risk_score_composition in every response reports
+        exactly what fed the number.
 
 2008/2020/2022 scenarios ──► stress_test.py (percentile score only, beta-scaled shocks) ─ stress_test
                 │
@@ -609,9 +615,16 @@ Consequences, stated plainly:
   cache only helps *after* a first successful fetch per ticker/TTL window.
 - The app degrades exactly as designed under it ([C1]/[C3]'s error handling: logged
   `YFRateLimitError`, generic 500, no internals leaked, `/health` and the UI stay up).
-- The fix is an upstream-source change (paid data API with an SLA, or a proxy with
-  clean egress), not an app change — same "upgrade path" already documented in
-  Data Quality & Limitations.
+- **Mitigation shipped (2026-07-19): snapshot fallback + daily refresh.** Every
+  successful `fetch_history` persists the frame under `snapshots/` (tracked in
+  git); when the live fetch fails, the fetcher serves the last snapshot with a
+  loud staleness warning instead of 500ing, and a weekday GitHub Actions cron
+  (`refresh-snapshot.yml`) re-fetches the demo universe after US close and
+  commits whatever Yahoo allowed — runners are only intermittently throttled,
+  so snapshots converge to fresh over days, and free-tier deploys (which clone
+  the repo) ship with recent data baked in. Serving real-time data reliably
+  still requires an upstream-source change (paid API with an SLA / clean
+  egress) — the snapshot layer makes the demo resilient, not the data live.
 - CI handles the same root cause explicitly: `make smoke` exits 75 when Yahoo
   throttles the runner, and CI surfaces that as a loud warning instead of a false
   "commit broken" red (see CLAUDE.md §2).

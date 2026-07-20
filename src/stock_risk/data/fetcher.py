@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 import pandas as pd
@@ -10,6 +11,7 @@ import yfinance as yf
 from cachetools import TTLCache
 from loguru import logger
 
+from ..config import settings
 from .validation import validate_ohlcv
 
 # Market data (price history, VIX, options IV) moves within a trading day —
@@ -92,27 +94,74 @@ class MarketDataFetcher:
         key = ("history", ticker, period, interval, start, end)
 
         def _do() -> pd.DataFrame:
-            logger.info(f"Fetching history for {ticker} | period={period} interval={interval}")
-            tk = yf.Ticker(ticker, session=self._session)
-            if start or end:
-                df = tk.history(
-                    start=start, end=end, interval=interval, auto_adjust=True, timeout=self.timeout
+            try:
+                logger.info(
+                    f"Fetching history for {ticker} | period={period} interval={interval}"
                 )
-            else:
-                df = tk.history(
-                    period=period, interval=interval, auto_adjust=True, timeout=self.timeout
-                )
+                tk = yf.Ticker(ticker, session=self._session)
+                if start or end:
+                    df = tk.history(
+                        start=start, end=end, interval=interval,
+                        auto_adjust=True, timeout=self.timeout,
+                    )
+                else:
+                    df = tk.history(
+                        period=period, interval=interval,
+                        auto_adjust=True, timeout=self.timeout,
+                    )
 
-            if df.empty:
-                raise ValueError(f"No data returned for ticker '{ticker}'")
+                if df.empty:
+                    raise ValueError(f"No data returned for ticker '{ticker}'")
 
-            df.index = pd.to_datetime(df.index, utc=True).tz_convert(None)
-            df.index.name = "date"
-            df.columns = [c.lower() for c in df.columns]
-            df = df[["open", "high", "low", "close", "volume"]]
-            return validate_ohlcv(df, ticker)
+                df.index = pd.to_datetime(df.index, utc=True).tz_convert(None)
+                df.index.name = "date"
+                df.columns = [c.lower() for c in df.columns]
+                df = df[["open", "high", "low", "close", "volume"]]
+                df = validate_ohlcv(df, ticker)
+            except Exception as exc:
+                # [IP-block resilience] Yahoo throttles shared datacenter IPs
+                # for extended windows (see README "Deployment") — a demo that
+                # 500s for hours because of upstream IP reputation serves
+                # nobody. Fall back to the last persisted snapshot (validated
+                # at save time, refreshed daily by CI) and say so loudly; only
+                # fail when there is no snapshot either.
+                snap = self._load_snapshot(ticker, period, interval)
+                if snap is not None and not (start or end):
+                    logger.warning(
+                        f"{ticker}: live fetch failed ({exc}) — serving snapshot "
+                        f"through {snap.index[-1].date()}"
+                    )
+                    return snap
+                raise
+            self._save_snapshot(ticker, period, interval, df)
+            return df
 
         return self._cached(self._fast_cache, key, _do)
+
+    @staticmethod
+    def _snapshot_path(ticker: str, period: str, interval: str) -> Path:
+        safe = ticker.replace("^", "_").replace(".", "_").replace("/", "_")
+        return settings.snapshot_dir / f"{safe}_{period}_{interval}.parquet"
+
+    def _save_snapshot(self, ticker: str, period: str, interval: str, df: pd.DataFrame) -> None:
+        try:
+            path = self._snapshot_path(ticker, period, interval)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_parquet(path)
+        except Exception as exc:
+            # Snapshot persistence is best-effort — a read-only filesystem
+            # (some PaaS tiers) must never break the live fetch that succeeded.
+            logger.warning(f"Could not persist snapshot for {ticker}: {exc}")
+
+    def _load_snapshot(self, ticker: str, period: str, interval: str) -> Optional[pd.DataFrame]:
+        path = self._snapshot_path(ticker, period, interval)
+        if not path.exists():
+            return None
+        try:
+            return pd.read_parquet(path)
+        except Exception as exc:
+            logger.warning(f"Snapshot for {ticker} unreadable: {exc}")
+            return None
 
     def fetch_info(self, ticker: str) -> dict:
         """Return key fundamentals/metadata for *ticker*."""

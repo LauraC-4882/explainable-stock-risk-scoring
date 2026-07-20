@@ -1,0 +1,46 @@
+name: Refresh data snapshots
+
+# Daily fallback-data refresh (see snapshots/README.md): fetch the demo
+# universe after US close and commit whatever Yahoo allowed. Free-tier
+# deploys (Render clones the repo) then ship with recent data baked in, so
+# the demo keeps serving real numbers even while Yahoo throttles the
+# deploy's own egress IP — the chronic condition documented in README
+# "Deployment". GitHub runners are only intermittently throttled, so over a
+# few days every ticker converges to fresh.
+
+on:
+  schedule:
+    - cron: "45 21 * * 1-5" # ~after US market close, weekdays
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Refresh snapshots (rate-limit tolerant)
+        run: python scripts/refresh_snapshots.py
+
+      - name: Commit changed snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add snapshots/
+          if git diff --cached --quiet; then
+            echo "no snapshot changes"
+          else
+            git commit -m "chore: daily snapshot refresh"
+            git push
+          fi

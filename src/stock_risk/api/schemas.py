@@ -36,6 +36,12 @@ class RiskCategoryMetric(BaseModel):
     metrics: dict[str, float]
 
 
+class FusionComponent(BaseModel):
+    producer: str
+    score: float
+    weight: float  # normalized share actually used in this response
+
+
 class MarketRegime(BaseModel):
     vix: Optional[float] = None
     regime: str
@@ -132,6 +138,7 @@ class ScoreResponse(BaseModel):
     risk_score: float
     risk_label: str
     risk_note: str
+    risk_score_composition: Optional[list[FusionComponent]] = None
     risk_breakdown: dict[str, RiskCategoryMetric]
     market_regime: MarketRegime
     ml_drawdown_probability: Optional[float] = None

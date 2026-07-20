@@ -5,6 +5,7 @@ from .base import (
     RiskProducer,
     ScoringContext,
     fuse,
+    fuse_with_composition,
     resolve_weights,
     run_producer,
 )
@@ -20,10 +21,25 @@ from .signals import (
 
 
 def build_producers(dr_model) -> list[RiskProducer]:
-    """The registered producer list, in response-assembly order."""
+    """The registered producer list, in response-assembly order.
+
+    Fusion gate ([G1] roadmap: "#8/#9 validation results open the gate"):
+    after [A1] validated the percentile composite and [A2] validated the ML
+    leg (walk-forward AUC 0.671), the ML producer carries a real fusion
+    share, configurable via ML_FUSION_WEIGHT (default 0.15; 0 reproduces the
+    pure-percentile score). resolve_weights' unvalidated-producer guard
+    still applies to everything else.
+    """
+    from ...config import settings
+
+    ml_share = max(0.0, min(1.0, settings.ml_fusion_weight))
+    percentile = PercentileCompositeProducer()
+    percentile.default_weight = 1.0 - ml_share
+    ml = MLDrawdownProducer(dr_model)
+    ml.default_weight = ml_share
     return [
-        PercentileCompositeProducer(),
-        MLDrawdownProducer(dr_model),
+        percentile,
+        ml,
         GarchVolProducer(),
         HarVolProducer(),
         OptionsImpliedProducer(),
@@ -45,6 +61,7 @@ __all__ = [
     "ScoringContext",
     "build_producers",
     "fuse",
+    "fuse_with_composition",
     "resolve_weights",
     "run_producer",
 ]

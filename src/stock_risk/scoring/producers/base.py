@@ -112,20 +112,44 @@ def resolve_weights(producers: list[RiskProducer]) -> dict[str, float]:
     return weights
 
 
-def fuse(
+def fuse_with_composition(
     outputs: dict[str, Optional[ProducerOutput]], weights: dict[str, float]
-) -> Optional[float]:
+) -> tuple[Optional[float], list[dict]]:
     """Σ wᵢ·sᵢ / Σ wᵢ over producers that actually delivered a score and carry
     a positive weight — the same renormalise-over-what's-available pattern as
-    risk_categories.composite_score. None if nothing usable contributed."""
+    risk_categories.composite_score. Also returns the composition (producer,
+    score, normalized weight actually used) so the API can show exactly what
+    the headline number is made of — a fused score that can't explain itself
+    would undercut the whole point of this project. (None, []) if nothing
+    usable contributed.
+
+    The renormalisation doubles as graceful degradation for the fusion gate:
+    with weights {percentile: 0.85, ml_drawdown: 0.15}, a request where the
+    ML leg is unavailable (no artefact / ENABLE_ML=0 / prediction failure)
+    renormalises to the percentile alone — bit-identical to the
+    pre-fusion-gate score, with the composition saying so.
+    """
+    contributions: list[tuple[str, float, float]] = []
     weighted_sum = 0.0
     weight_total = 0.0
     for name, out in outputs.items():
         w = weights.get(name, 0.0)
         if out is None or out.score is None or w <= 0:
             continue
+        contributions.append((name, out.score, w))
         weighted_sum += out.score * w
         weight_total += w
     if weight_total == 0:
-        return None
-    return weighted_sum / weight_total
+        return None, []
+    composition = [
+        {"producer": name, "score": round(score, 1), "weight": round(w / weight_total, 3)}
+        for name, score, w in contributions
+    ]
+    return weighted_sum / weight_total, composition
+
+
+def fuse(
+    outputs: dict[str, Optional[ProducerOutput]], weights: dict[str, float]
+) -> Optional[float]:
+    """The fused score alone — see fuse_with_composition."""
+    return fuse_with_composition(outputs, weights)[0]

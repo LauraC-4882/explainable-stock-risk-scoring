@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - "snapshots/**" # daily data refresh commits don't need a CI run
   pull_request:
     branches: [main]
 

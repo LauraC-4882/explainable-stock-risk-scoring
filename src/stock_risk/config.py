@@ -13,7 +13,20 @@ class Settings(BaseSettings):
     # tier) skips loading DownsideRiskModel entirely, so xgboost/shap never
     # enter sys.modules — see RiskScorer._try_load_downside_model.
     enable_ml: bool = True
+    # Fusion share of the ML drawdown leg in risk_score (percentile composite
+    # gets 1 - this). Opened at 0.15 after the [A1]/[A2] validations landed —
+    # see producers/base.py and README "Architecture" for the rationale and
+    # the unit caveat. Set ML_FUSION_WEIGHT=0 to reproduce the pure-percentile
+    # score.
+    ml_fusion_weight: float = 0.15
     model_dir: Path = Path("models/artefacts")
+    # [IP-block resilience] On a successful fetch_history, the OHLCV frame is
+    # persisted here; when Yahoo throttles the egress IP (chronic on shared
+    # datacenter IPs — see README "Deployment"), the fetcher serves the last
+    # snapshot instead of failing the request. The tracked snapshots/ dir is
+    # refreshed daily by .github/workflows/refresh-snapshot.yml so free-tier
+    # deploys ship with recent data baked in.
+    snapshot_dir: Path = Path("snapshots")
     monitoring_log_dir: Path = Path("logs/monitoring")
 
     # Risk score thresholds

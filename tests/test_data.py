@@ -389,3 +389,51 @@ def test_timeout_session_respects_explicit_timeout():
     with patch.object(requests.Session, "request", return_value=None) as base_request:
         session.request("GET", "https://example.com", timeout=3)
     assert base_request.call_args.kwargs["timeout"] == 3
+
+
+# ── [IP-block resilience] snapshot fallback ──────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _isolated_snapshot_dir(tmp_path, monkeypatch):
+    """Redirect snapshot persistence to a temp dir so tests never write into
+    the repo's tracked snapshots/ directory."""
+    from stock_risk.config import settings
+    monkeypatch.setattr(settings, "snapshot_dir", tmp_path / "snapshots")
+
+
+def test_fetch_history_success_persists_snapshot():
+    df = _make_ohlcv(60)
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = df
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        fetcher.fetch_history("AAPL", period="1y")
+    assert fetcher._snapshot_path("AAPL", "1y", "1d").exists()
+
+
+def test_fetch_history_falls_back_to_snapshot_when_throttled():
+    """The chronic-throttling scenario: live fetch fails, but a snapshot from
+    an earlier successful fetch exists — serve it instead of 500ing."""
+    df = _make_ohlcv(60)
+    fetcher = MarketDataFetcher()
+    fetcher._save_snapshot("AAPL", "1y", "1d", df)
+
+    with patch(
+        "stock_risk.data.fetcher.yf.Ticker",
+        side_effect=RuntimeError("Too Many Requests. Rate limited."),
+    ):
+        result = fetcher.fetch_history("AAPL", period="1y")
+    # check_freq=False: the parquet round-trip drops the BusinessDay freq
+    # attribute from the index; the data itself must be identical.
+    pd.testing.assert_frame_equal(result, df, check_freq=False)
+
+
+def test_fetch_history_still_raises_without_snapshot():
+    fetcher = MarketDataFetcher()
+    with patch(
+        "stock_risk.data.fetcher.yf.Ticker",
+        side_effect=RuntimeError("Too Many Requests. Rate limited."),
+    ):
+        with pytest.raises(RuntimeError, match="Rate limited"):
+            fetcher.fetch_history("NOSNAP", period="1y")

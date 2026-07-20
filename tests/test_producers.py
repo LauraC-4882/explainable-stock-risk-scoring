@@ -76,12 +76,13 @@ def test_ml_producer_returns_none_without_model():
     assert MLDrawdownProducer(None).produce(_feature_df(), _ctx()) is None
 
 
-def test_ml_producer_is_validated_but_weightless():
-    """Validated (walk-forward AUC 0.671) yet weight 0.0 on purpose: granting
-    it fusion weight is a behavior change deferred beyond the [G1] refactor."""
+def test_ml_producer_is_validated_with_the_default_fusion_share():
+    """Validated (walk-forward AUC 0.671); since the fusion gate opened its
+    class default matches the settings default (0.15). build_producers
+    overrides per-instance from ML_FUSION_WEIGHT."""
     p = MLDrawdownProducer(None)
     assert p.validation is not None
-    assert p.default_weight == 0.0
+    assert p.default_weight == pytest.approx(0.15)
 
 
 def test_garch_producer_emits_raw_forecast_but_no_score():
@@ -179,9 +180,46 @@ def test_unvalidated_nonzero_weight_is_forced_to_zero_with_warning():
     assert any("unvalidated_misconfigured" in m and "forcing weight to 0" in m for m in captured)
 
 
-def test_current_registry_weights_are_percentile_only():
-    """[G1] is refactor-only: the effective weight config must reproduce the
-    pre-refactor behavior — percentile composite is the sole contributor."""
+def test_registry_weights_reflect_the_opened_fusion_gate():
+    """Post-[A1]/[A2] the gate is open: percentile 0.85 / ml 0.15 by default
+    (both validated — the resolve_weights guard only zeroes unvalidated
+    producers), everything else still 0."""
+    weights = resolve_weights(build_producers(dr_model=None))
+    assert weights["percentile_composite"] == pytest.approx(0.85)
+    assert weights["ml_drawdown"] == pytest.approx(0.15)
+    assert all(
+        w == 0.0 for name, w in weights.items()
+        if name not in ("percentile_composite", "ml_drawdown")
+    )
+
+
+def test_ml_fusion_weight_zero_reproduces_pure_percentile(monkeypatch):
+    from stock_risk.config import settings
+    monkeypatch.setattr(settings, "ml_fusion_weight", 0.0)
     weights = resolve_weights(build_producers(dr_model=None))
     assert weights["percentile_composite"] == 1.0
-    assert all(w == 0.0 for name, w in weights.items() if name != "percentile_composite")
+    assert weights["ml_drawdown"] == 0.0
+
+
+def test_fuse_with_composition_reports_normalized_shares():
+    from stock_risk.scoring.producers import fuse_with_composition
+    outputs = {
+        "percentile_composite": ProducerOutput(score=70.0),
+        "ml_drawdown": ProducerOutput(score=10.0),
+    }
+    weights = {"percentile_composite": 0.85, "ml_drawdown": 0.15}
+    fused, comp = fuse_with_composition(outputs, weights)
+    assert fused == pytest.approx(0.85 * 70 + 0.15 * 10)
+    shares = {c["producer"]: c["weight"] for c in comp}
+    assert shares == {"percentile_composite": 0.85, "ml_drawdown": 0.15}
+
+
+def test_fusion_renormalizes_to_percentile_when_ml_unavailable():
+    """The graceful-degradation contract of the opened gate: no ML output ->
+    exact pre-fusion score, and the composition says only percentile fed it."""
+    from stock_risk.scoring.producers import fuse_with_composition
+    outputs = {"percentile_composite": ProducerOutput(score=70.0), "ml_drawdown": None}
+    weights = {"percentile_composite": 0.85, "ml_drawdown": 0.15}
+    fused, comp = fuse_with_composition(outputs, weights)
+    assert fused == pytest.approx(70.0)
+    assert comp == [{"producer": "percentile_composite", "score": 70.0, "weight": 1.0}]

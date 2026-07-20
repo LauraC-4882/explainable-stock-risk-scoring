@@ -51,6 +51,7 @@ def _fake_scorecard(ticker: str = "AAPL") -> dict:
         "garch_volatility_forecast": None,
         "har_volatility_forecast": None,
         "options_implied": None,
+        "risk_score_composition": None,
         "news_risk": {
             "llm_configured": False, "max_severity": 0, "negative_count": 0, "articles": [],
         },

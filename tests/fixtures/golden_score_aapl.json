@@ -160,9 +160,21 @@
       "weight": 0.25
     }
   },
-  "risk_label": "EXTREME",
-  "risk_note": "Score reflects this stock's risk relative to its own historical distribution (and market sensitivity vs. SPY) — it is not a probability of loss, default probability, or investment recommendation.",
-  "risk_score": 76.3,
+  "risk_label": "HIGH",
+  "risk_note": "Score blends this stock's risk percentile relative to its own history (85%) with a walk-forward-validated ML estimate of its 20-day severe-drawdown probability (15%), plus market sensitivity vs. SPY — it is not a probability of loss, default probability, or investment recommendation.",
+  "risk_score": 66.0,
+  "risk_score_composition": [
+    {
+      "producer": "percentile_composite",
+      "score": 76.3,
+      "weight": 0.85
+    },
+    {
+      "producer": "ml_drawdown",
+      "score": 7.6,
+      "weight": 0.15
+    }
+  ],
   "stress_test": {
     "live_score": 75.5,
     "scenarios": {
