@@ -17,7 +17,9 @@ export function AuthProvider({ children }) {
   const [watchlist, setWatchlist] = useState([])
   const [ready, setReady] = useState(false) // whether the initial session restore finished
   const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authModalMode, setAuthModalMode] = useState('signIn') // 'signIn' | 'signUp'
   const [watchlistPanelOpen, setWatchlistPanelOpen] = useState(false)
+  const [profilePanelOpen, setProfilePanelOpen] = useState(false)
 
   // Restore the session on load (and whenever the token changes) by re-fetching
   // the user + watchlist — a stale/expired token is dropped rather than surfaced
@@ -105,11 +107,18 @@ export function AuthProvider({ children }) {
         toggleFavorite,
         removeFromWatchlist,
         authModalOpen,
-        openAuthModal: () => setAuthModalOpen(true),
+        authModalMode,
+        openAuthModal: (mode = 'signIn') => {
+          setAuthModalMode(mode)
+          setAuthModalOpen(true)
+        },
         closeAuthModal: () => setAuthModalOpen(false),
         watchlistPanelOpen,
         openWatchlistPanel: () => setWatchlistPanelOpen(true),
         closeWatchlistPanel: () => setWatchlistPanelOpen(false),
+        profilePanelOpen,
+        openProfilePanel: () => setProfilePanelOpen(true),
+        closeProfilePanel: () => setProfilePanelOpen(false),
       }}
     >
       {children}

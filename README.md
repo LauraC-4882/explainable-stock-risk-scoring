@@ -531,12 +531,15 @@ No paid data vendor required — all via yfinance:
 - `src/components/StockCard.jsx` — per-ticker fetch + render (score, gauge, direction signal, metric tiles, charts, favorite star)
 - `src/api.js` — thin fetch wrappers over `/api/search`, `/api/score/{ticker}`, `/api/score/{ticker}/timeseries`, `/api/auth/*`, `/api/watchlist`
 - `src/i18n/` — English/Simplified Chinese locale files + a lightweight Context-based translator (no external i18n library, given the app's size)
-- `src/auth/` — `AuthContext` (JWT stored in `localStorage`, session restored on load via `/api/auth/me`), `AuthModal`, `WatchlistPanel`
+- `src/auth/` — `AuthContext` (JWT stored in `localStorage`, session restored on load via `/api/auth/me`), `AuthModal` (separate Sign in / Sign up entry points, same form), `WatchlistPanel`, `ProfilePanel` (avatar, email, member-since, watchlist count, replay-tutorial, sign out)
+- `src/onboarding/` — `OnboardingContext` (auto-opens once per browser via a `localStorage` flag) + `OnboardingTour`, a skippable multi-step walkthrough explaining what each part of a risk card is actually useful for when deciding what to do about a position, not just what the number is
+- `tailwind.config.js` — theme colors matched to the original dark palette (risk label colors, accent gradient)
 
 ### Accounts & watchlist
 
-Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no external account is needed to run the app. Passwords are hashed with bcrypt; tokens are bearer JWTs valid for 7 days. Set `JWT_SECRET_KEY` in `.env` before deploying with real users — the app runs fine without it for local dev but logs a startup warning, since the fallback is a published placeholder value.
-- `tailwind.config.js` — theme colors matched to the original dark palette (risk label colors, accent gradient)
+Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no external account is needed to run the app. Passwords are hashed with bcrypt; tokens are bearer JWTs valid for 7 days. Set `JWT_SECRET_KEY` in `.env` before deploying with real users — the app runs fine without it for local dev but logs a startup warning, since the fallback is a published placeholder value. The avatar shown when signed in is a deterministic initials circle (first letter of the email, hashed to one of the brand hues) — there's no image upload, deliberately, since the app has no durable file storage (same constraint as the DB, next paragraph).
+
+**Known limitation: accounts don't survive a redeploy on most free-tier hosts.** SQLite (`db_path`, default `data/app.db`) lives on the app's own local filesystem, which most free PaaS tiers (including Render's) don't persist across restarts/redeploys — every registered account is silently gone the next time the service restarts. `settings.database_url` (env var `DATABASE_URL`) overrides the SQLite path with any SQLAlchemy URL, so pointing it at a durable external database (a hosted Postgres, etc. — install the matching driver, e.g. `psycopg2-binary`) fixes this with no code change; unset, behavior is unchanged. Which provider to use is a real cost/account decision, not something this app picks for you.
 
 Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.
 

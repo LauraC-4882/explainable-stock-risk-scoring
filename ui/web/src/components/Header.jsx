@@ -1,11 +1,14 @@
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { useOnboarding } from '../onboarding/OnboardingContext'
+import Avatar from './Avatar'
 import LanguageSwitcher from './LanguageSwitcher'
 import { RiscoreIcon, RiscoreWordmark } from './Logo'
 
 export default function Header() {
   const { t } = useLanguage()
-  const { user, watchlist, logout, openAuthModal, openWatchlistPanel } = useAuth()
+  const { user, watchlist, openAuthModal, openWatchlistPanel, openProfilePanel } = useAuth()
+  const { openTour } = useOnboarding()
 
   return (
     <header className="relative z-10 overflow-hidden border-b border-border bg-gradient-to-br from-surface via-[#140d20] to-[#1a1030] px-6 py-4 sm:px-8">
@@ -38,24 +41,38 @@ export default function Header() {
                   </span>
                 )}
               </button>
-              <span className="hidden max-w-[10rem] truncate text-xs text-muted sm:inline" title={user.email}>
-                {user.email}
-              </span>
               <button
-                onClick={logout}
-                className="rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-muted transition-all duration-150 hover:border-down hover:text-down active:scale-95"
+                onClick={openProfilePanel}
+                title={user.email}
+                className="rounded-full transition-transform duration-150 hover:scale-110 active:scale-95"
               >
-                {t('auth.signOut')}
+                <Avatar email={user.email} size={34} />
               </button>
             </>
           ) : (
-            <button
-              onClick={openAuthModal}
-              className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-accent/20 transition-all duration-150 hover:brightness-110 active:scale-95"
-            >
-              {t('auth.signIn')}
-            </button>
+            <>
+              <button
+                onClick={() => openAuthModal('signUp')}
+                className="hidden rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-all duration-150 hover:border-accent hover:text-accent active:scale-95 sm:inline-block"
+              >
+                {t('auth.signUpShort')}
+              </button>
+              <button
+                onClick={() => openAuthModal('signIn')}
+                className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-accent/20 transition-all duration-150 hover:brightness-110 active:scale-95"
+              >
+                {t('auth.signIn')}
+              </button>
+            </>
           )}
+          <button
+            onClick={openTour}
+            title={t('onboarding.replayTitle')}
+            aria-label={t('onboarding.replayTitle')}
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border text-xs font-bold text-muted transition-all duration-150 hover:border-accent hover:text-accent active:scale-95"
+          >
+            ?
+          </button>
           <LanguageSwitcher />
         </div>
       </div>

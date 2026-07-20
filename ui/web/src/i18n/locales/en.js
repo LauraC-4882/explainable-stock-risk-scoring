@@ -106,6 +106,7 @@ export default {
   auth: {
     signIn: 'Sign in',
     signUp: 'Create account',
+    signUpShort: 'Sign up',
     signOut: 'Sign out',
     email: 'Email',
     password: 'Password',
@@ -123,5 +124,49 @@ export default {
     remove: 'Remove',
     favorite: 'Save to watchlist',
     unfavorite: 'Remove from watchlist',
+  },
+  profile: {
+    title: 'Profile',
+    memberSince: 'Member since',
+    watchlistCount: 'Stocks on watchlist',
+    replayTour: 'Replay tutorial',
+  },
+  onboarding: {
+    title: 'Quick tour',
+    skip: 'Skip',
+    back: 'Back',
+    next: 'Next',
+    done: 'Start exploring',
+    replayTitle: 'Replay the quick tour',
+    steps: {
+      welcome: {
+        title: 'Welcome to Riscore',
+        body: 'Riscore turns a stock’s recent price and volatility behavior into one explainable 0–100 risk score, plus the individual signals behind it — so you can quickly judge how turbulent a stock is acting right now. This short tour explains what each piece of information is actually useful for when deciding what to do next.',
+      },
+      score: {
+        title: 'The Risk Score (0–100)',
+        body: 'Your at-a-glance read: LOW / MODERATE / HIGH / EXTREME compares the stock to its own recent history, not to other stocks. Use it to triage which of your positions deserve a closer look today — a jump into HIGH or EXTREME is a cue to check position size or hedges, not a buy/sell signal by itself.',
+      },
+      breakdown: {
+        title: 'What’s driving the score',
+        body: 'Open "What does this score mean?" to see the five ingredients — Volatility, Tail Risk, Drawdown, Market Sensitivity, Liquidity — and their weights. Knowing which category is elevated tells you what kind of risk you’re actually holding: high Liquidity risk and high Tail risk call for very different responses.',
+      },
+      mlSignal: {
+        title: 'ML downside-risk signal',
+        body: 'A secondary machine-learning estimate of the probability of a 10%+ drop in the next 20 trading days, with the specific factors (SHAP) that drove it. It’s a deliberately small (15%) input to the score — treat it as one more corroborating data point, not a standalone forecast; its recall is intentionally documented as low.',
+      },
+      stressTest: {
+        title: 'Historical stress test',
+        body: 'Shows how this stock’s score would move if a past crisis (2008 / 2020 / 2022) repeated, based only on its own volatility/tail/drawdown profile. Use it for worst-case scenario planning — it’s not a prediction that any of these events will happen again.',
+      },
+      metrics: {
+        title: 'Quant metrics at a glance',
+        body: '30-day volatility, VaR 95%, Beta, and RSI — the numbers analysts check first. VaR 95% estimates a plausible bad-day loss; Beta tells you how much the stock amplifies market-wide moves; RSI flags short-term overbought/oversold momentum.',
+      },
+      watchlist: {
+        title: 'Save stocks to your watchlist',
+        body: 'Sign in and tap the star on any card to track it here across visits — useful for monitoring how a position’s risk profile evolves over time instead of starting fresh every time you check it.',
+      },
+    },
   },
 }

@@ -35,8 +35,13 @@ class Settings(BaseSettings):
     risk_high_max: float = 75.0
 
     # Auth / persistence — SQLite by default so the app stays a single
-    # deployable unit with no external account/service required.
+    # deployable unit with no external account/service required. Set
+    # DATABASE_URL (any SQLAlchemy URL, e.g. postgresql+psycopg2://...) to
+    # point at a durable external database instead — needed on any host
+    # whose local filesystem doesn't survive a restart/redeploy, since that
+    # silently wipes every registered account. See db.py.
     db_path: Path = Path("data/app.db")
+    database_url: str | None = None
     jwt_secret_key: str = "dev-insecure-secret-change-me-before-deploying"
 
     def model_post_init(self, __context):

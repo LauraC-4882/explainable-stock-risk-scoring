@@ -54,6 +54,31 @@ to loop.
 - [ ] Loading state (skeleton) is still not captured by the harness — check
       it manually if you touched CardSkeleton.
 
+## Onboarding tour (`ui-onboarding.png`, desktop — captured on first visit before the harness dismisses it)
+
+- [ ] The tour modal is centered, fully visible, and legible against the
+      dimmed backdrop — icon, title, body text, progress dots, and the
+      Next/Skip controls are all present and none are clipped.
+- [ ] The first step ("Welcome to Riscore") is showing, not a later step —
+      confirms the tour auto-opens on a fresh visit rather than resuming
+      mid-way or failing to open.
+- [ ] The header behind the dimmed backdrop still shows the two distinct
+      auth buttons (Sign up / Sign in) plus the "?" replay button — the
+      tour shouldn't be the only way these are visible.
+
+## Logged-in header + Profile panel (manual check — not part of the scripted flow, since it requires registering a user)
+
+- [ ] Signed out: header shows two distinct buttons, "Sign up" (outline)
+      and "Sign in" (solid) — not a single ambiguous button.
+- [ ] Signed in: header shows the Watchlist button, a circular avatar
+      (colored circle with the account's first initial), the "?" button,
+      then the language switcher, in that order, with no overlap.
+- [ ] Clicking the avatar opens the Profile panel: avatar, email, "Member
+      since <month year>" (a real date, not "Invalid Date" or blank),
+      watchlist count, "Replay tutorial", and "Sign out" are all present.
+- [ ] "Replay tutorial" closes the Profile panel and reopens the onboarding
+      tour from step 1.
+
 ## Cross-check: do the two score displays on the same card agree?
 
 - [ ] The gauge/large-number score at the top of the card and the

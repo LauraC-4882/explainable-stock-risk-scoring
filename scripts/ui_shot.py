@@ -26,6 +26,7 @@ def shoot(
     out_path: Path,
     errors: list[str],
     empty_out_path: Path | None = None,
+    onboarding_out_path: Path | None = None,
 ) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -37,6 +38,19 @@ def shoot(
         page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
+
+        # The first-visit onboarding tour auto-opens ~600ms after mount (see
+        # OnboardingContext) in every fresh browser context, which is every
+        # Playwright run here — capture it once for review, then always
+        # dismiss it before the rest of the flow, since its overlay
+        # (bg-black/60, z-50) intercepts every click the flow below makes.
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)  # let the fade-in settle
+        if onboarding_out_path is not None:
+            onboarding_out_path.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(onboarding_out_path), full_page=True)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
 
         if empty_out_path is not None:
             # Brand hero (logo lockup + slogan ring) only renders in the
@@ -86,14 +100,26 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     errors: list[str] = []
 
-    for label, viewport, filename, empty_name in [
-        ("desktop", DESKTOP_VIEWPORT, "ui-desktop.png", "ui-empty.png"),
-        ("mobile", MOBILE_VIEWPORT, "ui-mobile.png", None),
+    for label, viewport, filename, empty_name, onboarding_name in [
+        ("desktop", DESKTOP_VIEWPORT, "ui-desktop.png", "ui-empty.png", "ui-onboarding.png"),
+        ("mobile", MOBILE_VIEWPORT, "ui-mobile.png", None, None),
     ]:
         out_path = out_dir / filename
         empty_path = out_dir / empty_name if empty_name else None
-        shoot(args.base_url, viewport, out_path, errors, empty_out_path=empty_path)
-        checks = [(label, out_path)] + ([(f"{label}-empty", empty_path)] if empty_path else [])
+        onboarding_path = out_dir / onboarding_name if onboarding_name else None
+        shoot(
+            args.base_url,
+            viewport,
+            out_path,
+            errors,
+            empty_out_path=empty_path,
+            onboarding_out_path=onboarding_path,
+        )
+        checks = (
+            [(label, out_path)]
+            + ([(f"{label}-empty", empty_path)] if empty_path else [])
+            + ([(f"{label}-onboarding", onboarding_path)] if onboarding_path else [])
+        )
         for check_label, path in checks:
             size = path.stat().st_size if path.exists() else 0
             print(f"[ui_shot] {check_label} -> {path} ({size} bytes)")

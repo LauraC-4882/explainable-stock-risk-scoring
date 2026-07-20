@@ -90,7 +90,9 @@ def test_me_returns_current_user(client):
     headers = _auth_headers(client)
     response = client.get("/api/auth/me", headers=headers)
     assert response.status_code == 200
-    assert response.json()["email"] == "user@example.com"
+    body = response.json()
+    assert body["email"] == "user@example.com"
+    assert body["created_at"]  # populated, not null — Profile panel's "Member since"
 
 
 def test_watchlist_requires_auth(client):

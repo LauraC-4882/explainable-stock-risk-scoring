@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -206,6 +207,7 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
+    created_at: datetime
 
 
 @app.post("/api/auth/register", response_model=TokenResponse)
@@ -231,7 +233,7 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
-    return UserResponse(id=user.id, email=user.email)
+    return UserResponse(id=user.id, email=user.email, created_at=user.created_at)
 
 
 # ── Watchlist (requires auth) ───────────────────────────────────────────────────

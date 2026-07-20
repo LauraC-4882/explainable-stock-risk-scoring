@@ -1,15 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useAuth } from './AuthContext'
 
 export default function AuthModal() {
   const { t } = useLanguage()
-  const { authModalOpen, closeAuthModal, login, register } = useAuth()
+  const { authModalOpen, authModalMode, closeAuthModal, login, register } = useAuth()
   const [mode, setMode] = useState('signIn') // 'signIn' | 'signUp'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Adopt whichever mode the caller requested (e.g. Header's separate
+  // Sign in / Sign up buttons) each time the modal opens.
+  useEffect(() => {
+    if (authModalOpen) setMode(authModalMode)
+  }, [authModalOpen, authModalMode])
 
   if (!authModalOpen) return null
 
