@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from './OnboardingContext'
 
@@ -41,16 +42,24 @@ export default function OnboardingTour() {
         className="w-full max-w-md animate-fade-in overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl shadow-black/50"
         style={{ animationDuration: '0.2s' }}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">
             {t('onboarding.title')}
           </span>
-          <button
-            onClick={close}
-            className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
-          >
-            {t('onboarding.skip')}
-          </button>
+          {/* Language selector lives inside the tour too: it auto-opens on
+              first visit, dimming the header (and its own switcher) behind
+              this overlay — so a first-time visitor who wants 中文 can pick
+              it right here without closing the tutorial first. Shares the
+              same setLang, so switching here switches the whole app. */}
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <button
+              onClick={close}
+              className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
+            >
+              {t('onboarding.skip')}
+            </button>
+          </div>
         </div>
 
         <div key={current.id} className="animate-fade-in px-6 py-7" style={{ animationDuration: '0.25s' }}>
