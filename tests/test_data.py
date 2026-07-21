@@ -519,9 +519,10 @@ def test_fetch_history_routes_hk_ticker_to_akshare():
     assert list(df.columns) == ["open", "high", "low", "close", "volume"]
 
 
-def test_fetch_history_index_symbols_stay_on_yfinance():
-    """^VIX/^VIX3M/^HSI are never equities/ETFs — akshare/Twelve Data don't
-    apply, regardless of any configured Twelve Data key."""
+def test_fetch_history_vix_index_stays_on_yfinance():
+    """^VIX/^VIX3M feed only the soft market-regime signal (not any
+    China-bucket price/beta path), so they stay on yfinance even with a
+    Twelve Data key set — akshare doesn't apply."""
     mock_ticker = MagicMock()
     mock_ticker.history.return_value = _make_ohlcv(50)
     fetcher = MarketDataFetcher()
@@ -530,6 +531,20 @@ def test_fetch_history_index_symbols_stay_on_yfinance():
         fetcher.fetch_history("^VIX", period="1y")
     yf_ticker.assert_called_once()
     ak_mock.assert_not_called()
+
+
+def test_fetch_history_routes_hsi_benchmark_to_akshare():
+    """The HK beta benchmark ^HSI now routes to akshare's Sina index endpoint
+    — this is what makes the whole China bucket (A-shares + HK equities + the
+    HK benchmark) fully akshare-backed with no yfinance in its price path."""
+    fetcher = MarketDataFetcher()
+    with patch(
+        "stock_risk.data.fetcher.ak.stock_hk_index_daily_sina", return_value=_akshare_hk_df()
+    ) as m, patch("stock_risk.data.fetcher.yf.Ticker") as yf_ticker:
+        df = fetcher.fetch_history("^HSI", period="1y")
+    m.assert_called_once_with(symbol="HSI")
+    yf_ticker.assert_not_called()
+    assert list(df.columns) == ["open", "high", "low", "close", "volume"]
 
 
 def test_fetch_history_us_ticker_uses_yfinance_without_a_twelve_data_key():

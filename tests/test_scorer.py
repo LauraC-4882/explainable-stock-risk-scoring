@@ -12,9 +12,26 @@ from stock_risk.scoring.scorer import (
     MARKET_BENCHMARKS,
     RiskScorer,
     _fetch_period_for_display,
+    _resolve_beta,
     _trim_to_display_period,
     market_for_ticker,
 )
+
+
+def test_resolve_beta_prefers_yfinance_fundamental_when_present():
+    assert _resolve_beta(1.23, 0.99) == 1.23
+
+
+def test_resolve_beta_falls_back_to_computed_when_fundamental_missing():
+    """The throttled-yfinance case: fetch_info degraded to {}, so the
+    benchmark-relative beta_63d (now sourced via akshare/Twelve Data) fills
+    the tile instead of a bare "—"."""
+    assert _resolve_beta(None, 1.5066) == 1.51
+
+
+def test_resolve_beta_none_when_both_missing():
+    assert _resolve_beta(None, None) is None
+    assert _resolve_beta(None, float("nan")) is None
 
 
 def test_enable_ml_false_skips_model_load_without_importing_downside_risk():

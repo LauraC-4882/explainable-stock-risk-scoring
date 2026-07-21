@@ -137,9 +137,10 @@ documented in Deployment below):
 | US equities | **Twelve Data** (real commercial API) if `TWELVE_DATA_KEY` is set, else yfinance | A real API vendor built for programmatic/cloud traffic isn't subject to the same IP-reputation throttle as scraping Yahoo's unofficial endpoint — the actual fix for the Render/CI throttling problem. Free plan: US-only, no options, 800 req/day. |
 | CN A-shares + the CSI 300 benchmark ETF | **akshare**, Sina-backed (`stock_zh_a_daily` / `fund_etf_hist_sina`) | Free, no key. akshare's own most-documented functions (eastmoney-backed, e.g. `stock_zh_a_hist`) got connection-reset on every attempt from this project's dev machine — verified live, not assumed; the Sina/Tencent-backed ones didn't. |
 | HK equities | **akshare**, Tencent-backed (`stock_hk_daily`) | Same reasoning; verified live with real OHLCV including volume. |
-| Index symbols (`^VIX`, `^VIX3M`, the HK benchmark `^HSI`) | yfinance, unconditionally | Not equities/ETFs — out of scope for the migration, and a low-volume path (a handful of calls, not the per-request hot path this migration targets). |
+| The HK benchmark `^HSI` (Hang Seng Index) | **akshare**, Sina-backed (`stock_hk_index_daily_sina`) | Routed to akshare too, so the whole **"China" bucket — A-shares + HK equities + the HK benchmark — is fully akshare-backed with zero yfinance in its price/beta path.** Verified live. |
+| `^VIX`, `^VIX3M` | yfinance, unconditionally | US CBOE volatility indices feeding only the soft, already-degrading market-regime signal — not any China-bucket price/beta computation — so leaving them on yfinance costs nothing when they fail. |
 
-All four paths still funnel through the same `validate_ohlcv()` contract,
+All paths still funnel through the same `validate_ohlcv()` contract,
 TTL cache, and snapshot fallback (below) — a provider outage degrades
 exactly like a yfinance outage always has. yfinance itself remains the
 source for options chains and news (`fetch_options_signals`, `fetch_news`)
@@ -149,7 +150,10 @@ nothing when it fails and doesn't block the higher-stakes fix above.
 `fetch_info` (fundamentals metadata) is also still yfinance-only; its
 call site in `scorer.py` now degrades to `{}` on failure rather than
 failing the whole request, matching the pattern the benchmark fetch
-already used.
+already used. The `beta` shown in the metric tile prefers yfinance's
+fundamental beta but falls back to the 63-day rolling beta computed against
+the (now akshare/Twelve-Data-sourced) market benchmark, so a throttled
+yfinance no longer leaves every stock's beta reading "—".
 
 None of these are licensed, SLA-backed data feeds — akshare and yfinance
 are both unofficial scrapes, and even Twelve Data's free tier is meant for
