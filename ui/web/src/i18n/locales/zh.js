@@ -242,6 +242,9 @@ export default {
     post: '发布',
     signInToPost: '登录后即可分享你自己的分析。',
     topAnalysis: '社区精选分析',
+    recentTakes: '社区最新观察',
+    viewAll: '查看全部',
+    opinionNote: '社区观察均为用户个人观点,不代表 Riscore 的立场,也不构成投资建议。',
     beFirst: '这只股票还没有人分析——来发布第一条吧。',
     shareCta: '发布你的分析',
     moderation: {

@@ -247,6 +247,10 @@ export default {
     post: 'Post',
     signInToPost: 'Sign in to share your own analysis.',
     topAnalysis: 'Top community take',
+    recentTakes: 'Recent community takes',
+    viewAll: 'View all',
+    opinionNote:
+      'Community observations are individual users’ own opinions — not Riscore’s view, and not investment advice.',
     beFirst: 'No analysis yet for this stock — be the first to share your take.',
     shareCta: 'Share your analysis',
     moderation: {

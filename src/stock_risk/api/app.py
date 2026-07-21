@@ -402,7 +402,11 @@ def remove_watchlist_item(
 # score itself is unaffected — this is opinion, clearly labeled as such on the
 # frontend (see CommunityDisclaimer.jsx).
 
-POST_BODY_MAX_LEN = 1000
+# 500, not 1000: a risk-data observation ("vol is in the top decile of its own
+# history, drawdown hasn't recovered") fits comfortably; a long enough runway
+# to argue a thesis starts inviting the trading write-ups this board doesn't
+# host (see the moderation rules below).
+POST_BODY_MAX_LEN = 500
 # Author-level accuracy gate for the leaderboard/inline badges: low enough a
 # genuinely active analyst qualifies within days, high enough that a couple of
 # sockpuppet votes can't fake a 100% accuracy overnight. A product tuning
