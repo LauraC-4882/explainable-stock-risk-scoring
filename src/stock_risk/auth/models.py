@@ -64,6 +64,20 @@ class PostVote(SQLModel, table=True):
     voted_at: datetime = Field(default_factory=_utc_now)
 
 
+class PostReport(SQLModel, table=True):
+    """A user flagging a post for admin review. One report per user per
+    post (the unique constraint) — repeat clicks are a 409, not weight."""
+
+    __table_args__ = (UniqueConstraint("reporter_id", "post_id", name="uq_postreport_user_post"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    reporter_id: int = Field(foreign_key="user.id", index=True)
+    post_id: int = Field(foreign_key="analystpost.id", index=True)
+    reason: str  # one of REPORT_REASONS (validated at the endpoint)
+    status: str = "pending"  # "pending" | "dismissed" (deleting the post removes the row)
+    created_at: datetime = Field(default_factory=_utc_now, index=True)
+
+
 class PageView(SQLModel, table=True):
     """One row per non-static request, for the admin usage dashboard.
     user_email is a denormalized string, not a user_id FK: resolved

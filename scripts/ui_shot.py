@@ -282,19 +282,34 @@ def shoot_admin(base_url: str, out_dir: Path, errors: list[str]) -> None:
         ).json()["access_token"]
 
         # Generate some tracked traffic + a normal user to show in the Users
-        # tab (and to have someone bannable), so no screen is empty.
-        page.request.post(
+        # tab (and to have someone bannable), so no screen is empty. The
+        # server DB persists across local harness runs, so fall back to
+        # login when the account already exists (register -> 409).
+        member_creds = {"email": "ui-shot-member@example.com", "password": "ui-shot-pass1"}
+        registered = page.request.post(
             f"{base_url}/api/auth/register",
-            data={
-                "email": "ui-shot-member@example.com",
-                "password": "ui-shot-pass1",
-                "nickname": "member-demo",
-                "consent": True,
-            },
+            data={**member_creds, "nickname": "member-demo", "consent": True},
+        ).json()
+        member_token = (
+            registered.get("access_token")
+            or page.request.post(f"{base_url}/api/auth/login", data=member_creds).json()[
+                "access_token"
+            ]
         )
         for _ in range(3):
             page.request.get(f"{base_url}/api/score/TSLA")
             page.request.get(f"{base_url}/api/community/posts")
+
+        # Seed one pending report so the Reports tab shows a populated queue:
+        # the member flags the newest community post (seeded by
+        # shoot_community, which runs before this).
+        feed = page.request.get(f"{base_url}/api/community/posts?limit=1").json()
+        if feed["items"]:
+            page.request.post(
+                f"{base_url}/api/community/posts/{feed['items'][0]['id']}/report",
+                data={"reason": "off_topic"},
+                headers={"Authorization": f"Bearer {member_token}"},
+            )
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
         page.wait_for_selector("text=Skip", timeout=5000)
@@ -326,9 +341,15 @@ def shoot_admin(base_url: str, out_dir: Path, errors: list[str]) -> None:
         page.screenshot(path=str(users_path), full_page=True)
         print(f"[ui_shot] admin-users -> {users_path} ({users_path.stat().st_size} bytes)")
 
+        page.click('button:has-text("Reports")')
+        page.wait_for_timeout(600)  # report-list fetch settle
+        reports_path = out_dir / "ui-admin-reports.png"
+        page.screenshot(path=str(reports_path), full_page=True)
+        print(f"[ui_shot] admin-reports -> {reports_path} ({reports_path.stat().st_size} bytes)")
+
         browser.close()
 
-        for path in (overview_path, usage_path, users_path):
+        for path in (overview_path, usage_path, users_path, reports_path):
             if not path.exists() or path.stat().st_size == 0:
                 print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
                 raise SystemExit(1)

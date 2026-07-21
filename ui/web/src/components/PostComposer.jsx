@@ -40,7 +40,10 @@ export default function PostComposer({ initialTicker, onPosted }) {
       setBody('')
       onPosted(post)
     } catch (err) {
-      setError(err.message)
+      // Backend filter rejections arrive as "moderation:<category>" —
+      // map them onto the localized explanation instead of the raw code.
+      const match = /^moderation:(\w+)$/.exec(err.message)
+      setError(match ? t(`community.moderation.${match[1]}`) : err.message)
     } finally {
       setBusy(false)
     }

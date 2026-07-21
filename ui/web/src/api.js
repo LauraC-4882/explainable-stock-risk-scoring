@@ -118,6 +118,15 @@ export async function apiRemoveVote(token, postId) {
   if (!res.ok) throw new Error('Failed to remove vote')
 }
 
+export async function apiReportPost(token, postId, reason) {
+  const res = await fetch(`/api/community/posts/${postId}/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+    body: JSON.stringify({ reason }),
+  })
+  return parseErrorOr(res, 'Failed to report post')
+}
+
 export async function apiLeaderboard({ sort = 'accuracy', limit = 25 } = {}) {
   const params = new URLSearchParams({ sort, limit: String(limit) })
   const res = await fetch(`/api/community/leaderboard?${params}`)
@@ -163,4 +172,17 @@ export async function apiAdminUnbanUser(token, userId) {
     headers: authHeader(token),
   })
   return parseErrorOr(res, 'Failed to unban user')
+}
+
+export async function apiAdminListReports(token, { status = 'pending' } = {}) {
+  const res = await fetch(`/api/admin/reports?status=${status}`, { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load reports')
+}
+
+export async function apiAdminDismissReport(token, reportId) {
+  const res = await fetch(`/api/admin/reports/${reportId}/dismiss`, {
+    method: 'POST',
+    headers: authHeader(token),
+  })
+  if (!res.ok) throw new Error('Failed to dismiss report')
 }

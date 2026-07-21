@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { apiAdminAnalytics } from '../api'
+import { apiAdminAnalytics, apiAdminDismissReport, apiAdminListReports, apiDeletePost } from '../api'
 import AdminAnalyticsChart from '../components/AdminAnalyticsChart'
 import AdminUserTable from '../components/AdminUserTable'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -10,6 +10,75 @@ function StatTile({ label, value }) {
     <div className="panel-tile px-3 py-2.5">
       <div className="text-[0.62rem] font-semibold uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-0.5 text-lg font-black tabular-nums text-slate-100">{value}</div>
+    </div>
+  )
+}
+
+function ReportsTab() {
+  const { t } = useLanguage()
+  const { token } = useAuth()
+  const [reports, setReports] = useState(null)
+
+  async function refresh() {
+    const data = await apiAdminListReports(token).catch(() => ({ items: [], total: 0 }))
+    setReports(data.items)
+  }
+
+  useEffect(() => {
+    refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleDismiss(reportId) {
+    await apiAdminDismissReport(token, reportId).catch(() => {})
+    refresh()
+  }
+
+  async function handleDeletePost(postId) {
+    await apiDeletePost(token, postId).catch(() => {})
+    refresh()
+  }
+
+  if (reports === null)
+    return <div className="skeleton-shimmer animate-shimmer h-24 w-full rounded-lg" />
+  if (reports.length === 0)
+    return <p className="py-6 text-center text-sm text-muted">{t('admin.reports.empty')}</p>
+
+  return (
+    <div className="space-y-2.5">
+      {reports.map((r) => (
+        <div key={r.id} className="panel-tile space-y-2 p-3">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="rounded-full bg-down/15 px-2 py-0.5 font-semibold text-down">
+              {t(`community.report.reasons.${r.reason}`)}
+            </span>
+            <span className="rounded-full bg-accent/15 px-2 py-0.5 font-bold text-accent">
+              {r.post_ticker}
+            </span>
+            <span className="font-mono text-muted">{r.post_author_handle}</span>
+            <span className="text-[0.65rem] text-muted">
+              · {t('admin.reports.reportedBy')} {r.reporter_handle}
+            </span>
+          </div>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+            {r.post_body}
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => handleDismiss(r.id)}
+              className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted transition hover:border-accent hover:text-accent"
+            >
+              {t('admin.reports.dismiss')}
+            </button>
+            <button
+              onClick={() => handleDeletePost(r.post_id)}
+              className="rounded-full bg-down/15 px-3 py-1 text-xs font-semibold text-down transition hover:bg-down/25"
+            >
+              {t('admin.reports.deletePost')}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -65,7 +134,7 @@ export default function AdminPanel() {
         </div>
 
         <div className="flex gap-1.5 border-b border-border px-5 py-3">
-          {['overview', 'usage', 'users'].map((key) => (
+          {['overview', 'usage', 'users', 'reports'].map((key) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -119,8 +188,10 @@ export default function AdminPanel() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : tab === 'users' ? (
             <AdminUserTable />
+          ) : (
+            <ReportsTab />
           )}
         </div>
       </div>

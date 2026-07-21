@@ -20,7 +20,7 @@ from sqlmodel import Session, func, select
 
 from ..auth.admin import ensure_admin_user, require_admin
 from ..auth.dependencies import get_current_user, get_current_user_optional
-from ..auth.models import AnalystPost, PageView, PostVote, User, WatchlistItem
+from ..auth.models import AnalystPost, PageView, PostReport, PostVote, User, WatchlistItem
 from ..auth.security import (
     create_access_token,
     decode_access_token,
@@ -30,6 +30,7 @@ from ..auth.security import (
 )
 from ..config import settings
 from ..db import engine, get_session, init_db
+from ..moderation import check_post_body
 from ..monitoring.metrics import ModelMonitor
 from ..scoring.scorer import RiskScorer
 from .schemas import ScoreResponse
@@ -565,6 +566,15 @@ def create_post(
     if not ticker:
         raise HTTPException(status_code=422, detail="Ticker is required")
 
+    violation = check_post_body(body)
+    if violation:
+        # "moderation:<code>" is a stable contract: the frontend detects the
+        # prefix and shows a localized message for the category. Logged so
+        # repeat offenders are visible in server logs even before any
+        # automated escalation exists.
+        logger.warning(f"Post by {user.email} blocked by moderation ({violation})")
+        raise HTTPException(status_code=422, detail=f"moderation:{violation}")
+
     post = AnalystPost(user_id=user.id, ticker=ticker, market=payload.market, body=body)
     session.add(post)
     session.commit()
@@ -661,6 +671,8 @@ def delete_post(
         logger.warning(f"Admin {user.email} deleted post {post_id} (author_id={post.user_id})")
     for vote in session.exec(select(PostVote).where(PostVote.post_id == post_id)).all():
         session.delete(vote)
+    for report in session.exec(select(PostReport).where(PostReport.post_id == post_id)).all():
+        session.delete(report)
     session.delete(post)
     session.commit()
     return Response(status_code=204)
@@ -716,6 +728,34 @@ def remove_vote(
     session.delete(existing)
     session.commit()
     return Response(status_code=204)
+
+
+class ReportRequest(BaseModel):
+    reason: Literal[
+        "investment_advice", "political", "misinformation", "solicitation", "abuse", "off_topic"
+    ]
+
+
+@app.post("/api/community/posts/{post_id}/report", status_code=201)
+def report_post(
+    post_id: int,
+    payload: ReportRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    post = session.get(AnalystPost, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.user_id == user.id:
+        raise HTTPException(status_code=403, detail="You cannot report your own post")
+    existing = session.exec(
+        select(PostReport).where(PostReport.post_id == post_id, PostReport.reporter_id == user.id)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="You have already reported this post")
+    session.add(PostReport(reporter_id=user.id, post_id=post_id, reason=payload.reason))
+    session.commit()
+    return {"ok": True}
 
 
 @app.get("/api/community/leaderboard", response_model=list[LeaderboardEntry])
@@ -992,6 +1032,91 @@ def admin_unban_user(
         session.refresh(target)
         logger.warning(f"Admin {admin.email} unbanned {target.email}")
     return _admin_user_response(target)
+
+
+class AdminReportResponse(BaseModel):
+    id: int
+    post_id: int
+    reason: str
+    status: str
+    created_at: datetime
+    reporter_handle: str
+    post_ticker: str
+    post_body: str
+    post_author_handle: str
+    post_author_id: int
+
+
+class AdminReportListResponse(BaseModel):
+    items: list[AdminReportResponse]
+    total: int
+
+
+@app.get("/api/admin/reports", response_model=AdminReportListResponse)
+def admin_list_reports(
+    status: Literal["pending", "all"] = "pending",
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    query = select(PostReport)
+    if status == "pending":
+        query = query.where(PostReport.status == "pending")
+    reports = session.exec(query).all()
+    reports.sort(key=lambda r: r.created_at, reverse=True)
+    total = len(reports)
+    page = reports[offset : offset + limit]
+
+    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
+    posts_by_id = {
+        p.id: p
+        for p in session.exec(
+            select(AnalystPost).where(AnalystPost.id.in_({r.post_id for r in page}))
+        ).all()
+    }
+
+    items = []
+    for r in page:
+        post = posts_by_id.get(r.post_id)
+        if post is None:
+            continue  # post deleted since (reports normally cascade, but be safe)
+        items.append(
+            AdminReportResponse(
+                id=r.id,
+                post_id=r.post_id,
+                reason=r.reason,
+                status=r.status,
+                created_at=r.created_at,
+                reporter_handle=display_name_for(
+                    nicknames_by_user_id.get(r.reporter_id), emails_by_user_id[r.reporter_id]
+                ),
+                post_ticker=post.ticker,
+                post_body=post.body,
+                post_author_handle=display_name_for(
+                    nicknames_by_user_id.get(post.user_id), emails_by_user_id[post.user_id]
+                ),
+                post_author_id=post.user_id,
+            )
+        )
+    return AdminReportListResponse(items=items, total=total)
+
+
+@app.post("/api/admin/reports/{report_id}/dismiss", status_code=204)
+def admin_dismiss_report(
+    report_id: int,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    report = session.get(PostReport, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report.status != "dismissed":
+        report.status = "dismissed"
+        session.add(report)
+        session.commit()
+        logger.info(f"Admin {admin.email} dismissed report {report_id}")
+    return Response(status_code=204)
 
 
 # ── Legacy endpoints (keep for Prometheus / Streamlit compat) ─────────────────

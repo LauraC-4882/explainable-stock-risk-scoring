@@ -1,12 +1,35 @@
-import { apiDeletePost } from '../api'
+import { useState } from 'react'
+import { apiDeletePost, apiReportPost } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import AccuracyBadge from './AccuracyBadge'
 import VoteButtons from './VoteButtons'
 
+const REPORT_REASONS = [
+  'investment_advice',
+  'political',
+  'misinformation',
+  'solicitation',
+  'abuse',
+  'off_topic',
+]
+
 export default function PostCard({ post, onVoted, onDeleted, showTicker = true }) {
   const { t, lang } = useLanguage()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reported, setReported] = useState(false)
+
+  async function handleReport(reason) {
+    setReportOpen(false)
+    try {
+      await apiReportPost(token, post.id, reason)
+    } catch {
+      // 409 = already reported by this user — either way the end state the
+      // user cares about is "flagged for the admin", so show it as done.
+    }
+    setReported(true)
+  }
 
   const timestamp = new Date(post.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
     year: 'numeric',
@@ -48,12 +71,49 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
 
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <span className="text-[0.65rem] text-muted">{timestamp}</span>
-        {post.is_own_post ? (
-          <span className="text-[0.65rem] italic text-muted">{t('community.ownPost')}</span>
-        ) : (
-          <VoteButtons post={post} onVoted={onVoted} />
-        )}
+        <div className="flex items-center gap-2">
+          {user && !post.is_own_post && (
+            reported ? (
+              <span className="text-[0.65rem] italic text-muted">
+                {t('community.report.done')}
+              </span>
+            ) : (
+              <button
+                onClick={() => setReportOpen((o) => !o)}
+                title={t('community.report.button')}
+                aria-label={t('community.report.button')}
+                className="rounded-md px-1 py-0.5 text-[0.7rem] leading-none text-muted opacity-60 transition hover:bg-down/10 hover:opacity-100"
+              >
+                🚩
+              </button>
+            )
+          )}
+          {post.is_own_post ? (
+            <span className="text-[0.65rem] italic text-muted">{t('community.ownPost')}</span>
+          ) : (
+            <VoteButtons post={post} onVoted={onVoted} />
+          )}
+        </div>
       </div>
+
+      {reportOpen && !reported && (
+        <div className="animate-fade-in space-y-1.5 rounded-lg border border-border bg-surface2/50 px-2.5 py-2">
+          <p className="text-[0.65rem] font-semibold text-slate-300">
+            {t('community.report.prompt')}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {REPORT_REASONS.map((reason) => (
+              <button
+                key={reason}
+                onClick={() => handleReport(reason)}
+                className="rounded-full border border-border px-2 py-0.5 text-[0.65rem] text-muted transition hover:border-down hover:text-down"
+              >
+                {t(`community.report.reasons.${reason}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
