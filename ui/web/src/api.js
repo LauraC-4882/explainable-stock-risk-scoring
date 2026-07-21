@@ -26,11 +26,11 @@ async function parseErrorOr(res, fallback) {
   throw new Error(err.detail || fallback)
 }
 
-export async function apiRegister(email, password) {
+export async function apiRegister(email, password, nickname, consent) {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, nickname, consent }),
   })
   return parseErrorOr(res, 'Registration failed')
 }

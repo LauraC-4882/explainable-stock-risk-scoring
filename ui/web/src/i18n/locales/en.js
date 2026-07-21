@@ -126,6 +126,11 @@ export default {
     email: 'Email',
     password: 'Password',
     passwordHint: 'At least 8 characters',
+    nickname: 'Nickname',
+    nicknameHint: '2–30 characters — shown on your posts instead of your email',
+    consentNotice:
+      'Your nickname (not your email) is shown publicly on your posts. The site admin can see your nickname, the email you sign up with, and basic usage data (which features you use and when) — used only for data analysis and keeping the site secure.',
+    consentLabel: 'I understand and agree',
     submit: 'Continue',
     submitting: 'Please wait…',
     switchToSignUp: "Don't have an account? Sign up",

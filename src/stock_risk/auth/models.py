@@ -23,6 +23,13 @@ class User(SQLModel, table=True):
     # existed. See db.py for why.
     is_admin: bool = False
     is_banned: bool = False
+    # Public display name, chosen at registration — what other users see on
+    # posts/leaderboard instead of the email-derived handle. Nullable: rows
+    # created before this column (and the seeded admin account) have none,
+    # and fall back to handle_for(email) for display. Uniqueness is enforced
+    # in the register endpoint, not by a DB constraint (ensure_columns can't
+    # add one to an existing table cleanly).
+    nickname: Optional[str] = None
 
 
 class WatchlistItem(SQLModel, table=True):

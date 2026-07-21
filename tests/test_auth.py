@@ -29,8 +29,20 @@ def client():
     app.dependency_overrides.clear()
 
 
-def _register(client, email="user@example.com", password="hunter2pass"):
-    return client.post("/api/auth/register", json={"email": email, "password": password})
+def _register(
+    client, email="user@example.com", password="hunter2pass", nickname=None, consent=True
+):
+    # Nickname defaults to the email local-part (padded to clear the 2-char
+    # minimum) — unique whenever the emails are, which they already are per
+    # test. consent=True by default so the common path isn't blocked by the
+    # required privacy gate.
+    if nickname is None:
+        local = email.split("@")[0]
+        nickname = local if len(local) >= 2 else local + "user"
+    return client.post(
+        "/api/auth/register",
+        json={"email": email, "password": password, "nickname": nickname, "consent": consent},
+    )
 
 
 def _auth_headers(client, **kwargs):
@@ -51,6 +63,45 @@ def test_register_duplicate_email_rejected(client):
 
 def test_register_short_password_rejected(client):
     assert _register(client, password="short").status_code == 422
+
+
+def test_register_stores_nickname_and_exposes_it_on_me(client):
+    token = _register(client, email="ann@example.com", nickname="AnnTheAnalyst").json()[
+        "access_token"
+    ]
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
+    assert me["nickname"] == "AnnTheAnalyst"
+
+
+def test_register_without_consent_rejected(client):
+    assert _register(client, consent=False).status_code == 422
+
+
+def test_register_short_nickname_rejected(client):
+    assert _register(client, nickname="a").status_code == 422
+
+
+def test_register_long_nickname_rejected(client):
+    assert _register(client, nickname="x" * 31).status_code == 422
+
+
+def test_register_duplicate_nickname_rejected_case_insensitive(client):
+    _register(client, email="first@example.com", nickname="Trader")
+    dup = _register(client, email="second@example.com", nickname="trader")
+    assert dup.status_code == 409
+
+
+def test_login_still_uses_email_not_nickname(client):
+    _register(client, email="bob@example.com", password="hunter2pass", nickname="BobbyRisk")
+    # Login is by email, unchanged — the nickname is display-only.
+    ok = client.post(
+        "/api/auth/login", json={"email": "bob@example.com", "password": "hunter2pass"}
+    )
+    assert ok.status_code == 200
+    by_nick = client.post(
+        "/api/auth/login", json={"email": "BobbyRisk", "password": "hunter2pass"}
+    )
+    assert by_nick.status_code in (401, 422)  # not a valid email / no such account
 
 
 def test_login_success(client):

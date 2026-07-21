@@ -77,6 +77,9 @@ def init_db() -> None:
         {
             "is_admin": "BOOLEAN NOT NULL DEFAULT FALSE",
             "is_banned": "BOOLEAN NOT NULL DEFAULT FALSE",
+            # Nullable (no NOT NULL): existing rows can't be back-filled with a
+            # nickname, so they keep NULL and fall back to handle_for(email).
+            "nickname": "VARCHAR",
         },
     )
 

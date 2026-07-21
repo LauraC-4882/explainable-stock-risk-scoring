@@ -8,6 +8,8 @@ export default function AuthModal() {
   const [mode, setMode] = useState('signIn') // 'signIn' | 'signUp'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [consent, setConsent] = useState(false)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -22,6 +24,8 @@ export default function AuthModal() {
   function reset() {
     setEmail('')
     setPassword('')
+    setNickname('')
+    setConsent(false)
     setError(null)
     setSubmitting(false)
   }
@@ -39,7 +43,7 @@ export default function AuthModal() {
       if (mode === 'signIn') {
         await login(email, password)
       } else {
-        await register(email, password)
+        await register(email, password, nickname.trim(), consent)
       }
       close()
     } catch (err) {
@@ -87,6 +91,25 @@ export default function AuthModal() {
           />
         </label>
 
+        {mode === 'signUp' && (
+          <label className="mb-3 block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">
+              {t('auth.nickname')}
+            </span>
+            <input
+              type="text"
+              required
+              minLength={2}
+              maxLength={30}
+              autoComplete="nickname"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="w-full rounded-xl border border-border bg-surface2 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
+            />
+            <p className="mt-1.5 text-[0.7rem] text-muted">{t('auth.nicknameHint')}</p>
+          </label>
+        )}
+
         <label className="mb-1.5 block">
           <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">
             {t('auth.password')}
@@ -103,13 +126,33 @@ export default function AuthModal() {
         </label>
         {mode === 'signUp' && <p className="mb-3 text-[0.7rem] text-muted">{t('auth.passwordHint')}</p>}
 
+        {mode === 'signUp' && (
+          <>
+            <p className="mb-2.5 rounded-lg border border-border bg-surface2/50 px-3 py-2.5 text-[0.7rem] leading-relaxed text-muted">
+              {t('auth.consentNotice')}
+            </p>
+            <label className="mb-3 flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                required
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-surface2 accent-accent"
+              />
+              <span className="text-xs leading-relaxed text-slate-300">
+                {t('auth.consentLabel')}
+              </span>
+            </label>
+          </>
+        )}
+
         {error && (
           <p className="mb-3 mt-3 rounded-lg bg-down/10 px-3 py-2 text-xs text-down">{error}</p>
         )}
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || (mode === 'signUp' && !consent)}
           className="mt-4 w-full rounded-xl bg-accent py-2.5 text-sm font-bold text-white shadow-lg shadow-accent/20 transition-all duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
         >
           {submitting ? t('auth.submitting') : t('auth.submit')}

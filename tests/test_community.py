@@ -28,8 +28,16 @@ def client():
     app.dependency_overrides.clear()
 
 
-def _register(client, email="user@example.com", password="hunter2pass"):
-    return client.post("/api/auth/register", json={"email": email, "password": password})
+def _register(
+    client, email="user@example.com", password="hunter2pass", nickname=None, consent=True
+):
+    if nickname is None:
+        local = email.split("@")[0]
+        nickname = local if len(local) >= 2 else local + "user"
+    return client.post(
+        "/api/auth/register",
+        json={"email": email, "password": password, "nickname": nickname, "consent": consent},
+    )
 
 
 def _auth_headers(client, **kwargs):
@@ -260,15 +268,22 @@ def test_top_analysis_for_ticker_respects_min_vote_threshold(client):
 
 
 def test_handle_derivation_disambiguates_same_local_part(client):
-    _register(client, email="alice@gmail.com")
-    _register(client, email="alice@yahoo.com")
-    headers_1 = _auth_headers(client, email="poster1@example.com")
-    _create_post(client, headers_1)
+    # Distinct nicknames so both registrations succeed (nickname is unique
+    # now); handle_for remains the fallback for rows without a nickname.
+    _register(client, email="alice@gmail.com", nickname="alice-g")
+    _register(client, email="alice@yahoo.com", nickname="alice-y")
 
     from stock_risk.auth.security import handle_for
 
     assert handle_for("alice@gmail.com") != handle_for("alice@yahoo.com")
     assert handle_for("alice@gmail.com").startswith("alice#")
+
+
+def test_post_author_handle_uses_nickname(client):
+    headers = _auth_headers(client, email="deep@example.com", nickname="DeepValue")
+    _create_post(client, headers)
+    post = client.get("/api/community/posts").json()["items"][0]
+    assert post["author_handle"] == "DeepValue"
 
 
 # ── Profile: my posts / my votes ─────────────────────────────────────────────

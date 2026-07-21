@@ -298,10 +298,16 @@ def main() -> int:
         # JSON round trip — the same numpy-scalar-leak regression class as
         # /api/score (CLAUDE.md hard rule #4), on a codepath this project has
         # no other end-to-end HTTP coverage for.
+        stamp = int(time.time())
         register = post_json_endpoint(
             base_url,
             "/api/auth/register",
-            {"email": f"smoke-{int(time.time())}@example.com", "password": "smoke-test-pass"},
+            {
+                "email": f"smoke-{stamp}@example.com",
+                "password": "smoke-test-pass",
+                "nickname": f"smoke-{stamp}",
+                "consent": True,
+            },
         )
         auth_header = {"Authorization": f"Bearer {register['access_token']}"}
         post = post_json_endpoint(

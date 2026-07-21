@@ -124,6 +124,11 @@ export default {
     email: '邮箱',
     password: '密码',
     passwordHint: '至少 8 个字符',
+    nickname: '昵称',
+    nicknameHint: '2–30 个字符——将显示在你的帖子上，代替邮箱',
+    consentNotice:
+      '你的昵称（而非邮箱）会公开显示在你的帖子上。网站管理员可以看到你的昵称、注册邮箱，以及基本的使用数据（你使用了哪些功能、在什么时间）——仅用于数据分析和维护网站安全。',
+    consentLabel: '我已阅读并同意',
     submit: '继续',
     submitting: '请稍候…',
     switchToSignUp: '还没有账号？去注册',

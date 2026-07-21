@@ -92,6 +92,43 @@ def shoot(
         browser.close()
 
 
+def shoot_signup(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """The sign-up modal in its signUp state, showing the nickname field and
+    the required privacy-consent notice + checkbox — the registration
+    privacy step, which none of the other screenshots capture (they seed
+    accounts via direct API calls, bypassing the modal)."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        page.on(
+            "console",
+            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
+        )
+        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        # Header's outline "Sign up" button opens the modal already in signUp
+        # mode (the nickname + consent fields only render in that mode).
+        page.click('button:has-text("Sign up")')
+        page.wait_for_selector("text=Nickname", timeout=5000)
+        page.wait_for_timeout(300)
+
+        signup_path = out_dir / "ui-signup-consent.png"
+        page.screenshot(path=str(signup_path), full_page=True)
+        print(f"[ui_shot] signup-consent -> {signup_path} ({signup_path.stat().st_size} bytes)")
+
+        browser.close()
+
+        if not signup_path.exists() or signup_path.stat().st_size == 0:
+            print(f"[ui_shot] FAILED: {signup_path} is empty or missing", file=sys.stderr)
+            raise SystemExit(1)
+
+
 def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
     """Community platform states, reached the same "fast/deterministic via
     direct API access" way STOCK_RISK_MOCK avoids a real yfinance call:
@@ -115,11 +152,21 @@ def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
         voter_email = f"ui-shot-voter-{stamp}@example.com"
         author_token = page.request.post(
             f"{base_url}/api/auth/register",
-            data={"email": author_email, "password": "ui-shot-pass1"},
+            data={
+                "email": author_email,
+                "password": "ui-shot-pass1",
+                "nickname": f"analyst-{stamp}",
+                "consent": True,
+            },
         ).json()["access_token"]
         voter_token = page.request.post(
             f"{base_url}/api/auth/register",
-            data={"email": voter_email, "password": "ui-shot-pass1"},
+            data={
+                "email": voter_email,
+                "password": "ui-shot-pass1",
+                "nickname": f"voter-{stamp}",
+                "consent": True,
+            },
         ).json()["access_token"]
 
         post_id = page.request.post(
@@ -238,7 +285,12 @@ def shoot_admin(base_url: str, out_dir: Path, errors: list[str]) -> None:
         # tab (and to have someone bannable), so no screen is empty.
         page.request.post(
             f"{base_url}/api/auth/register",
-            data={"email": "ui-shot-member@example.com", "password": "ui-shot-pass1"},
+            data={
+                "email": "ui-shot-member@example.com",
+                "password": "ui-shot-pass1",
+                "nickname": "member-demo",
+                "consent": True,
+            },
         )
         for _ in range(3):
             page.request.get(f"{base_url}/api/score/TSLA")
@@ -318,6 +370,7 @@ def main() -> int:
                 print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
                 return 1
 
+    shoot_signup(args.base_url, out_dir, errors)
     shoot_community(args.base_url, out_dir, errors)
     shoot_admin(args.base_url, out_dir, errors)
 

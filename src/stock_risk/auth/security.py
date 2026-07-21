@@ -47,3 +47,11 @@ def handle_for(email: str) -> str:
     local = email.split("@", 1)[0]
     suffix = hashlib.sha256(email.encode("utf-8")).hexdigest()[:4]
     return f"{local}#{suffix}"
+
+
+def display_name_for(nickname: Optional[str], email: str) -> str:
+    """The public-facing name shown to other users: the chosen nickname if
+    set, else the email-derived handle. The fallback covers rows created
+    before nicknames existed and the seeded admin account (which has none),
+    so their posts never render blank."""
+    return nickname if nickname else handle_for(email)

@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, EmailStr
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from ..auth.admin import ensure_admin_user, require_admin
 from ..auth.dependencies import get_current_user, get_current_user_optional
@@ -24,7 +24,7 @@ from ..auth.models import AnalystPost, PageView, PostVote, User, WatchlistItem
 from ..auth.security import (
     create_access_token,
     decode_access_token,
-    handle_for,
+    display_name_for,
     hash_password,
     verify_password,
 )
@@ -258,9 +258,18 @@ def api_timeseries(ticker: str, period: str = "6mo"):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+NICKNAME_MIN_LEN = 2
+NICKNAME_MAX_LEN = 30
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
+    nickname: str
+    # Required privacy consent — the frontend gates the submit button on the
+    # checkbox, but the backend validates it too so it can't be bypassed via
+    # a direct API call.
+    consent: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -278,16 +287,37 @@ class UserResponse(BaseModel):
     email: str
     created_at: datetime
     is_admin: bool = False
+    nickname: Optional[str] = None
 
 
 @app.post("/api/auth/register", response_model=TokenResponse)
 def register(payload: RegisterRequest, session: Session = Depends(get_session)):
+    if not payload.consent:
+        raise HTTPException(
+            status_code=422, detail="You must agree to the privacy notice to register"
+        )
+    nickname = payload.nickname.strip()
+    if not (NICKNAME_MIN_LEN <= len(nickname) <= NICKNAME_MAX_LEN):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Nickname must be {NICKNAME_MIN_LEN}–{NICKNAME_MAX_LEN} characters",
+        )
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
     existing = session.exec(select(User).where(User.email == payload.email)).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
-    if len(payload.password) < 8:
-        raise HTTPException(status_code=422, detail="Password must be at least 8 characters")
-    user = User(email=payload.email, hashed_password=hash_password(payload.password))
+    # Case-insensitive nickname uniqueness — public identity, so "Alice" and
+    # "alice" shouldn't both exist. Enforced here, not by a DB constraint
+    # (ensure_columns can't add one to the pre-existing user table).
+    taken = session.exec(
+        select(User).where(func.lower(User.nickname) == nickname.lower())
+    ).first()
+    if taken:
+        raise HTTPException(status_code=409, detail="Nickname already taken")
+    user = User(
+        email=payload.email, hashed_password=hash_password(payload.password), nickname=nickname
+    )
     session.add(user)
     session.commit()
     return TokenResponse(access_token=create_access_token(user.email))
@@ -310,7 +340,11 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
 @app.get("/api/auth/me", response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
     return UserResponse(
-        id=user.id, email=user.email, created_at=user.created_at, is_admin=user.is_admin
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        is_admin=user.is_admin,
+        nickname=user.nickname,
     )
 
 
@@ -419,6 +453,19 @@ class LeaderboardEntry(BaseModel):
     latest_post_at: datetime
 
 
+def _identity_maps(session: Session) -> tuple[dict[int, str], dict[int, Optional[str]]]:
+    """(emails_by_user_id, nicknames_by_user_id) in one pass over User —
+    the raw email (never shown publicly) plus the public nickname, both
+    keyed by user id, for building post/leaderboard display names via
+    display_name_for()."""
+    emails: dict[int, str] = {}
+    nicknames: dict[int, Optional[str]] = {}
+    for u in session.exec(select(User)).all():
+        emails[u.id] = u.email
+        nicknames[u.id] = u.nickname
+    return emails, nicknames
+
+
 def _vote_tallies(session: Session) -> dict[int, dict]:
     """post_id -> {upvotes, downvotes}. Loaded in full and aggregated in
     Python rather than via a SQL CASE/SUM — the simplest correct thing at
@@ -469,6 +516,7 @@ def _post_response(
     tallies: dict[int, dict],
     author_stats: dict[int, dict],
     emails_by_user_id: dict[int, str],
+    nicknames_by_user_id: dict[int, Optional[str]],
     viewer_id: Optional[int],
     my_votes: dict[int, int],
     viewer_is_admin: bool = False,
@@ -485,7 +533,9 @@ def _post_response(
         market=post.market,
         body=post.body,
         created_at=post.created_at,
-        author_handle=handle_for(emails_by_user_id[post.user_id]),
+        author_handle=display_name_for(
+            nicknames_by_user_id.get(post.user_id), emails_by_user_id[post.user_id]
+        ),
         author_accuracy=_author_accuracy(astats),
         author_post_count=astats["post_count"],
         upvotes=tally["upvotes"],
@@ -527,6 +577,7 @@ def create_post(
         tallies=tallies,
         author_stats=author_stats,
         emails_by_user_id={user.id: user.email},
+        nicknames_by_user_id={user.id: user.nickname},
         viewer_id=user.id,
         my_votes={},
         viewer_is_admin=user.is_admin,
@@ -569,7 +620,7 @@ def list_posts(
     total = len(posts)
     page = posts[offset : offset + limit]
 
-    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
 
     my_votes: dict[int, int] = {}
     if user is not None and page:
@@ -589,6 +640,7 @@ def list_posts(
             tallies=tallies,
             author_stats=author_stats,
             emails_by_user_id=emails_by_user_id,
+            nicknames_by_user_id=nicknames_by_user_id,
             viewer_id=user.id if user else None,
             my_votes=my_votes,
             viewer_is_admin=user.is_admin if user else False,
@@ -639,12 +691,13 @@ def vote_post(
 
     tallies = _vote_tallies(session)
     author_stats = _author_stats(session, tallies)
-    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
     return _post_response(
         post,
         tallies=tallies,
         author_stats=author_stats,
         emails_by_user_id=emails_by_user_id,
+        nicknames_by_user_id=nicknames_by_user_id,
         viewer_id=user.id,
         my_votes={post_id: payload.value},
         viewer_is_admin=user.is_admin,
@@ -673,7 +726,7 @@ def leaderboard(
 ):
     tallies = _vote_tallies(session)
     author_stats = _author_stats(session, tallies)
-    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
 
     entries = []
     for user_id, stats in author_stats.items():
@@ -682,7 +735,9 @@ def leaderboard(
             continue  # below-threshold authors are excluded from the ranked view...
         entries.append(
             LeaderboardEntry(
-                handle=handle_for(emails_by_user_id[user_id]),
+                handle=display_name_for(
+                    nicknames_by_user_id.get(user_id), emails_by_user_id[user_id]
+                ),
                 post_count=stats["post_count"],
                 upvotes=stats["upvotes"],
                 downvotes=stats["downvotes"],
@@ -716,6 +771,7 @@ def my_posts(user: User = Depends(get_current_user), session: Session = Depends(
             tallies=tallies,
             author_stats=author_stats,
             emails_by_user_id={user.id: user.email},
+            nicknames_by_user_id={user.id: user.nickname},
             viewer_id=user.id,
             my_votes={},
             viewer_is_admin=user.is_admin,
@@ -740,7 +796,7 @@ def my_votes_endpoint(
     }
     tallies = _vote_tallies(session)
     author_stats = _author_stats(session, tallies)
-    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
     my_votes = {v.post_id: v.value for v in votes}
 
     return [
@@ -749,6 +805,7 @@ def my_votes_endpoint(
             tallies=tallies,
             author_stats=author_stats,
             emails_by_user_id=emails_by_user_id,
+            nicknames_by_user_id=nicknames_by_user_id,
             viewer_id=user.id,
             my_votes=my_votes,
             viewer_is_admin=user.is_admin,
@@ -771,6 +828,7 @@ DAILY_HISTORY_DAYS = 14  # zero-filled window for the "requests per day" chart
 class AdminUserResponse(BaseModel):
     id: int
     email: str
+    nickname: Optional[str] = None
     created_at: datetime
     is_admin: bool
     is_banned: bool
@@ -811,6 +869,7 @@ def _admin_user_response(user: User) -> AdminUserResponse:
     return AdminUserResponse(
         id=user.id,
         email=user.email,
+        nickname=user.nickname,
         created_at=user.created_at,
         is_admin=user.is_admin,
         is_banned=user.is_banned,
@@ -886,7 +945,11 @@ def admin_list_users(
     users = session.exec(select(User)).all()
     if q:
         needle = q.lower()
-        users = [u for u in users if needle in u.email.lower()]
+        users = [
+            u
+            for u in users
+            if needle in u.email.lower() or (u.nickname and needle in u.nickname.lower())
+        ]
     if banned_only:
         users = [u for u in users if u.is_banned]
     users.sort(key=lambda u: u.created_at, reverse=True)

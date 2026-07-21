@@ -35,8 +35,16 @@ def client(engine):
     app.dependency_overrides.clear()
 
 
-def _register(client, email="user@example.com", password="hunter2pass"):
-    return client.post("/api/auth/register", json={"email": email, "password": password})
+def _register(
+    client, email="user@example.com", password="hunter2pass", nickname=None, consent=True
+):
+    if nickname is None:
+        local = email.split("@")[0]
+        nickname = local if len(local) >= 2 else local + "user"
+    return client.post(
+        "/api/auth/register",
+        json={"email": email, "password": password, "nickname": nickname, "consent": consent},
+    )
 
 
 def _auth_headers(client, **kwargs):
@@ -243,8 +251,8 @@ def test_admin_ban_unknown_user_404s(client, engine):
 
 def test_admin_list_users(client, engine):
     admin_headers = _make_admin(engine)
-    _register(client, email="alice@example.com")
-    _register(client, email="bob@example.com")
+    _register(client, email="alice@example.com", nickname="AliceRisk")
+    _register(client, email="bob@example.com", nickname="BobRisk")
 
     response = client.get("/api/admin/users", headers=admin_headers)
     assert response.status_code == 200
@@ -252,9 +260,15 @@ def test_admin_list_users(client, engine):
     assert body["total"] == 3  # admin + alice + bob
     emails = {u["email"] for u in body["items"]}
     assert {"alice@example.com", "bob@example.com"} <= emails
+    # The admin sees the public nickname alongside the email.
+    nicknames = {u["nickname"] for u in body["items"]}
+    assert {"AliceRisk", "BobRisk"} <= nicknames
 
-    filtered = client.get("/api/admin/users", params={"q": "alice"}, headers=admin_headers)
-    assert filtered.json()["total"] == 1
+    # Search matches nickname, not just email.
+    by_email = client.get("/api/admin/users", params={"q": "alice@"}, headers=admin_headers)
+    assert by_email.json()["total"] == 1
+    by_nick = client.get("/api/admin/users", params={"q": "bobrisk"}, headers=admin_headers)
+    assert by_nick.json()["total"] == 1
 
 
 # ── Admin post moderation (extends the existing delete endpoint) ────────────
