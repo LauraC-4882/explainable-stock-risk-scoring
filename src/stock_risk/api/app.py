@@ -483,9 +483,24 @@ def watchlist_overview(
     being hidden — the row still shows, so a newly watchlisted stock is
     visibly "no reading yet" instead of silently missing.
     """
-    items = session.exec(
-        select(WatchlistItem).where(WatchlistItem.user_id == user.id)
-    ).all()
+    return _watchlist_overview_rows(session, user)
+
+
+# A move is worth surfacing when it's big in absolute terms OR it crosses a
+# band boundary. The band check matters for small deltas that still change the
+# headline word (49 -> 51 flips MODERATE to HIGH), which reads as a bigger
+# event to a user than the 2 points suggest.
+ALERT_DELTA_THRESHOLD = 10.0
+
+
+def _watchlist_rows(session: Session, user: User):
+    """(item, latest_snapshot, previous_snapshot) for each watchlisted ticker.
+
+    Shared by the overview board and the alerts bell so both derive from one
+    definition of "latest vs. the reading before it" — they can't drift into
+    disagreeing about what a stock's current score or change is.
+    """
+    items = session.exec(select(WatchlistItem).where(WatchlistItem.user_id == user.id)).all()
     if not items:
         return []
 
@@ -502,31 +517,118 @@ def watchlist_overview(
     for row in rows:
         by_ticker.setdefault(row.ticker, []).append(row)
 
-    out = []
+    triples = []
     for item in items:
         history = by_ticker.get(item.ticker, [])
-        latest = history[0] if history else None
-        previous = history[1] if len(history) > 1 else None
-        out.append(
-            WatchlistOverviewEntry(
-                ticker=item.ticker,
-                market=item.market,
-                risk_score=latest.risk_score if latest else None,
-                risk_label=latest.risk_label if latest else None,
-                as_of=latest.captured_on if latest else None,
-                previous_score=previous.risk_score if previous else None,
-                previous_as_of=previous.captured_on if previous else None,
-                delta=(
-                    round(latest.risk_score - previous.risk_score, 1)
-                    if latest and previous
-                    else None
-                ),
-            )
+        triples.append(
+            (item, history[0] if history else None, history[1] if len(history) > 1 else None)
         )
-    # Biggest movers first (by absolute change), unread/no-history rows last —
-    # the point of the board is "what changed", not alphabetical order.
+    return triples
+
+
+def _watchlist_overview_rows(session: Session, user: User) -> list[WatchlistOverviewEntry]:
+    out = [
+        WatchlistOverviewEntry(
+            ticker=item.ticker,
+            market=item.market,
+            risk_score=latest.risk_score if latest else None,
+            risk_label=latest.risk_label if latest else None,
+            as_of=latest.captured_on if latest else None,
+            previous_score=previous.risk_score if previous else None,
+            previous_as_of=previous.captured_on if previous else None,
+            delta=(
+                round(latest.risk_score - previous.risk_score, 1)
+                if latest and previous
+                else None
+            ),
+        )
+        for item, latest, previous in _watchlist_rows(session, user)
+    ]
+    # Biggest movers first (by absolute change), no-history rows last — the
+    # point of the board is "what changed", not alphabetical order.
     out.sort(key=lambda e: (e.delta is None, -abs(e.delta or 0)))
     return out
+
+
+class WatchlistAlert(BaseModel):
+    ticker: str
+    market: str
+    risk_score: float
+    risk_label: str
+    previous_score: float
+    previous_label: str
+    delta: float  # positive = risk ROSE (see WatchlistOverviewEntry.delta)
+    as_of: date
+    band_changed: bool
+
+
+class AlertsResponse(BaseModel):
+    unread: int
+    items: list[WatchlistAlert]
+
+
+def _watchlist_alerts(session: Session, user: User) -> list[WatchlistAlert]:
+    """Watchlisted stocks whose latest reading is a notable move AND is newer
+    than the last time this user opened the bell.
+
+    Derived from the same snapshot history the board uses — there is no
+    separate alert table to fall out of sync, and no background job needed to
+    "deliver" anything: an alert simply *is* a recent qualifying move.
+    """
+    seen_at = user.alerts_seen_at
+    alerts = []
+    for item, latest, previous in _watchlist_rows(session, user):
+        if not latest or not previous:
+            continue
+        delta = round(latest.risk_score - previous.risk_score, 1)
+        band_changed = latest.risk_label != previous.risk_label
+        if abs(delta) < ALERT_DELTA_THRESHOLD and not band_changed:
+            continue
+        if seen_at is not None:
+            captured = latest.captured_at
+            # SQLite doesn't reliably round-trip tzinfo; normalise both sides
+            # to naive UTC before comparing (same treatment as the admin
+            # analytics endpoint).
+            if captured.tzinfo:
+                captured = captured.replace(tzinfo=None)
+            marker = seen_at.replace(tzinfo=None) if seen_at.tzinfo else seen_at
+            if captured <= marker:
+                continue
+        alerts.append(
+            WatchlistAlert(
+                ticker=item.ticker,
+                market=item.market,
+                risk_score=latest.risk_score,
+                risk_label=latest.risk_label,
+                previous_score=previous.risk_score,
+                previous_label=previous.risk_label,
+                delta=delta,
+                as_of=latest.captured_on,
+                band_changed=band_changed,
+            )
+        )
+    alerts.sort(key=lambda a: -abs(a.delta))
+    return alerts
+
+
+@app.get("/api/watchlist/alerts", response_model=AlertsResponse)
+def watchlist_alerts(
+    user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    """Unread risk-movement alerts for this user's watchlist."""
+    items = _watchlist_alerts(session, user)
+    return AlertsResponse(unread=len(items), items=items)
+
+
+@app.post("/api/watchlist/alerts/seen", status_code=204)
+def mark_alerts_seen(
+    user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    """Move the read-watermark to now, clearing the unread count."""
+    user.alerts_seen_at = datetime.now(timezone.utc)
+    session.add(user)
+    session.commit()
+    return Response(status_code=204)
 
 
 # ── Community (posts/votes/leaderboard) ─────────────────────────────────────

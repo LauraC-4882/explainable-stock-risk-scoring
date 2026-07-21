@@ -144,3 +144,74 @@ def test_overview_is_per_user(env):
 
     assert len(client.get("/api/watchlist/overview", headers=a).json()) == 1
     assert client.get("/api/watchlist/overview", headers=b).json() == []
+
+
+# ── Risk-movement alerts (the bell) ──────────────────────────────────────────
+# An alert is not a stored row — it *is* a recent qualifying move derived from
+# the same snapshot history the board uses. These tests pin what "qualifying"
+# and "recent" mean.
+
+
+def test_alerts_flags_a_big_move(env):
+    client, engine = env
+    headers = _auth_headers(client)
+    _watch(client, headers, "AAPL")
+    _snapshot(engine, "AAPL", 48.0, YESTERDAY, label="MODERATE")
+    _snapshot(engine, "AAPL", 65.0, TODAY, label="HIGH")
+
+    body = client.get("/api/watchlist/alerts", headers=headers).json()
+    assert body["unread"] == 1
+    assert body["items"][0]["ticker"] == "AAPL"
+    assert body["items"][0]["delta"] == 17.0
+    assert body["items"][0]["band_changed"] is True
+
+
+def test_alerts_ignores_small_moves_within_the_same_band(env):
+    client, engine = env
+    headers = _auth_headers(client)
+    _watch(client, headers, "AAPL")
+    _snapshot(engine, "AAPL", 40.0, YESTERDAY, label="MODERATE")
+    _snapshot(engine, "AAPL", 43.0, TODAY, label="MODERATE")  # +3, same band
+
+    assert client.get("/api/watchlist/alerts", headers=headers).json()["unread"] == 0
+
+
+def test_alerts_flags_a_small_move_that_crosses_a_band(env):
+    """49 -> 51 is only 2 points but flips the headline word, which reads as a
+    bigger event than the number suggests."""
+    client, engine = env
+    headers = _auth_headers(client)
+    _watch(client, headers, "AAPL")
+    _snapshot(engine, "AAPL", 49.0, YESTERDAY, label="MODERATE")
+    _snapshot(engine, "AAPL", 51.0, TODAY, label="HIGH")
+
+    body = client.get("/api/watchlist/alerts", headers=headers).json()
+    assert body["unread"] == 1
+    assert body["items"][0]["band_changed"] is True
+
+
+def test_alerts_needs_two_readings(env):
+    client, engine = env
+    headers = _auth_headers(client)
+    _watch(client, headers, "AAPL")
+    _snapshot(engine, "AAPL", 90.0, TODAY, label="EXTREME")
+
+    assert client.get("/api/watchlist/alerts", headers=headers).json()["unread"] == 0
+
+
+def test_marking_seen_clears_the_unread_count(env):
+    client, engine = env
+    headers = _auth_headers(client)
+    _watch(client, headers, "AAPL")
+    _snapshot(engine, "AAPL", 48.0, YESTERDAY, label="MODERATE")
+    _snapshot(engine, "AAPL", 65.0, TODAY, label="HIGH")
+
+    assert client.get("/api/watchlist/alerts", headers=headers).json()["unread"] == 1
+    assert client.post("/api/watchlist/alerts/seen", headers=headers).status_code == 204
+    assert client.get("/api/watchlist/alerts", headers=headers).json()["unread"] == 0
+
+
+def test_alerts_requires_auth(env):
+    client, _ = env
+    assert client.get("/api/watchlist/alerts").status_code == 401
+    assert client.post("/api/watchlist/alerts/seen").status_code == 401

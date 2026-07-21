@@ -80,6 +80,9 @@ def init_db() -> None:
             # Nullable (no NOT NULL): existing rows can't be back-filled with a
             # nickname, so they keep NULL and fall back to handle_for(email).
             "nickname": "VARCHAR",
+            # Nullable on purpose — NULL means "never opened the alerts
+            # bell", which correctly marks every qualifying move unread.
+            "alerts_seen_at": "TIMESTAMP",
         },
     )
 

@@ -1,3 +1,4 @@
+import { ChatsCircle, ShieldStar, Star } from '@phosphor-icons/react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
@@ -50,21 +51,21 @@ export default function Header({ onHome, onOpenTicker }) {
 
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
           <button onClick={() => openCommunityPanel()} className={pill}>
-            <span aria-hidden="true">💬</span> {t('community.navButton')}
+            <ChatsCircle aria-hidden="true" size={16} /> {t('community.navButton')}
           </button>
           {user?.is_admin && (
             <button
               onClick={openAdminPanel}
               className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/[0.06] px-3.5 py-2 text-xs font-semibold text-gold transition-all duration-150 hover:bg-gold/15 active:scale-95"
             >
-              <span aria-hidden="true">🛡️</span> {t('admin.navButton')}
+              <ShieldStar aria-hidden="true" size={16} color="#fbbf24" /> {t('admin.navButton')}
             </button>
           )}
 
           {user ? (
             <>
               <button onClick={openWatchlistPanel} className={pill}>
-                <span aria-hidden="true">★</span> {t('watchlist.button')}
+                <Star aria-hidden="true" size={16} /> {t('watchlist.button')}
                 {watchlist.length > 0 && (
                   <span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[0.65rem] text-accent">
                     {watchlist.length}

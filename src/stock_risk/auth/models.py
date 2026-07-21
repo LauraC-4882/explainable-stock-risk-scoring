@@ -34,6 +34,10 @@ class User(SQLModel, table=True):
     # in the register endpoint, not by a DB constraint (ensure_columns can't
     # add one to an existing table cleanly).
     nickname: Optional[str] = None
+    # Watermark for the risk-movement bell: alerts whose reading is newer
+    # than this are 'unread'. NULL (never opened the bell) means every
+    # qualifying move is unread, which is the right first-run behavior.
+    alerts_seen_at: Optional[datetime] = None
 
 
 class WatchlistItem(SQLModel, table=True):
