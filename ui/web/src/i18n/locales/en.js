@@ -69,31 +69,31 @@ export default {
       label: 'Volatility',
       short: 'Vol',
       plainShort: 'How bumpy the ride is',
-      plain: 'How much the price jumps around day to day. Big moves up and down = high; steady, small moves = low. High isn’t automatically bad — it just means a rougher ride.',
+      plain: 'Realised volatility. A percentile blend of 21-day (40%) and 63-day (35%) annualised return standard deviation, plus 63-day downside deviation (25%), which counts only downward moves. Each input is ranked against this stock’s own ~2-year history.',
     },
     tail: {
       label: 'Tail Risk',
       short: 'Tail Risk',
       plainShort: 'How ugly the rare bad days get',
-      plain: 'The “what if things really go wrong” risk. Not the normal ups and downs — this is about the handful of genuinely awful days, and how bad they’ve been for this stock.',
+      plain: 'Left-tail severity. Blends 21-day 95% Conditional VaR (expected shortfall, 35%) and 95% Value at Risk (25%) with 63-day return skewness (20%) and kurtosis (20%) — the shape of the return distribution, not just its width.',
     },
     drawdown: {
       label: 'Drawdown',
       short: 'Drawdown',
       plainShort: 'How far it can fall at worst',
-      plain: 'The worst drop from top to bottom. If you’d bought at the peak, how much would you have been down at the lowest point — and how long did it stay down before climbing back?',
+      plain: 'Peak-to-trough decline. Blends 63-day maximum drawdown (45%), the current drawdown from the running peak (35%), and drawdown duration — sessions spent below that peak (20%).',
     },
     sensitivity: {
       label: 'Market Sensitivity',
       short: 'Sensitivity',
       plainShort: 'Does it follow the whole market?',
-      plain: 'When the market as a whole drops, does this one drop with it? Moving about the same = it follows the market; moving less = steadier than the market; moving more = it magnifies whatever the market does.',
+      plain: 'Beta against the market benchmark (SPY, CSI 300 or HSI, by listing), estimated over a rolling 63-day window as the covariance of returns divided by the benchmark’s variance. 1.0 = moves one-for-one with the benchmark.',
     },
     liquidity: {
       label: 'Liquidity',
       short: 'Liquidity',
       plainShort: 'How easy it is to sell',
-      plain: 'Whether there are enough people buying and selling to trade without shoving the price around. Busy trading = you can usually get in and out near the price you see. Thin trading = your own order can move the price.',
+      plain: 'Trading frictions. Blends the 21-day Amihud illiquidity ratio — absolute return per unit of dollar volume (50%) — with volume volatility (30%) and the dollar-volume level (20%).',
     },
   },
   metrics: {
@@ -102,19 +102,19 @@ export default {
     beta: 'Beta',
     rsi: 'RSI 14',
   },
+  // Hover/expand layer: the professional definition, naming the actual
+  // inputs and windows. The plain-language version lives in
+  // `categories.*.plainShort`, which renders on the tile itself.
   glossary: {
     volatility:
-      'How bumpy the ride is. It measures how much the price jumps around over a stretch of time — bigger, choppier moves mean higher volatility. It says nothing about direction: a stock climbing steadily upward can still be very volatile.',
+      'Annualised realised volatility: the standard deviation of daily returns over the trailing window, scaled by √252. Direction-agnostic — it measures dispersion, not drift, so a stock trending steadily upward can still read high.',
     var95:
-      'What a typical bad day looks like. Out of roughly every 20 trading days, the worst one has historically cost about this much. It’s a rough yardstick, not a floor — a genuinely bad day can be far worse.',
+      'Value at Risk (95%), 21-day window: the loss threshold that the worst 5% of daily returns exceed, taken as an empirical quantile rather than assuming a normal distribution. It bounds the typical bad day, not the worst case — Conditional VaR (under Tail Risk) measures what lies beyond it.',
     beta:
-      'How closely it follows the whole market. 1.0 means it moves about the same as the market; below 1.0 means it moves less (steadier); above 1.0 means it exaggerates the market’s moves — in both directions.',
-    rsi: 'Whether it’s been bought or sold hard recently. Above 70 means a lot of buying lately (people call that “overbought”); below 30 means a lot of selling (“oversold”). It describes what just happened — it does not predict what happens next.',
+      'Beta over a rolling 63-day window: the covariance of this stock’s returns with its benchmark, divided by the benchmark’s variance. 1.0 = one-for-one with the benchmark; below 1 damped, above 1 amplified. It captures co-movement, not causation.',
+    rsi:
+      'Relative Strength Index (14) — Wilder’s momentum oscillator: 100 − 100/(1 + average gain ÷ average loss) over 14 sessions. Above 70 is conventionally “overbought”, below 30 “oversold”. A description of momentum, not a forecast.',
   },
-  // Deterministic "what this number means" readings (see explain/readings.js).
-  // Strictly descriptive: they characterise the measurement and never suggest
-  // an action. Generated from threshold tables, not an LLM — so the wording
-  // can be reviewed once and cannot drift.
   readings: {
     title: 'What this number actually means',
     disclaimer: 'This describes what already happened — it is not a prediction, and not advice.',

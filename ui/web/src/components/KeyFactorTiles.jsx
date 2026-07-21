@@ -1,6 +1,7 @@
 import { CATEGORY_ICONS, CATEGORY_ORDER } from '../data/categoryMeta'
 import { factorReading } from '../explain/readings'
 import { useLanguage } from '../i18n/LanguageContext'
+import InfoTooltip from './InfoTooltip'
 
 const SEVERITY_COLOR = (score) => {
   if (score >= 75) return '#f43f5e'
@@ -47,8 +48,12 @@ export default function KeyFactorTiles({ breakdown }) {
               </div>
               {/* max-sm: bumps — the root font-size lift (index.css) isn't
                   enough for these micro-labels; phones get a full size up. */}
-              <div className="mt-1.5 truncate text-[0.68rem] font-semibold text-slate-200 max-sm:text-[0.8rem]">
-                {t(`categories.${key}.short`)}
+              <div className="mt-1.5 flex items-center gap-1 text-[0.68rem] font-semibold text-slate-200 max-sm:text-[0.8rem]">
+                <span className="truncate">{t(`categories.${key}.short`)}</span>
+                {/* Second tier: the technical definition (actual inputs and
+                    windows) for anyone who wants it, without pushing jargon
+                    at users who don't. */}
+                <InfoTooltip text={t(`categories.${key}.plain`)} align="left" />
               </div>
               {/* The everyday question this factor answers, always visible —
                   the finance term alone ("drawdown", "tail risk") told users
