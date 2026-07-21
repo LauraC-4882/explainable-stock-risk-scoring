@@ -7,9 +7,9 @@ import { useLanguage } from '../i18n/LanguageContext'
 export default function CommunityDisclaimer() {
   const { t } = useLanguage()
   return (
-    <div className="flex items-start gap-2 border-b border-border bg-surface2/40 px-4 py-2.5 text-[0.7rem] leading-relaxed text-muted sm:px-5">
-      <span aria-hidden="true" className="flex-shrink-0">⚖️</span>
-      <span>{t('community.disclaimer')}</span>
+    // Icon-free: a quiet italic note reads as legal small print on its own.
+    <div className="border-b border-border bg-surface2/40 px-4 py-2.5 text-[0.7rem] italic leading-relaxed text-muted sm:px-5">
+      {t('community.disclaimer')}
     </div>
   )
 }

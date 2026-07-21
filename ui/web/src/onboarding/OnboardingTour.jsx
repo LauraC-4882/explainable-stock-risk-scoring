@@ -1,3 +1,12 @@
+import {
+  ChartLineUp,
+  Compass,
+  Cpu,
+  Flask,
+  Gauge,
+  HandWaving,
+  Star,
+} from '@phosphor-icons/react'
 import { useState } from 'react'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -7,13 +16,13 @@ import { useOnboarding } from './OnboardingContext'
 // to use it when deciding what to do about a position — not just what the
 // number is. Content lives in i18n so it's translated, not hardcoded here.
 const STEPS = [
-  { id: 'welcome', icon: '👋' },
-  { id: 'score', icon: '🎯' },
-  { id: 'breakdown', icon: '🧭' },
-  { id: 'mlSignal', icon: '🤖' },
-  { id: 'stressTest', icon: '🧪' },
-  { id: 'metrics', icon: '📐' },
-  { id: 'watchlist', icon: '⭐' },
+  { id: 'welcome', icon: HandWaving },
+  { id: 'score', icon: Gauge },
+  { id: 'breakdown', icon: Compass },
+  { id: 'mlSignal', icon: Cpu },
+  { id: 'stressTest', icon: Flask },
+  { id: 'metrics', icon: ChartLineUp },
+  { id: 'watchlist', icon: Star },
 ]
 
 export default function OnboardingTour() {
@@ -63,8 +72,8 @@ export default function OnboardingTour() {
         </div>
 
         <div key={current.id} className="animate-fade-in px-6 py-7" style={{ animationDuration: '0.25s' }}>
-          <div className="mb-4 text-4xl" aria-hidden="true">
-            {current.icon}
+          <div className="icon-badge mb-4 h-12 w-12" aria-hidden="true">
+            <current.icon size={28} />
           </div>
           <h3 className="mb-2.5 text-lg font-bold text-slate-100">
             {t(`onboarding.steps.${current.id}.title`)}

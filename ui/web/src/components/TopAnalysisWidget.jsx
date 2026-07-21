@@ -61,11 +61,9 @@ export default function TopAnalysisWidget({ ticker }) {
   return (
     <div className="border-b border-border px-4 py-3.5 sm:px-5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[0.67rem] font-semibold uppercase tracking-wide text-muted">
-          <span className="icon-badge h-6 w-6 text-[0.72rem]">
-            <span aria-hidden="true">💬</span>
-          </span>
-          {t('community.recentTakes')}
+        {/* Flourish type instead of an icon badge — cleaner section head. */}
+        <div className="flex items-center gap-1.5">
+          <span className="heading-flourish text-base">{t('community.recentTakes')}</span>
           {total > 0 && (
             <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[0.6rem] text-accent">
               {total}

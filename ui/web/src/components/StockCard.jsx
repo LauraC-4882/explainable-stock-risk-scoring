@@ -1,4 +1,4 @@
-import { Star, X } from '@phosphor-icons/react'
+import { Star, WarningCircle, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { apiScore, apiTimeseries } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -128,8 +128,8 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           </div>
           {loading && <CardSkeleton />}
           {error && !loading && (
-            <div className="animate-fade-in px-8 py-12 text-center text-sm text-down">
-              ⚠ {error}
+            <div className="animate-fade-in flex items-center justify-center gap-1.5 px-8 py-12 text-sm text-down">
+              <WarningCircle aria-hidden="true" size={16} color="currentColor" /> {error}
             </div>
           )}
         </div>

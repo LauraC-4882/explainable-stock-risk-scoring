@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useAuth } from './AuthContext'
 
@@ -24,7 +25,7 @@ export default function WatchlistPanel({ onAdd }) {
             onClick={closeWatchlistPanel}
             className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
           >
-            ✕
+            <X aria-hidden="true" size={14} color="currentColor" />
           </button>
         </div>
 

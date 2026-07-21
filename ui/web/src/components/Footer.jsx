@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -24,7 +25,7 @@ function FooterModal({ title, onClose, children }) {
             onClick={onClose}
             className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
           >
-            ✕
+            <X aria-hidden="true" size={14} color="currentColor" />
           </button>
         </div>
         <div className="space-y-3 text-sm leading-relaxed text-slate-300">{children}</div>

@@ -1,3 +1,4 @@
+import { Bell } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { apiMarkAlertsSeen, apiWatchlistAlerts } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -74,7 +75,7 @@ export default function AlertsBell({ onOpen }) {
         aria-expanded={open}
         className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-accent/20 bg-white/[0.04] text-sm transition-all duration-150 hover:border-accent/40 hover:bg-accent/[0.14] active:scale-95"
       >
-        <span aria-hidden="true">🔔</span>
+        <Bell aria-hidden="true" size={16} />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-risk-extreme px-1 text-[0.58rem] font-bold text-white">
             {unread}

@@ -1,3 +1,4 @@
+import { ShieldStar, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { apiAdminAnalytics, apiAdminDismissReport, apiAdminListReports, apiDeletePost } from '../api'
 import AdminAnalyticsChart from '../components/AdminAnalyticsChart'
@@ -123,13 +124,13 @@ export default function AdminPanel() {
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="flex items-center gap-2 text-lg font-bold text-slate-100">
-            <span aria-hidden="true">🛡️</span> {t('admin.title')}
+            <ShieldStar aria-hidden="true" size={20} color="#fbbf24" /> {t('admin.title')}
           </h2>
           <button
             onClick={closeAdminPanel}
             className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
           >
-            ✕
+            <X aria-hidden="true" size={14} color="currentColor" />
           </button>
         </div>
 

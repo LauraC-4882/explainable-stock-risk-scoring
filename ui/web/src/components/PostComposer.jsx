@@ -1,3 +1,4 @@
+import { WarningCircle } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { apiCreatePost } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -71,7 +72,11 @@ export default function PostComposer({ initialTicker, onPosted }) {
         rows={3}
         className="w-full resize-none rounded-lg border border-border bg-surface2/60 px-3 py-2 text-sm text-slate-100 placeholder:text-muted focus:border-accent focus:outline-none"
       />
-      {error && <p className="text-xs text-down">⚠ {error}</p>}
+      {error && (
+        <p className="flex items-center gap-1 text-xs text-down">
+          <WarningCircle aria-hidden="true" size={13} color="currentColor" /> {error}
+        </p>
+      )}
       <div className="flex items-center justify-between gap-3">
         <p className="text-[0.65rem] leading-relaxed text-muted">{t('community.postDisclaimer')}</p>
         <button

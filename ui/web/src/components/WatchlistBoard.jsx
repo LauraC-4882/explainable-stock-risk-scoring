@@ -1,3 +1,4 @@
+import { Star } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { apiWatchlistOverview } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -67,7 +68,7 @@ export default function WatchlistBoard({ onOpen }) {
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
           <span className="icon-badge h-7 w-7 text-sm">
-            <span aria-hidden="true">★</span>
+            <Star aria-hidden="true" size={15} />
           </span>
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-100">
             {t('board.title')}

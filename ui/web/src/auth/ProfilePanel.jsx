@@ -1,3 +1,4 @@
+import { GraduationCap, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { apiMyPosts, apiMyVotes } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -54,7 +55,7 @@ export default function ProfilePanel() {
             onClick={closeProfilePanel}
             className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
           >
-            ✕
+            <X aria-hidden="true" size={14} color="currentColor" />
           </button>
         </div>
 
@@ -120,7 +121,7 @@ export default function ProfilePanel() {
             }}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-sm font-semibold text-slate-200 transition-all duration-150 hover:border-accent hover:text-accent active:scale-[0.98]"
           >
-            <span aria-hidden="true">🎓</span> {t('profile.replayTour')}
+            <GraduationCap aria-hidden="true" size={16} /> {t('profile.replayTour')}
           </button>
 
           <button

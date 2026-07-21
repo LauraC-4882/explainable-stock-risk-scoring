@@ -1,9 +1,10 @@
+import { ThumbsDown, ThumbsUp } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { apiVote } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 
-// 👍/👎 pair for one community post. Optimistic update on click, reconciled
+// Thumbs pair for one community post. Optimistic update on click, reconciled
 // with the server's fresh tally in the response; auth-gates by opening the
 // sign-in modal instead of voting when logged out. Hidden entirely by the
 // caller (not here) when post.is_own_post — self-votes are rejected
@@ -40,7 +41,13 @@ export default function VoteButtons({ post, onVoted }) {
             : 'border-border text-muted hover:border-risk-low hover:text-risk-low'
         }`}
       >
-        <span aria-hidden="true">👍</span> {post.upvotes}
+        <ThumbsUp
+          aria-hidden="true"
+          size={14}
+          weight={post.my_vote === 1 ? 'fill' : 'thin'}
+          color="currentColor"
+        />
+        {post.upvotes}
       </button>
       <button
         onClick={() => cast(-1)}
@@ -52,7 +59,13 @@ export default function VoteButtons({ post, onVoted }) {
             : 'border-border text-muted hover:border-risk-extreme hover:text-risk-extreme'
         }`}
       >
-        <span aria-hidden="true">👎</span> {post.downvotes}
+        <ThumbsDown
+          aria-hidden="true"
+          size={14}
+          weight={post.my_vote === -1 ? 'fill' : 'thin'}
+          color="currentColor"
+        />
+        {post.downvotes}
       </button>
     </div>
   )

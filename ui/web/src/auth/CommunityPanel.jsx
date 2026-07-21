@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { apiListPosts } from '../api'
 import CommunityDisclaimer from '../components/CommunityDisclaimer'
@@ -75,7 +76,7 @@ export default function CommunityPanel() {
             onClick={closeCommunityPanel}
             className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition hover:bg-down/10 hover:text-down"
           >
-            ✕
+            <X aria-hidden="true" size={14} color="currentColor" />
           </button>
         </div>
 
@@ -108,7 +109,7 @@ export default function CommunityPanel() {
                     onClick={() => setTickerFilter(null)}
                     className="flex items-center gap-1 rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent"
                   >
-                    {tickerFilter} <span aria-hidden="true">✕</span>
+                    {tickerFilter} <X aria-hidden="true" size={12} color="currentColor" />
                   </button>
                 )}
                 <div className="ml-auto flex gap-1.5">

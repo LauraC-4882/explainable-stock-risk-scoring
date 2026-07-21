@@ -1,3 +1,4 @@
+import { Flag, X } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { apiDeletePost, apiReportPost } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -62,7 +63,7 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
             title={post.is_own_post ? t('community.deletePost') : t('admin.deleteAsAdmin')}
             className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-xs leading-none text-muted transition-colors duration-150 hover:bg-down/10 hover:text-down"
           >
-            ✕
+            <X aria-hidden="true" size={14} color="currentColor" />
           </button>
         )}
       </div>
@@ -84,7 +85,7 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
                 aria-label={t('community.report.button')}
                 className="rounded-md px-1 py-0.5 text-[0.7rem] leading-none text-muted opacity-60 transition hover:bg-down/10 hover:opacity-100"
               >
-                🚩
+                <Flag aria-hidden="true" size={13} color="currentColor" />
               </button>
             )
           )}
