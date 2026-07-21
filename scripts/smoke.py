@@ -184,6 +184,31 @@ def check_json_endpoint(base_url: str, path: str) -> object:
         )
 
 
+def post_json_endpoint(
+    base_url: str, path: str, payload: dict, headers: dict | None = None
+) -> object:
+    """POST *path* with a JSON body; assert HTTP 2xx and valid JSON; return the parsed body."""
+    url = f"{base_url}{path}"
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), method="POST")
+    req.add_header("Content-Type", "application/json")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
+    try:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
+            status, body = resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        status, body = exc.code, exc.read()
+
+    if status not in (200, 201):
+        raise AssertionError(f"POST {path} -> HTTP {status}: {body[:500]!r}")
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            f"POST {path} -> response body is not valid JSON: {exc}\nbody={body[:500]!r}"
+        )
+
+
 def main() -> int:
     start = time.time()
     model_dir = Path(tempfile.mkdtemp(prefix="stock_risk_smoke_model_"))
@@ -267,6 +292,37 @@ def main() -> int:
                 f"timeseries[0] missing key {key!r}: {list(timeseries[0].keys())}"
             )
         _step(f"GET /api/score/AAPL/timeseries -> 200, {len(timeseries)} points")
+
+        # Community platform: register a throwaway user, post, and check the
+        # leaderboard's accuracy values are native float|None through a real
+        # JSON round trip — the same numpy-scalar-leak regression class as
+        # /api/score (CLAUDE.md hard rule #4), on a codepath this project has
+        # no other end-to-end HTTP coverage for.
+        register = post_json_endpoint(
+            base_url,
+            "/api/auth/register",
+            {"email": f"smoke-{int(time.time())}@example.com", "password": "smoke-test-pass"},
+        )
+        auth_header = {"Authorization": f"Bearer {register['access_token']}"}
+        post = post_json_endpoint(
+            base_url,
+            "/api/community/posts",
+            {"ticker": "AAPL", "market": "us", "body": "Smoke-test analysis post."},
+            headers=auth_header,
+        )
+        _step(f"POST /api/community/posts -> 201, id={post['id']}")
+
+        board = check_json_endpoint(base_url, "/api/community/leaderboard")
+        assert isinstance(board, list), (
+            f"/api/community/leaderboard expected a list, got {type(board).__name__}"
+        )
+        for entry in board:
+            accuracy = entry.get("accuracy")
+            assert accuracy is None or isinstance(accuracy, float), (
+                f"/api/community/leaderboard leaked a non-float non-None accuracy: "
+                f"{accuracy!r} ({type(accuracy).__name__}) in entry {entry}"
+            )
+        _step(f"GET /api/community/leaderboard -> 200, {len(board)} entries, accuracy types OK")
 
         elapsed = time.time() - start
         _step(f"ALL CHECKS PASSED in {elapsed:.1f}s")

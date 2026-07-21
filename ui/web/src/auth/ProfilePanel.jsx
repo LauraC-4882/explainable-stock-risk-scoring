@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { apiMyPosts, apiMyVotes } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
 import Avatar from '../components/Avatar'
@@ -5,8 +7,26 @@ import { useAuth } from './AuthContext'
 
 export default function ProfilePanel() {
   const { t, lang } = useLanguage()
-  const { profilePanelOpen, closeProfilePanel, user, watchlist, logout } = useAuth()
+  const { token, profilePanelOpen, closeProfilePanel, user, watchlist, logout, openCommunityPanel } =
+    useAuth()
   const { openTour } = useOnboarding()
+  const [postCount, setPostCount] = useState(null)
+  const [voteCount, setVoteCount] = useState(null)
+
+  useEffect(() => {
+    if (!profilePanelOpen || !token) return
+    let cancelled = false
+    Promise.all([apiMyPosts(token), apiMyVotes(token)])
+      .then(([posts, votes]) => {
+        if (cancelled) return
+        setPostCount(posts.length)
+        setVoteCount(votes.length)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [profilePanelOpen, token])
 
   if (!profilePanelOpen || !user) return null
 
@@ -57,6 +77,38 @@ export default function ProfilePanel() {
             </span>
             <span className="text-sm font-bold text-slate-100">{watchlist.length}</span>
           </div>
+
+          <button
+            onClick={() => {
+              closeProfilePanel()
+              openCommunityPanel()
+            }}
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-surface2/50 px-4 py-3 text-left transition-colors duration-150 hover:border-accent"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {t('profile.myPosts')}
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-slate-100">
+              {postCount ?? '—'}
+              <span className="text-xs font-normal text-accent">{t('profile.viewAll')} →</span>
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              closeProfilePanel()
+              openCommunityPanel()
+            }}
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-surface2/50 px-4 py-3 text-left transition-colors duration-150 hover:border-accent"
+          >
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {t('profile.myVotes')}
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-bold text-slate-100">
+              {voteCount ?? '—'}
+              <span className="text-xs font-normal text-accent">{t('profile.viewAll')} →</span>
+            </span>
+          </button>
 
           <button
             onClick={() => {

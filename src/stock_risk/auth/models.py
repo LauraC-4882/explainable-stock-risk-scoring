@@ -31,3 +31,22 @@ class WatchlistItem(SQLModel, table=True):
     market: str
     notes: Optional[str] = None
     added_at: datetime = Field(default_factory=_utc_now)
+
+
+class AnalystPost(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    ticker: str = Field(index=True)
+    market: str
+    body: str
+    created_at: datetime = Field(default_factory=_utc_now, index=True)
+
+
+class PostVote(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_postvote_user_post"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    post_id: int = Field(foreign_key="analystpost.id", index=True)
+    value: int  # +1 upvote ("correct") / -1 downvote ("incorrect")
+    voted_at: datetime = Field(default_factory=_utc_now)

@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import yfinance as yf
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -18,9 +18,9 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
-from ..auth.dependencies import get_current_user
-from ..auth.models import User, WatchlistItem
-from ..auth.security import create_access_token, hash_password, verify_password
+from ..auth.dependencies import get_current_user, get_current_user_optional
+from ..auth.models import AnalystPost, PostVote, User, WatchlistItem
+from ..auth.security import create_access_token, handle_for, hash_password, verify_password
 from ..config import settings
 from ..db import get_session, init_db
 from ..monitoring.metrics import ModelMonitor
@@ -280,6 +280,391 @@ def remove_watchlist_item(
     session.delete(item)
     session.commit()
     return Response(status_code=204)
+
+
+# ── Community (posts/votes/leaderboard) ─────────────────────────────────────
+# A vote-driven layer on top of the (objective, model-computed) risk score:
+# users post their own read on a ticker, other users mark it correct/incorrect,
+# and each author accumulates a public accuracy rate from those votes. The
+# score itself is unaffected — this is opinion, clearly labeled as such on the
+# frontend (see CommunityDisclaimer.jsx).
+
+POST_BODY_MAX_LEN = 1000
+# Author-level accuracy gate for the leaderboard/inline badges: low enough a
+# genuinely active analyst qualifies within days, high enough that a couple of
+# sockpuppet votes can't fake a 100% accuracy overnight. A product tuning
+# knob, not a per-deployment setting — hence a constant here, not in Settings.
+MIN_VOTES_FOR_LEADERBOARD = 10
+# Post-level gate for "top analysis for this ticker" (feed sort=top,
+# TopAnalysisWidget): lower than the author-level gate since a single post
+# naturally gets less traffic than an author's whole history.
+MIN_VOTES_FOR_TOP_POST = 3
+
+
+class PostCreateRequest(BaseModel):
+    ticker: str
+    market: str
+    body: str
+
+
+class VoteRequest(BaseModel):
+    value: Literal[1, -1]
+
+
+class PostResponse(BaseModel):
+    id: int
+    ticker: str
+    market: str
+    body: str
+    created_at: datetime
+    author_handle: str
+    author_accuracy: Optional[float] = None
+    author_post_count: int
+    upvotes: int
+    downvotes: int
+    my_vote: Optional[int] = None
+    is_own_post: bool = False
+
+
+class PostListResponse(BaseModel):
+    items: list[PostResponse]
+    total: int
+
+
+class LeaderboardEntry(BaseModel):
+    handle: str
+    post_count: int
+    upvotes: int
+    downvotes: int
+    accuracy: Optional[float] = None
+    latest_post_at: datetime
+
+
+def _vote_tallies(session: Session) -> dict[int, dict]:
+    """post_id -> {upvotes, downvotes}. Loaded in full and aggregated in
+    Python rather than via a SQL CASE/SUM — the simplest correct thing at
+    this project's scale (a small community, not a high-volume one); worth
+    revisiting with a grouped SQL aggregate if the vote table ever grows
+    large enough for that to matter."""
+    tallies: dict[int, dict] = {}
+    for post_id, value in session.exec(select(PostVote.post_id, PostVote.value)).all():
+        t = tallies.setdefault(post_id, {"upvotes": 0, "downvotes": 0})
+        if value == 1:
+            t["upvotes"] += 1
+        elif value == -1:
+            t["downvotes"] += 1
+    return tallies
+
+
+def _author_stats(session: Session, tallies: dict[int, dict]) -> dict[int, dict]:
+    """user_id -> {post_count, upvotes, downvotes, latest_post_at} aggregated
+    across all of that author's posts — vote-weighted (sums across posts),
+    not an average of each post's own ratio, so one prolific well-scrutinized
+    author isn't diluted by someone else's handful of barely-voted-on posts."""
+    stats: dict[int, dict] = {}
+    for post in session.exec(select(AnalystPost)).all():
+        s = stats.setdefault(
+            post.user_id,
+            {"post_count": 0, "upvotes": 0, "downvotes": 0, "latest_post_at": post.created_at},
+        )
+        s["post_count"] += 1
+        s["latest_post_at"] = max(s["latest_post_at"], post.created_at)
+        t = tallies.get(post.id, {"upvotes": 0, "downvotes": 0})
+        s["upvotes"] += t["upvotes"]
+        s["downvotes"] += t["downvotes"]
+    return stats
+
+
+def _author_accuracy(stats: dict, min_votes: int = MIN_VOTES_FOR_LEADERBOARD) -> Optional[float]:
+    # None (not 0.0) below the threshold — 0% misleadingly reads as "always
+    # wrong" rather than "not enough votes yet to say," and this same guard
+    # covers the brand-new zero-vote case without a ZeroDivisionError, since
+    # the division only runs once total has already cleared min_votes >= 1.
+    total = stats["upvotes"] + stats["downvotes"]
+    return stats["upvotes"] / total if total >= min_votes else None
+
+
+def _post_response(
+    post: AnalystPost,
+    *,
+    tallies: dict[int, dict],
+    author_stats: dict[int, dict],
+    emails_by_user_id: dict[int, str],
+    viewer_id: Optional[int],
+    my_votes: dict[int, int],
+) -> PostResponse:
+    tally = tallies.get(post.id, {"upvotes": 0, "downvotes": 0})
+    astats = author_stats.get(
+        post.user_id,
+        {"post_count": 0, "upvotes": 0, "downvotes": 0, "latest_post_at": post.created_at},
+    )
+    return PostResponse(
+        id=post.id,
+        ticker=post.ticker,
+        market=post.market,
+        body=post.body,
+        created_at=post.created_at,
+        author_handle=handle_for(emails_by_user_id[post.user_id]),
+        author_accuracy=_author_accuracy(astats),
+        author_post_count=astats["post_count"],
+        upvotes=tally["upvotes"],
+        downvotes=tally["downvotes"],
+        my_vote=my_votes.get(post.id),
+        is_own_post=viewer_id is not None and viewer_id == post.user_id,
+    )
+
+
+@app.post("/api/community/posts", response_model=PostResponse, status_code=201)
+def create_post(
+    payload: PostCreateRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    body = payload.body.strip()
+    if not body:
+        raise HTTPException(status_code=422, detail="Post body cannot be empty")
+    if len(body) > POST_BODY_MAX_LEN:
+        raise HTTPException(
+            status_code=422, detail=f"Post body must be {POST_BODY_MAX_LEN} characters or fewer"
+        )
+    ticker = payload.ticker.upper().strip()
+    if not ticker:
+        raise HTTPException(status_code=422, detail="Ticker is required")
+
+    post = AnalystPost(user_id=user.id, ticker=ticker, market=payload.market, body=body)
+    session.add(post)
+    session.commit()
+    session.refresh(post)
+
+    tallies = _vote_tallies(session)
+    author_stats = _author_stats(session, tallies)
+    return _post_response(
+        post,
+        tallies=tallies,
+        author_stats=author_stats,
+        emails_by_user_id={user.id: user.email},
+        viewer_id=user.id,
+        my_votes={},
+    )
+
+
+@app.get("/api/community/posts", response_model=PostListResponse)
+def list_posts(
+    ticker: Optional[str] = None,
+    sort: Literal["recent", "top"] = "recent",
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    user: Optional[User] = Depends(get_current_user_optional),
+    session: Session = Depends(get_session),
+):
+    """The community feed — also serves the ticker-filtered view used by
+    TopAnalysisWidget (?ticker=X&sort=top&limit=1) and the platform page's
+    deep link from a stock card, so no separate endpoint is needed for those."""
+    query = select(AnalystPost)
+    if ticker:
+        query = query.where(AnalystPost.ticker == ticker.upper().strip())
+    posts = session.exec(query).all()
+
+    tallies = _vote_tallies(session)
+    author_stats = _author_stats(session, tallies)
+
+    if sort == "top":
+
+        def _post_score(post: AnalystPost):
+            t = tallies.get(post.id, {"upvotes": 0, "downvotes": 0})
+            total = t["upvotes"] + t["downvotes"]
+            if total < MIN_VOTES_FOR_TOP_POST:
+                return (-1.0, 0, post.created_at)  # below threshold always sorts last
+            return (t["upvotes"] / total, total, post.created_at)
+
+        posts.sort(key=_post_score, reverse=True)
+    else:
+        posts.sort(key=lambda p: p.created_at, reverse=True)
+
+    total = len(posts)
+    page = posts[offset : offset + limit]
+
+    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+
+    my_votes: dict[int, int] = {}
+    if user is not None and page:
+        post_ids = [p.id for p in page]
+        my_votes = {
+            post_id: value
+            for post_id, value in session.exec(
+                select(PostVote.post_id, PostVote.value).where(
+                    PostVote.user_id == user.id, PostVote.post_id.in_(post_ids)
+                )
+            ).all()
+        }
+
+    items = [
+        _post_response(
+            p,
+            tallies=tallies,
+            author_stats=author_stats,
+            emails_by_user_id=emails_by_user_id,
+            viewer_id=user.id if user else None,
+            my_votes=my_votes,
+        )
+        for p in page
+    ]
+    return PostListResponse(items=items, total=total)
+
+
+@app.delete("/api/community/posts/{post_id}", status_code=204)
+def delete_post(
+    post_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    post = session.get(AnalystPost, post_id)
+    if not post or post.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Post not found")
+    for vote in session.exec(select(PostVote).where(PostVote.post_id == post_id)).all():
+        session.delete(vote)
+    session.delete(post)
+    session.commit()
+    return Response(status_code=204)
+
+
+@app.post("/api/community/posts/{post_id}/vote", response_model=PostResponse)
+def vote_post(
+    post_id: int,
+    payload: VoteRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    post = session.get(AnalystPost, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.user_id == user.id:
+        raise HTTPException(status_code=403, detail="You cannot vote on your own post")
+
+    existing = session.exec(
+        select(PostVote).where(PostVote.post_id == post_id, PostVote.user_id == user.id)
+    ).first()
+    if existing:
+        existing.value = payload.value  # upsert: re-voting changes the vote, doesn't duplicate it
+        session.add(existing)
+    else:
+        session.add(PostVote(post_id=post_id, user_id=user.id, value=payload.value))
+    session.commit()
+
+    tallies = _vote_tallies(session)
+    author_stats = _author_stats(session, tallies)
+    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+    return _post_response(
+        post,
+        tallies=tallies,
+        author_stats=author_stats,
+        emails_by_user_id=emails_by_user_id,
+        viewer_id=user.id,
+        my_votes={post_id: payload.value},
+    )
+
+
+@app.delete("/api/community/posts/{post_id}/vote", status_code=204)
+def remove_vote(
+    post_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    existing = session.exec(
+        select(PostVote).where(PostVote.post_id == post_id, PostVote.user_id == user.id)
+    ).first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="No vote to remove")
+    session.delete(existing)
+    session.commit()
+    return Response(status_code=204)
+
+
+@app.get("/api/community/leaderboard", response_model=list[LeaderboardEntry])
+def leaderboard(
+    sort: Literal["accuracy", "recent"] = "accuracy",
+    limit: int = Query(25, ge=1, le=100),
+    session: Session = Depends(get_session),
+):
+    tallies = _vote_tallies(session)
+    author_stats = _author_stats(session, tallies)
+    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+
+    entries = []
+    for user_id, stats in author_stats.items():
+        accuracy = _author_accuracy(stats)
+        if sort == "accuracy" and accuracy is None:
+            continue  # below-threshold authors are excluded from the ranked view...
+        entries.append(
+            LeaderboardEntry(
+                handle=handle_for(emails_by_user_id[user_id]),
+                post_count=stats["post_count"],
+                upvotes=stats["upvotes"],
+                downvotes=stats["downvotes"],
+                accuracy=accuracy,
+                latest_post_at=stats["latest_post_at"],
+            )
+        )
+
+    if sort == "accuracy":
+        entries.sort(key=lambda e: (e.accuracy, e.upvotes), reverse=True)
+    else:
+        # ...but still discoverable via "recent," so a brand-new analyst
+        # isn't invisible everywhere just for not having enough votes yet.
+        entries.sort(key=lambda e: e.latest_post_at, reverse=True)
+
+    return entries[:limit]
+
+
+@app.get("/api/community/me/posts", response_model=list[PostResponse])
+def my_posts(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    posts = session.exec(
+        select(AnalystPost)
+        .where(AnalystPost.user_id == user.id)
+        .order_by(AnalystPost.created_at.desc())
+    ).all()
+    tallies = _vote_tallies(session)
+    author_stats = _author_stats(session, tallies)
+    return [
+        _post_response(
+            p,
+            tallies=tallies,
+            author_stats=author_stats,
+            emails_by_user_id={user.id: user.email},
+            viewer_id=user.id,
+            my_votes={},
+        )
+        for p in posts
+    ]
+
+
+@app.get("/api/community/me/votes", response_model=list[PostResponse])
+def my_votes_endpoint(
+    user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    votes = session.exec(
+        select(PostVote).where(PostVote.user_id == user.id).order_by(PostVote.voted_at.desc())
+    ).all()
+    if not votes:
+        return []
+
+    post_ids = [v.post_id for v in votes]
+    posts_by_id = {
+        p.id: p for p in session.exec(select(AnalystPost).where(AnalystPost.id.in_(post_ids))).all()
+    }
+    tallies = _vote_tallies(session)
+    author_stats = _author_stats(session, tallies)
+    emails_by_user_id = {u.id: u.email for u in session.exec(select(User)).all()}
+    my_votes = {v.post_id: v.value for v in votes}
+
+    return [
+        _post_response(
+            posts_by_id[v.post_id],
+            tallies=tallies,
+            author_stats=author_stats,
+            emails_by_user_id=emails_by_user_id,
+            viewer_id=user.id,
+            my_votes=my_votes,
+        )
+        for v in votes
+        if v.post_id in posts_by_id  # a vote's post may have since been deleted
+    ]
 
 
 # ── Legacy endpoints (keep for Prometheus / Streamlit compat) ─────────────────

@@ -8,7 +8,7 @@ export default function MetricTiles({ score }) {
   const rsiClass = rsi > 70 ? 'text-down' : rsi < 30 ? 'text-up' : 'text-slate-100'
 
   return (
-    <div className="grid grid-cols-4 divide-x divide-border border-b border-border">
+    <div className="grid grid-cols-4 divide-x divide-border border-b border-border bg-surface2/20">
       <Tile label={t('metrics.vol30d')} value={fmt(score.volatility_30d, 100, 1, '%')} tooltip={t('glossary.volatility')} />
       <Tile
         label={t('metrics.var95')}
@@ -28,7 +28,7 @@ export default function MetricTiles({ score }) {
 
 function Tile({ label, value, valueClass = '', tooltip, tooltipAlign = 'center' }) {
   return (
-    <div className="px-2 py-2.5 transition-colors duration-150 hover:bg-surface2/50 sm:px-3.5">
+    <div className="px-2 py-2.5 transition-colors duration-150 hover:bg-surface2/60 sm:px-3.5">
       <div className="flex items-center gap-1 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-wide text-muted sm:text-[0.65rem]">
         {label}
         {tooltip && <InfoTooltip text={tooltip} align={tooltipAlign} />}

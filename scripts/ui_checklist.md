@@ -79,6 +79,40 @@ to loop.
 - [ ] "Replay tutorial" closes the Profile panel and reopens the onboarding
       tour from step 1.
 
+## Community platform (`ui-community-widgets.png`, `ui-community-feed.png`,
+`ui-community-leaderboard.png`, `ui-profile-community.png` — desktop,
+captured logged-in as a throwaway voter with one seeded post + one seeded
+vote; see `shoot_community` in `scripts/ui_shot.py`)
+
+- [ ] `ui-community-widgets.png`: the TSLA card shows a populated "Top
+      community take" widget — author handle, an accuracy badge, and a
+      one-line snippet of the seeded post's body, all inside its own
+      bounded panel-tile between the metric tiles and the price chart.
+- [ ] Same screenshot: the AAPL card's widget shows the empty "be the
+      first" CTA state instead, not a blank space and not the TSLA card's
+      post leaking into it.
+- [ ] `ui-community-feed.png`: the disclaimer ("the risk score is computed
+      from objective market data... other users' personal opinion...") is
+      visible without scrolling on the panel's initial view, in a plain
+      banner with no × or dismiss control anywhere near it.
+- [ ] Same screenshot: the seeded post's 👍 button is in its "pressed"
+      state (filled/colored, not the default outline) — confirms the
+      voter's own vote is reflected, not just the raw tally.
+- [ ] Same screenshot: neither vote button on the seeded post is disabled
+      or hidden due to being mistaken for the viewer's own post (the voter
+      account did not author it).
+- [ ] `ui-community-leaderboard.png`: sorted by "Recent," the author's row
+      is visible showing a "new analyst" / pending badge (not "0%") — the
+      seeded post has only 1 vote, below the 10-vote leaderboard-accuracy
+      threshold, so this is the expected state, not a bug.
+- [ ] `ui-profile-community.png`: the Profile panel shows two new rows
+      ("Analysis posts" and "Posts voted on") between the watchlist-count
+      row and "Replay tutorial," with counts 0 and 1 respectively for this
+      voter account, each with a legible "View all" link.
+- [ ] No element in any of the four screenshots is clipped by the card's
+      or the page's right edge, and no text is illegible against its
+      background — same bar as the desktop/mobile checks above.
+
 ## Cross-check: do the two score displays on the same card agree?
 
 - [ ] The gauge/large-number score at the top of the card and the

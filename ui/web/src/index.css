@@ -45,6 +45,38 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
+
+  /* ── Dashboard panel chrome (StockCard sub-sections) ─────────────────── */
+  .panel {
+    background: linear-gradient(180deg, rgba(29, 18, 48, 0.55) 0%, rgba(20, 13, 32, 0.45) 100%);
+    border: 1px solid #2b1c45;
+    border-radius: 0.85rem;
+  }
+  .panel-tile {
+    background: rgba(29, 18, 48, 0.4);
+    border: 1px solid #2b1c45;
+    border-radius: 0.7rem;
+  }
+  .icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.6rem;
+    background: rgba(192, 132, 252, 0.12);
+    border: 1px solid rgba(192, 132, 252, 0.18);
+  }
+  .glow-ring {
+    box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.15), 0 0 24px -6px rgba(192, 132, 252, 0.35);
+  }
+  .skeleton-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      rgba(29, 18, 48, 0.6) 30%,
+      rgba(59, 42, 94, 0.55) 45%,
+      rgba(29, 18, 48, 0.6) 60%
+    );
+    background-size: 200% 100%;
+  }
 }
 
 /* ── Logo animations (see components/Logo.jsx) ────────────────────────────── */
@@ -95,7 +127,9 @@
   .slogan-arc-draw,
   .logo-dot-pulse,
   .animate-breathe,
-  .animate-twinkle {
+  .animate-twinkle,
+  .animate-glow-pulse,
+  .animate-shimmer {
     animation: none !important;
     stroke-dashoffset: 0 !important;
   }

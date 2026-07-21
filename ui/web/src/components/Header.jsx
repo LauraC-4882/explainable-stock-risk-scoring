@@ -7,7 +7,8 @@ import { RiscoreIcon, RiscoreWordmark } from './Logo'
 
 export default function Header() {
   const { t } = useLanguage()
-  const { user, watchlist, openAuthModal, openWatchlistPanel, openProfilePanel } = useAuth()
+  const { user, watchlist, openAuthModal, openWatchlistPanel, openProfilePanel, openCommunityPanel } =
+    useAuth()
   const { openTour } = useOnboarding()
 
   return (
@@ -28,6 +29,12 @@ export default function Header() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => openCommunityPanel()}
+            className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-all duration-150 hover:border-accent hover:text-accent active:scale-95"
+          >
+            <span aria-hidden="true">💬</span> {t('community.navButton')}
+          </button>
           {user ? (
             <>
               <button

@@ -8,6 +8,13 @@ const DELTA_COLOR = (delta) => {
   return 'text-muted'
 }
 
+const DELTA_BORDER = (delta) => {
+  if (delta >= 20) return '#f43f5e'
+  if (delta >= 10) return '#fb923c'
+  if (delta > 0) return '#fbbf24'
+  return '#2b1c45'
+}
+
 // Collapsible "what if a historical crisis recurred" panel, driven by
 // score.stress_test (scoring/stress_test.py). Scenario label/narrative text
 // is backend-generated English, not localized — same treatment as risk_note
@@ -23,11 +30,14 @@ export default function StressTestPanel({ stressTest }) {
     <div className="border-b border-border">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent"
+        className="group flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent"
         aria-expanded={open}
       >
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true">{'\u{1F9EA}'}</span> {t('stressTest.toggle')}
+        <span className="inline-flex items-center gap-2">
+          <span className="icon-badge h-6 w-6 text-[0.72rem] transition-colors duration-150 group-hover:bg-accent/20">
+            <span aria-hidden="true">{'\u{1F9EA}'}</span>
+          </span>
+          {t('stressTest.toggle')}
         </span>
         <svg
           className={`h-3 w-3 flex-shrink-0 transition-transform duration-300 ease-out ${open ? 'rotate-180' : ''}`}
@@ -49,7 +59,11 @@ export default function StressTestPanel({ stressTest }) {
             <p className="text-sm leading-relaxed text-slate-300">{t('stressTest.intro')}</p>
             <div className="space-y-2.5">
               {scenarios.map(([key, s]) => (
-                <div key={key} className="rounded-lg border border-border bg-surface2/50 p-3">
+                <div
+                  key={key}
+                  className="rounded-lg border border-border border-l-2 bg-surface2/50 p-3 transition-colors duration-150 hover:bg-surface2"
+                  style={{ borderLeftColor: DELTA_BORDER(s.delta) }}
+                >
                   <div className="text-xs font-semibold text-slate-200">{s.label}</div>
                   <div className="mt-1.5 flex items-baseline gap-1.5">
                     <span className="font-mono text-[0.7rem] text-muted">

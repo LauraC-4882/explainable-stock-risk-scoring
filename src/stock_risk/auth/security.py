@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -34,3 +35,15 @@ def decode_access_token(token: str) -> Optional[str]:
         return payload.get("sub")
     except jwt.PyJWTError:
         return None
+
+
+def handle_for(email: str) -> str:
+    """Public-safe display name for community posts/leaderboard: the email's
+    local-part plus a short deterministic disambiguator, so two different
+    emails that share a local-part (alice@gmail.com / alice@yahoo.com) don't
+    collide under the same public handle. Avoids adding a display_name column
+    to User, which the app's create_all()-only schema setup can't retrofit
+    onto an already-created table."""
+    local = email.split("@", 1)[0]
+    suffix = hashlib.sha256(email.encode("utf-8")).hexdigest()[:4]
+    return f"{local}#{suffix}"

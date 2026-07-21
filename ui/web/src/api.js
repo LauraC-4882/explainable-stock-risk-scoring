@@ -70,3 +70,66 @@ export async function apiRemoveWatchlist(token, itemId) {
   })
   if (!res.ok) throw new Error('Failed to remove from watchlist')
 }
+
+// ── Community platform ───────────────────────────────────────────────────────
+
+function authHeader(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function apiListPosts(token, { ticker, sort = 'recent', limit = 20, offset = 0 } = {}) {
+  const params = new URLSearchParams({ sort, limit: String(limit), offset: String(offset) })
+  if (ticker) params.set('ticker', ticker)
+  const res = await fetch(`/api/community/posts?${params}`, { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load community posts')
+}
+
+export async function apiCreatePost(token, ticker, market, body) {
+  const res = await fetch('/api/community/posts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+    body: JSON.stringify({ ticker, market, body }),
+  })
+  return parseErrorOr(res, 'Failed to create post')
+}
+
+export async function apiDeletePost(token, postId) {
+  const res = await fetch(`/api/community/posts/${postId}`, {
+    method: 'DELETE',
+    headers: authHeader(token),
+  })
+  if (!res.ok) throw new Error('Failed to delete post')
+}
+
+export async function apiVote(token, postId, value) {
+  const res = await fetch(`/api/community/posts/${postId}/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+    body: JSON.stringify({ value }),
+  })
+  return parseErrorOr(res, 'Failed to vote')
+}
+
+export async function apiRemoveVote(token, postId) {
+  const res = await fetch(`/api/community/posts/${postId}/vote`, {
+    method: 'DELETE',
+    headers: authHeader(token),
+  })
+  if (!res.ok) throw new Error('Failed to remove vote')
+}
+
+export async function apiLeaderboard({ sort = 'accuracy', limit = 25 } = {}) {
+  const params = new URLSearchParams({ sort, limit: String(limit) })
+  const res = await fetch(`/api/community/leaderboard?${params}`)
+  return parseErrorOr(res, 'Failed to load leaderboard')
+}
+
+export async function apiMyPosts(token) {
+  const res = await fetch('/api/community/me/posts', { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load your posts')
+}
+
+export async function apiMyVotes(token) {
+  const res = await fetch('/api/community/me/votes', { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load your votes')
+}

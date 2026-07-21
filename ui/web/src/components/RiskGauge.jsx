@@ -1,4 +1,9 @@
+import { useId } from 'react'
+
 export default function RiskGauge({ score, color }) {
+  const uid = useId()
+  const gradId = `gauge-grad-${uid}`
+  const glowId = `gauge-glow-${uid}`
   const pct = Math.min(+score, 100) / 100
   const R = 50
   const cx = 58
@@ -22,6 +27,19 @@ export default function RiskGauge({ score, color }) {
 
   return (
     <svg width="116" height="68" viewBox="0 0 116 68" style={{ overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={color} stopOpacity="0.55" />
+          <stop offset="100%" stopColor={color} stopOpacity="1" />
+        </linearGradient>
+        <filter id={glowId} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="2.4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
       {ticks.map((t, i) => (
         <line
           key={i}
@@ -33,14 +51,15 @@ export default function RiskGauge({ score, color }) {
           strokeWidth="2"
         />
       ))}
-      <path d={track} fill="none" stroke="#2b1c45" strokeWidth="9" strokeLinecap="round" />
+      <path d={track} fill="none" stroke="#221639" strokeWidth="10" strokeLinecap="round" />
       {fill && (
         <path
           d={fill}
           fill="none"
-          stroke={color}
-          strokeWidth="9"
+          stroke={`url(#${gradId})`}
+          strokeWidth="10"
           strokeLinecap="round"
+          filter={`url(#${glowId})`}
           className="transition-all duration-700 ease-out"
         />
       )}

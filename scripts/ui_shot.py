@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -91,6 +92,123 @@ def shoot(
         browser.close()
 
 
+def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """Community platform states, reached the same "fast/deterministic via
+    direct API access" way STOCK_RISK_MOCK avoids a real yfinance call:
+    register two throwaway users and seed a post + vote via page.request
+    (no clicking through the composer), then screenshot the per-ticker
+    widget (populated + empty side by side), the feed with the disclaimer
+    and the voter's own pressed vote, the leaderboard, and the Profile
+    panel's new sections — none of which the desktop/mobile/empty/
+    onboarding flow above ever logs in or seeds data for."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        page.on(
+            "console",
+            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
+        )
+        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+        stamp = str(int(time.time()))
+        author_email = f"ui-shot-author-{stamp}@example.com"
+        voter_email = f"ui-shot-voter-{stamp}@example.com"
+        author_token = page.request.post(
+            f"{base_url}/api/auth/register",
+            data={"email": author_email, "password": "ui-shot-pass1"},
+        ).json()["access_token"]
+        voter_token = page.request.post(
+            f"{base_url}/api/auth/register",
+            data={"email": voter_email, "password": "ui-shot-pass1"},
+        ).json()["access_token"]
+
+        post_id = page.request.post(
+            f"{base_url}/api/community/posts",
+            data={
+                "ticker": "TSLA",
+                "market": "us",
+                "body": (
+                    "Elevated volatility looks mostly priced in already — "
+                    "watching for a base to form before adding here."
+                ),
+            },
+            headers={"Authorization": f"Bearer {author_token}"},
+        ).json()["id"]
+        page.request.post(
+            f"{base_url}/api/community/posts/{post_id}/vote",
+            data={"value": 1},
+            headers={"Authorization": f"Bearer {voter_token}"},
+        )
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        # Log in as the voter for the rest of this flow: has a cast vote
+        # (pressed-state check) and a not-yet-qualified accuracy (the
+        # leaderboard's "not enough votes" state is a real, checkable state,
+        # not a bug in the harness — see MIN_VOTES_FOR_LEADERBOARD).
+        page.evaluate("(t) => localStorage.setItem('stock-risk-token', t)", voter_token)
+        page.reload(wait_until="networkidle")
+        page.wait_for_selector("text=Watchlist", timeout=5000)  # only renders once logged in
+
+        page.fill('input[type="text"]', "TSLA")
+        page.wait_for_timeout(100)
+        page.keyboard.press("Enter")
+        page.wait_for_selector("text=risk score out of 100", timeout=20000)
+        page.fill('input[type="text"]', "AAPL")
+        page.wait_for_timeout(100)
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(1500)  # let both cards' independent widget fetches settle
+
+        widgets_path = out_dir / "ui-community-widgets.png"
+        page.screenshot(path=str(widgets_path), full_page=True)
+        print(
+            f"[ui_shot] community-widgets -> {widgets_path} ({widgets_path.stat().st_size} bytes)"
+        )
+
+        page.click('button:has-text("Community")')
+        page.wait_for_selector("text=Community Risk Analysis", timeout=5000)
+        page.wait_for_timeout(1000)  # disclaimer + feed fetch settle
+
+        feed_path = out_dir / "ui-community-feed.png"
+        page.screenshot(path=str(feed_path), full_page=True)
+        print(f"[ui_shot] community-feed -> {feed_path} ({feed_path.stat().st_size} bytes)")
+
+        page.click('button:has-text("Leaderboard")')
+        page.wait_for_timeout(400)
+        page.click('button:has-text("Recent")')  # accuracy-sorted default is empty below threshold
+        page.wait_for_timeout(800)
+
+        leaderboard_path = out_dir / "ui-community-leaderboard.png"
+        page.screenshot(path=str(leaderboard_path), full_page=True)
+        print(
+            f"[ui_shot] community-leaderboard -> {leaderboard_path} "
+            f"({leaderboard_path.stat().st_size} bytes)"
+        )
+
+        page.mouse.click(20, 20)  # click the backdrop, outside the centered panel, to close it
+        page.wait_for_timeout(200)
+        page.click(f'button[title="{voter_email}"]')  # the avatar button opens Profile
+        page.wait_for_selector("text=Profile", timeout=5000)
+        page.wait_for_timeout(800)  # my-posts/my-votes counts fetch settle
+
+        profile_path = out_dir / "ui-profile-community.png"
+        page.screenshot(path=str(profile_path), full_page=True)
+        print(
+            f"[ui_shot] profile-community -> {profile_path} ({profile_path.stat().st_size} bytes)"
+        )
+
+        browser.close()
+
+        for path in (widgets_path, feed_path, leaderboard_path, profile_path):
+            if not path.exists() or path.stat().st_size == 0:
+                print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
+                raise SystemExit(1)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Screenshot the app for visual review")
     parser.add_argument("--base-url", required=True)
@@ -126,6 +244,8 @@ def main() -> int:
             if size == 0:
                 print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
                 return 1
+
+    shoot_community(args.base_url, out_dir, errors)
 
     if errors:
         print("[ui_shot] console/page errors detected during capture:", file=sys.stderr)

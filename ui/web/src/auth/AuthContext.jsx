@@ -20,6 +20,11 @@ export function AuthProvider({ children }) {
   const [authModalMode, setAuthModalMode] = useState('signIn') // 'signIn' | 'signUp'
   const [watchlistPanelOpen, setWatchlistPanelOpen] = useState(false)
   const [profilePanelOpen, setProfilePanelOpen] = useState(false)
+  const [communityPanelOpen, setCommunityPanelOpen] = useState(false)
+  // Doubles as "open pre-filtered to this ticker" and "pre-fill the
+  // composer with this ticker" — one param, one reasonable meaning, no
+  // router to carry it as a URL param instead (see TopAnalysisWidget).
+  const [communityPanelTicker, setCommunityPanelTicker] = useState(null)
 
   // Restore the session on load (and whenever the token changes) by re-fetching
   // the user + watchlist — a stale/expired token is dropped rather than surfaced
@@ -119,6 +124,13 @@ export function AuthProvider({ children }) {
         profilePanelOpen,
         openProfilePanel: () => setProfilePanelOpen(true),
         closeProfilePanel: () => setProfilePanelOpen(false),
+        communityPanelOpen,
+        communityPanelTicker,
+        openCommunityPanel: (ticker = null) => {
+          setCommunityPanelTicker(ticker)
+          setCommunityPanelOpen(true)
+        },
+        closeCommunityPanel: () => setCommunityPanelOpen(false),
       }}
     >
       {children}

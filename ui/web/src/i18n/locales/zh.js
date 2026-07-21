@@ -43,6 +43,15 @@ export default {
     HIGH: '比这只股票平时更动荡——价格波动或回撤幅度超过了它惯常的水平。',
     EXTREME: '接近这只股票近期历史上最动荡的水平。',
   },
+  keyFactors: {
+    title: '关键影响因素',
+    impact: {
+      high: '偏高',
+      elevated: '上升',
+      moderate: '中等',
+      low: '偏低',
+    },
+  },
   explainer: {
     toggle: '这个分数是什么意思？',
     intro:
@@ -53,22 +62,27 @@ export default {
   categories: {
     volatility: {
       label: '波动率',
+      short: '波动率',
       plain: '价格每天上下波动的幅度。数值越高，说明价格变动越剧烈、越难预测。',
     },
     tail: {
       label: '尾部风险',
+      short: '尾部风险',
       plain: '这只股票历史上最坏情况下的表现有多糟——也就是“万一出大事”的风险。',
     },
     drawdown: {
       label: '回撤',
+      short: '回撤',
       plain: '股票从近期高点下跌了多少，以及在恢复之前，下跌状态持续了多久。',
     },
     sensitivity: {
       label: '市场敏感度',
+      short: '敏感度',
       plain: '大盘整体波动时，这只股票通常会跟着波动多少。数值越高，说明它放大市场波动的程度越大。',
     },
     liquidity: {
       label: '流动性',
+      short: '流动性',
       plain: '买卖这只股票时，能否在不明显影响价格的情况下顺利成交。流动性越低，交易时价格跳动可能越大。',
     },
   },
@@ -127,7 +141,41 @@ export default {
     title: '个人主页',
     memberSince: '注册于',
     watchlistCount: '收藏股票数',
+    myPosts: '发表的分析',
+    myVotes: '投过票的帖子',
+    viewAll: '查看全部',
     replayTour: '重新查看教程',
+  },
+  community: {
+    navButton: '社区',
+    title: '社区风险分析',
+    disclaimer:
+      '风险分数由客观市场数据计算得出。本社区板块中的一切内容——包括根据投票得出的准确率——都只是其他用户的个人观点，请自行理性判断，不构成任何投资建议。',
+    tab: {
+      feed: '动态',
+      leaderboard: '排行榜',
+    },
+    sort: {
+      recent: '最新',
+      top: '最佳',
+      accuracy: '按准确率',
+    },
+    feedEmpty: '还没有人发表分析——来发布第一条吧。',
+    leaderboardEmpty: '暂无上榜分析师——准确率需要达到最低投票数才会显示在这里。',
+    posts: '篇分析',
+    accuracy: '准确率',
+    accuracyPending: '新分析师',
+    voteUp: '这个分析是对的',
+    voteDown: '这个分析是错的',
+    deletePost: '删除这条帖子',
+    ownPost: '你发布的',
+    tickerPlaceholder: '股票代码',
+    bodyPlaceholder: '分享你对这只股票风险的看法…',
+    posting: '发布中…',
+    post: '发布',
+    signInToPost: '登录后即可分享你自己的分析。',
+    topAnalysis: '社区精选分析',
+    beFirst: '这只股票还没有人分析——来发布第一条吧。',
   },
   onboarding: {
     title: '新手教程',

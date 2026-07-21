@@ -23,11 +23,14 @@ export default function RiskExplainer({ riskLabel, breakdown }) {
     <div className="border-b border-border">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent"
+        className="group flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent"
         aria-expanded={open}
       >
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true">{'\u{1F393}'}</span> {t('explainer.toggle')}
+        <span className="inline-flex items-center gap-2">
+          <span className="icon-badge h-6 w-6 text-[0.72rem] transition-colors duration-150 group-hover:bg-accent/20">
+            <span aria-hidden="true">{'\u{1F393}'}</span>
+          </span>
+          {t('explainer.toggle')}
         </span>
         <svg
           className={`h-3 w-3 flex-shrink-0 transition-transform duration-300 ease-out ${open ? 'rotate-180' : ''}`}

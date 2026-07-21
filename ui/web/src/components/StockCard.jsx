@@ -5,6 +5,7 @@ import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
 import { inferMarket, riskColor } from '../utils'
 import CardSkeleton from './CardSkeleton'
+import KeyFactorTiles from './KeyFactorTiles'
 import MetricTiles from './MetricTiles'
 import MLSignalPanel from './MLSignalPanel'
 import PriceChart from './PriceChart'
@@ -12,6 +13,7 @@ import RiskChart from './RiskChart'
 import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
 import StressTestPanel from './StressTestPanel'
+import TopAnalysisWidget from './TopAnalysisWidget'
 
 const BADGE_CLASS = {
   LOW: 'bg-risk-low/15 text-risk-low',
@@ -87,9 +89,17 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
   return (
     <div
-      className="animate-fade-in overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#3b2a5e] hover:shadow-2xl hover:shadow-black/40"
+      className="animate-fade-in relative overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[#3b2a5e] hover:shadow-2xl hover:shadow-black/40"
       style={{ animationDelay: `${Math.min(index, 8) * 60}ms`, animationFillMode: 'backwards' }}
     >
+      {/* Risk-colored top accent — a quiet "at a glance" signal before any
+          number is even read, echoing the colored status rail on dashboard
+          summary cards. */}
+      <div
+        className="h-[3px] w-full transition-colors duration-500"
+        style={{ background: `linear-gradient(90deg, ${color}, ${color}00 130%)` }}
+      />
+
       <div className="flex items-start justify-between border-b border-border px-4 py-3.5">
         <div>
           <div className="text-xl font-extrabold tracking-tight">{ticker}</div>
@@ -100,7 +110,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
             onClick={handleToggleFavorite}
             disabled={favBusy}
             title={favorited ? t('watchlist.unfavorite') : t('watchlist.favorite')}
-            className={`rounded-md px-1.5 py-0.5 text-lg leading-none transition-all duration-150 hover:scale-110 active:scale-90 disabled:opacity-50 ${
+            className={`flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none transition-all duration-150 hover:scale-110 hover:bg-surface2 active:scale-90 disabled:opacity-50 ${
               favorited ? 'text-yellow-400' : 'text-muted hover:text-yellow-400'
             }`}
           >
@@ -109,7 +119,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           <button
             onClick={() => onRemove(ticker)}
             title={t('card.remove')}
-            className="rounded-md px-1.5 py-0.5 text-base leading-none text-muted transition-all duration-150 hover:bg-down/10 hover:text-down active:scale-90"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-base leading-none text-muted transition-all duration-150 hover:bg-down/10 hover:text-down active:scale-90"
           >
             ✕
           </button>
@@ -125,7 +135,9 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
       {score && !loading && !error && (
         <div className="animate-fade-in">
           <div className="flex items-center gap-5 border-b border-border px-5 py-4">
-            <RiskGauge score={animatedScore} color={color} />
+            <div className="glow-ring flex-shrink-0 rounded-full" style={{ boxShadow: `0 0 0 1px ${color}26, 0 0 24px -6px ${color}59` }}>
+              <RiskGauge score={animatedScore} color={color} />
+            </div>
             <div>
               <div className="text-[2.6rem] font-black leading-none tracking-tighter tabular-nums" style={{ color }}>
                 {Math.round(animatedScore)}
@@ -141,6 +153,8 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
             </div>
           </div>
 
+          <KeyFactorTiles breakdown={score.risk_breakdown} />
+
           <RiskExplainer riskLabel={score.risk_label} breakdown={score.risk_breakdown} />
 
           <StressTestPanel stressTest={score.stress_test} />
@@ -152,15 +166,15 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
           <MetricTiles score={score} />
 
+          <TopAnalysisWidget ticker={ticker} />
+
           <div className="space-y-3.5 px-4 py-4">
-            <div>
-              <ChartLabel>{t('charts.price')}</ChartLabel>
+            <ChartPanel icon="📈" title={t('charts.price')}>
               <PriceChart timeseries={timeseries} color={color} />
-            </div>
-            <div>
-              <ChartLabel>{t('charts.riskScore')}</ChartLabel>
+            </ChartPanel>
+            <ChartPanel icon="🩺" title={t('charts.riskScore')}>
               <RiskChart timeseries={timeseries} />
-            </div>
+            </ChartPanel>
           </div>
 
           {score.risk_note && (
@@ -174,9 +188,15 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   )
 }
 
-function ChartLabel({ children }) {
+function ChartPanel({ icon, title, children }) {
   return (
-    <div className="mb-1.5 text-[0.67rem] font-semibold uppercase tracking-wide text-muted">
+    <div className="panel px-3 pb-2.5 pt-2.5">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[0.67rem] font-semibold uppercase tracking-wide text-muted">
+        <span aria-hidden="true" className="text-[0.75rem] leading-none">
+          {icon}
+        </span>
+        {title}
+      </div>
       {children}
     </div>
   )

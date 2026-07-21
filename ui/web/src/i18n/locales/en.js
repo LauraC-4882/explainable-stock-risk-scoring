@@ -43,6 +43,15 @@ export default {
     HIGH: 'More turbulent than usual for this stock — bigger price swings or deeper drawdowns than typical.',
     EXTREME: 'Near the most turbulent levels seen in this stock’s recent history.',
   },
+  keyFactors: {
+    title: 'Key Factor Contributions',
+    impact: {
+      high: 'High',
+      elevated: 'Elevated',
+      moderate: 'Moderate',
+      low: 'Low',
+    },
+  },
   explainer: {
     toggle: 'What does this score mean?',
     intro:
@@ -53,22 +62,27 @@ export default {
   categories: {
     volatility: {
       label: 'Volatility',
+      short: 'Vol',
       plain: 'How much the price swings day to day. Higher means choppier, less predictable price moves.',
     },
     tail: {
       label: 'Tail Risk',
+      short: 'Tail Risk',
       plain: 'How bad the worst-case days have historically been for this stock — the "what if things go really wrong" risk.',
     },
     drawdown: {
       label: 'Drawdown',
+      short: 'Drawdown',
       plain: 'How far the stock has fallen from its recent peak, and how long it has stayed down before recovering.',
     },
     sensitivity: {
       label: 'Market Sensitivity',
+      short: 'Sensitivity',
       plain: 'How much this stock tends to move when the overall market moves. Higher means it amplifies market-wide swings.',
     },
     liquidity: {
       label: 'Liquidity',
+      short: 'Liquidity',
       plain: 'How easily shares can be bought or sold without noticeably moving the price. Lower liquidity can mean bigger price jumps on trades.',
     },
   },
@@ -129,7 +143,41 @@ export default {
     title: 'Profile',
     memberSince: 'Member since',
     watchlistCount: 'Stocks on watchlist',
+    myPosts: 'Analysis posts',
+    myVotes: 'Posts voted on',
+    viewAll: 'View all',
     replayTour: 'Replay tutorial',
+  },
+  community: {
+    navButton: 'Community',
+    title: 'Community Risk Analysis',
+    disclaimer:
+      'The risk score is computed from objective market data. Everything in this community section is other users’ personal opinion, including accuracy rates derived from votes — use your own judgment, don’t treat it as advice.',
+    tab: {
+      feed: 'Feed',
+      leaderboard: 'Leaderboard',
+    },
+    sort: {
+      recent: 'Recent',
+      top: 'Top',
+      accuracy: 'Accuracy',
+    },
+    feedEmpty: 'No analysis posted yet — be the first to share your take.',
+    leaderboardEmpty: 'No ranked analysts yet — accuracy needs a minimum number of votes to appear here.',
+    posts: 'posts',
+    accuracy: 'accuracy',
+    accuracyPending: 'new analyst',
+    voteUp: 'This analysis was right',
+    voteDown: 'This analysis was wrong',
+    deletePost: 'Delete this post',
+    ownPost: 'Your post',
+    tickerPlaceholder: 'TICKER',
+    bodyPlaceholder: 'Share your read on this stock’s risk…',
+    posting: 'Posting…',
+    post: 'Post',
+    signInToPost: 'Sign in to share your own analysis.',
+    topAnalysis: 'Top community take',
+    beFirst: 'No analysis yet for this stock — be the first to share your take.',
   },
   onboarding: {
     title: 'Quick tour',

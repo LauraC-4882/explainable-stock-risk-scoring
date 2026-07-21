@@ -43,11 +43,24 @@ export default {
           '0%, 100%': { opacity: 0.3, transform: 'scale(1)' },
           '50%': { opacity: 1, transform: 'scale(1.6)' },
         },
+        'glow-pulse': {
+          '0%, 100%': { opacity: 0.55 },
+          '50%': { opacity: 1 },
+        },
+        shimmer: {
+          from: { backgroundPosition: '200% 0' },
+          to: { backgroundPosition: '-200% 0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.25s ease-out',
         breathe: 'breathe 6s ease-in-out infinite',
         twinkle: 'twinkle 3s ease-in-out infinite',
+        'glow-pulse': 'glow-pulse 2.6s ease-in-out infinite',
+        shimmer: 'shimmer 2.2s linear infinite',
+      },
+      boxShadow: {
+        panel: '0 1px 0 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.6)',
       },
     },
   },
