@@ -2,6 +2,7 @@ export default {
   header: {
     title: 'Riscore',
     subtitle: 'Invest smarter, risk safer · 实时可解释风险评分 · 真实市场数据',
+    homeTitle: '返回首页',
   },
   market: {
     us: '美股',
@@ -236,5 +237,25 @@ export default {
         body: '登录后点击任意卡片上的星标，即可长期追踪——方便你观察一个持仓的风险特征如何随时间演变，而不用每次都从头查看。',
       },
     },
+  },
+  footer: {
+    tagline: '基于真实市场数据的可解释风险评分。',
+    legal: '法律信息',
+    privacy: '隐私与同意',
+    license: '许可与数据来源',
+    support: '帮助与支持',
+    contact: '联系管理员',
+    privacyTitle: '隐私与同意',
+    privacyBody1:
+      '我们仅保存账号运行所必需的信息：你的邮箱、加密后的密码、你的收藏夹，以及你在社区板块发布的帖子和投票。我们不会出售你的数据，也不会与广告商共享。',
+    privacyBody2:
+      '创建账号并使用本网站，即表示你同意我们为提供服务而处理这些数据。你可以随时删除自己发布的帖子，或通过下方的联系方式咨询注销账号。',
+    licenseTitle: '许可与数据来源',
+    licenseBody1:
+      '风险分数基于 Twelve Data（美股）和 akshare（中国A股/港股）提供的市场数据计算。本工具仅用于信息展示与教育目的，不构成投资建议，本网站的任何内容都不构成买卖任何证券的邀约。',
+    licenseBody2: '社区分析帖子是发帖用户的个人观点，不代表平台立场。',
+    contactTitle: '联系管理员',
+    contactBody: '我们没有公开的客服邮箱——联系管理员的方式是在应用内的社区板块，管理员账号会在那里活跃。',
+    openCommunity: '前往社区',
   },
 }

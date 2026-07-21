@@ -5,7 +5,7 @@ import Avatar from './Avatar'
 import LanguageSwitcher from './LanguageSwitcher'
 import { RiscoreIcon, RiscoreWordmark } from './Logo'
 
-export default function Header() {
+export default function Header({ onHome }) {
   const { t } = useLanguage()
   const {
     user,
@@ -22,7 +22,13 @@ export default function Header() {
     <header className="relative z-10 overflow-hidden border-b border-border bg-gradient-to-br from-surface via-[#140d20] to-[#1a1030] px-6 py-4 sm:px-8">
       <div className="pointer-events-none absolute -top-24 left-1/3 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
       <div className="relative flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
+        <button
+          type="button"
+          onClick={onHome}
+          title={t('header.homeTitle')}
+          aria-label={t('header.homeTitle')}
+          className="flex items-center gap-3.5 rounded-xl text-left transition-transform duration-150 hover:scale-[1.02] active:scale-95"
+        >
           <div className="drop-shadow-[0_0_14px_rgba(192,132,252,0.35)]">
             <RiscoreIcon size={46} idPrefix="hdr" />
           </div>
@@ -34,7 +40,7 @@ export default function Header() {
               {t('header.subtitle')}
             </p>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-3">
           <button
             onClick={() => openCommunityPanel()}

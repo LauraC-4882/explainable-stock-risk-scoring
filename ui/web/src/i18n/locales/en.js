@@ -2,6 +2,7 @@ export default {
   header: {
     title: 'Riscore',
     subtitle: 'Invest smarter, risk safer — real-time explainable risk scoring on live market data',
+    homeTitle: 'Back to homepage',
   },
   market: {
     us: 'US',
@@ -238,5 +239,26 @@ export default {
         body: 'Sign in and tap the star on any card to track it here across visits — useful for monitoring how a position’s risk profile evolves over time instead of starting fresh every time you check it.',
       },
     },
+  },
+  footer: {
+    tagline: 'Explainable risk scoring on live market data.',
+    legal: 'Legal',
+    privacy: 'Privacy & Consent',
+    license: 'License & Data Sources',
+    support: 'Support',
+    contact: 'Contact Admin',
+    privacyTitle: 'Privacy & Consent',
+    privacyBody1:
+      'We store only what your account needs to work: your email, your hashed password, your watchlist, and any posts or votes you make in the Community board. We do not sell your data or share it with advertisers.',
+    privacyBody2:
+      'By creating an account and using this site, you consent to that data being processed to provide the service. You can delete your own posts at any time, or contact the admin below about closing your account.',
+    licenseTitle: 'License & Data Sources',
+    licenseBody1:
+      'Risk scores are computed from market data provided by Twelve Data (US) and akshare (China/Hong Kong). This tool is for informational and educational purposes only — it is not investment advice, and nothing on this site is a solicitation to buy or sell any security.',
+    licenseBody2: 'Community analysis posts are the personal opinions of individual users, not the platform.',
+    contactTitle: 'Contact the Admin',
+    contactBody:
+      "We don't publish a support email address — the way to reach the site admin is inside the app, through the Community board where the admin account is active.",
+    openCommunity: 'Open Community',
   },
 }
