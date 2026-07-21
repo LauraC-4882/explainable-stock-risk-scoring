@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
@@ -11,6 +11,10 @@ from sqlmodel import Field, SQLModel, UniqueConstraint
 def _utc_now() -> datetime:
     """Timezone-aware default factory (the naive-UTC datetime API is deprecated)."""
     return datetime.now(timezone.utc)
+
+
+def _utc_today() -> date:
+    return datetime.now(timezone.utc).date()
 
 
 class User(SQLModel, table=True):
@@ -95,3 +99,32 @@ class PageView(SQLModel, table=True):
     status_code: int
     user_email: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_utc_now, index=True)
+
+
+class ScoreSnapshot(SQLModel, table=True):
+    """One risk-score reading per ticker per UTC day — the history that makes
+    "this stock's risk moved from 48 to 65" answerable.
+
+    Keyed by ticker (not by user): the score is objective and identical for
+    everyone, so one row serves every watchlist that contains it. Rows are
+    written opportunistically whenever any request successfully scores that
+    ticker, and topped up by the daily refresh job for the watchlist universe
+    — so the table fills in without a dedicated always-on scheduler.
+
+    UTC day, not timestamp, is the grain: the watchlist board compares "latest
+    reading" against "the one before it", and a per-day unique constraint
+    keeps a heavily-viewed ticker from stacking hundreds of near-identical
+    rows in a single session.
+    """
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "captured_on", name="uq_snapshot_ticker_day"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ticker: str = Field(index=True)
+    market: str
+    risk_score: float
+    risk_label: str
+    captured_on: date = Field(default_factory=_utc_today, index=True)
+    captured_at: datetime = Field(default_factory=_utc_now)

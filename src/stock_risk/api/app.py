@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -20,7 +20,15 @@ from sqlmodel import Session, func, select
 
 from ..auth.admin import ensure_admin_user, require_admin
 from ..auth.dependencies import get_current_user, get_current_user_optional
-from ..auth.models import AnalystPost, PageView, PostReport, PostVote, User, WatchlistItem
+from ..auth.models import (
+    AnalystPost,
+    PageView,
+    PostReport,
+    PostVote,
+    ScoreSnapshot,
+    User,
+    WatchlistItem,
+)
 from ..auth.security import (
     create_access_token,
     decode_access_token,
@@ -32,7 +40,7 @@ from ..config import settings
 from ..db import engine, get_session, init_db
 from ..moderation import check_post_body
 from ..monitoring.metrics import ModelMonitor
-from ..scoring.scorer import RiskScorer
+from ..scoring.scorer import RiskScorer, market_for_ticker
 from .schemas import ScoreResponse
 
 app = FastAPI(
@@ -226,7 +234,53 @@ def _score_ticker(ticker: str, period: str) -> dict:
     except Exception as exc:
         logger.exception(f"Monitoring failed for {ticker} (request still served): {exc}")
 
+    # Same "never fail the request" contract as monitoring above. This is what
+    # populates the history the watchlist board reads: every successful score
+    # any user requests leaves a daily reading behind, so the board fills in
+    # from ordinary traffic instead of needing a dedicated scheduler.
+    try:
+        _record_score_snapshot(result)
+    except Exception as exc:
+        logger.exception(f"Snapshot failed for {ticker} (request still served): {exc}")
+
     return result
+
+
+def _record_score_snapshot(result: dict) -> None:
+    """Upsert today's (UTC) risk reading for this ticker.
+
+    One row per ticker per day: a re-score later the same day overwrites it
+    with the fresher number rather than stacking rows, so "latest vs. the one
+    before" always compares different days.
+    """
+    ticker = str(result.get("ticker", "")).upper()
+    risk_score = result.get("risk_score")
+    if not ticker or risk_score is None:
+        return
+
+    today = datetime.now(timezone.utc).date()
+    with Session(engine) as session:
+        existing = session.exec(
+            select(ScoreSnapshot).where(
+                ScoreSnapshot.ticker == ticker, ScoreSnapshot.captured_on == today
+            )
+        ).first()
+        if existing:
+            existing.risk_score = float(risk_score)
+            existing.risk_label = str(result.get("risk_label", ""))
+            existing.captured_at = datetime.now(timezone.utc)
+            session.add(existing)
+        else:
+            session.add(
+                ScoreSnapshot(
+                    ticker=ticker,
+                    market=market_for_ticker(ticker),
+                    risk_score=float(risk_score),
+                    risk_label=str(result.get("risk_label", "")),
+                    captured_on=today,
+                )
+            )
+        session.commit()
 
 
 @app.get("/api/score/{ticker}", response_model=ScoreResponse)
@@ -393,6 +447,86 @@ def remove_watchlist_item(
     session.delete(item)
     session.commit()
     return Response(status_code=204)
+
+
+class WatchlistOverviewEntry(BaseModel):
+    ticker: str
+    market: str
+    risk_score: Optional[float] = None
+    risk_label: Optional[str] = None
+    as_of: Optional[date] = None
+    previous_score: Optional[float] = None
+    previous_as_of: Optional[date] = None
+    # Signed change in risk units. POSITIVE means risk ROSE — the frontend
+    # colors it as a warning regardless of market, because a risk score is not
+    # a price: "up" has no "gained value" reading to inherit the local
+    # red/green convention from.
+    delta: Optional[float] = None
+
+
+@app.get("/api/watchlist/overview", response_model=list[WatchlistOverviewEntry])
+def watchlist_overview(
+    user: User = Depends(get_current_user), session: Session = Depends(get_session)
+):
+    """Every watchlisted ticker with its latest risk reading and the change
+    since the previous one.
+
+    Deliberately reads only from ScoreSnapshot — it never scores live. Scoring
+    N watchlisted tickers on page load would mean N full pipeline runs (~2.7s
+    each) and N upstream fetches straight into the rate limiting documented in
+    the README, turning the logged-in landing view into the slowest and most
+    failure-prone screen in the app. Instead it serves what the snapshot
+    history already knows and labels it with `as_of`, so the number on screen
+    is always accompanied by the day it was taken.
+
+    Tickers with no snapshot yet come back with null score/delta rather than
+    being hidden — the row still shows, so a newly watchlisted stock is
+    visibly "no reading yet" instead of silently missing.
+    """
+    items = session.exec(
+        select(WatchlistItem).where(WatchlistItem.user_id == user.id)
+    ).all()
+    if not items:
+        return []
+
+    tickers = [i.ticker for i in items]
+    # Two readings per ticker is all the board needs (latest + the one before),
+    # fetched in a single query over the watchlisted set rather than per row.
+    rows = session.exec(
+        select(ScoreSnapshot)
+        .where(ScoreSnapshot.ticker.in_(tickers))
+        .order_by(ScoreSnapshot.ticker, ScoreSnapshot.captured_on.desc())
+    ).all()
+
+    by_ticker: dict[str, list[ScoreSnapshot]] = {}
+    for row in rows:
+        by_ticker.setdefault(row.ticker, []).append(row)
+
+    out = []
+    for item in items:
+        history = by_ticker.get(item.ticker, [])
+        latest = history[0] if history else None
+        previous = history[1] if len(history) > 1 else None
+        out.append(
+            WatchlistOverviewEntry(
+                ticker=item.ticker,
+                market=item.market,
+                risk_score=latest.risk_score if latest else None,
+                risk_label=latest.risk_label if latest else None,
+                as_of=latest.captured_on if latest else None,
+                previous_score=previous.risk_score if previous else None,
+                previous_as_of=previous.captured_on if previous else None,
+                delta=(
+                    round(latest.risk_score - previous.risk_score, 1)
+                    if latest and previous
+                    else None
+                ),
+            )
+        )
+    # Biggest movers first (by absolute change), unread/no-history rows last —
+    # the point of the board is "what changed", not alphabetical order.
+    out.sort(key=lambda e: (e.delta is None, -abs(e.delta or 0)))
+    return out
 
 
 # ── Community (posts/votes/leaderboard) ─────────────────────────────────────

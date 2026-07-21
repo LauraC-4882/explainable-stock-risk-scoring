@@ -54,6 +54,16 @@ export async function apiGetWatchlist(token) {
   return parseErrorOr(res, 'Failed to fetch watchlist')
 }
 
+// Watchlist board data: latest stored risk reading per watchlisted ticker plus
+// the change since the previous one. Served straight from snapshot history
+// (no live scoring), so this stays fast and never hits upstream rate limits.
+export async function apiWatchlistOverview(token) {
+  const res = await fetch('/api/watchlist/overview', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  return parseErrorOr(res, 'Failed to load watchlist overview')
+}
+
 export async function apiAddWatchlist(token, ticker, market, notes) {
   const res = await fetch('/api/watchlist', {
     method: 'POST',

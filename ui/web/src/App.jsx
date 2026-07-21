@@ -13,6 +13,7 @@ import SearchBar from './components/SearchBar'
 import Starfield from './components/Starfield'
 import StockCard from './components/StockCard'
 import TimeframeSelector from './components/TimeframeSelector'
+import WatchlistBoard from './components/WatchlistBoard'
 import { LanguageProvider } from './i18n/LanguageContext'
 import { OnboardingProvider } from './onboarding/OnboardingContext'
 import OnboardingTour from './onboarding/OnboardingTour'
@@ -87,7 +88,13 @@ export default function App() {
                 </div>
 
                 {tickers.length === 0 ? (
-                  <EmptyState market={market} onAdd={addStock} />
+                  // Signed-in users land on their watchlist board (renders
+                  // nothing when signed out or empty), so returning users see
+                  // what moved instead of an empty search box every visit.
+                  <>
+                    <WatchlistBoard onOpen={addStock} />
+                    <EmptyState market={market} onAdd={addStock} />
+                  </>
                 ) : (
                   // Every stock gets the full wide bento layout; comparing
                   // means stacking those full dashboards vertically rather

@@ -159,6 +159,16 @@ export default {
       high: 'Near the top of this stock’s own historical range — a main driver of the score.',
     },
   },
+  // Signed-in watchlist board (WatchlistBoard.jsx). "Up = warning" wording is
+  // market-independent on purpose — see the component's colour-semantics note.
+  board: {
+    title: 'Your watchlist',
+    subtitle: 'Risk movement since the previous reading',
+    asOf: 'as of',
+    firstReading: 'first reading',
+    noReading: 'no reading yet',
+    note: 'A rising score means risk increased, a falling score means it eased — shown the same way for every market, because a risk score is not a price. Readings come from stored daily snapshots, not a live quote.',
+  },
   charts: {
     price: 'Price History',
     riskScore: 'Daily Risk Score (0–100)',
