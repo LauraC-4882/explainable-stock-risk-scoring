@@ -101,10 +101,23 @@ def index():
 
 @app.get("/api/search")
 def api_search(q: str = Query(..., min_length=1, description="Ticker or company name")):
-    """Search Yahoo Finance for matching equity/ETF symbols."""
+    """Search Yahoo Finance for matching equity/ETF symbols.
+
+    yf.Search wasn't part of fetch_history's per-market migration (see
+    data/fetcher.py) — it's a symbol lookup, not a price-history read — so
+    it's still fully yfinance-dependent and fails the same way: observed
+    live on Render returning an empty list for both "Tencent" and "Apple"
+    while yfinance is throttled there. An empty dropdown silently forces
+    SearchBar's Enter handler to add the raw typed text as a literal,
+    invalid ticker (e.g. "TENCENT") instead of a real symbol — the known-
+    symbols fallback below catches this app's own known universe even when
+    live search is down.
+    """
+    from ..data.known_symbols import search_known_symbols
+
     try:
         results = yf.Search(q, max_results=8).quotes
-        return [
+        matches = [
             {
                 "symbol": r["symbol"],
                 "name": r.get("shortname") or r.get("longname") or r["symbol"],
@@ -116,7 +129,9 @@ def api_search(q: str = Query(..., min_length=1, description="Ticker or company 
         ][:6]
     except Exception as exc:
         logger.warning(f"Search error for '{q}': {exc}")
-        return []
+        matches = []
+
+    return matches if matches else search_known_symbols(q)
 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────

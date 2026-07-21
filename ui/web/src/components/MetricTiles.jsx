@@ -9,7 +9,12 @@ export default function MetricTiles({ score }) {
 
   return (
     <div className="grid grid-cols-4 divide-x divide-border border-b border-border bg-surface2/20">
-      <Tile label={t('metrics.vol30d')} value={fmt(score.volatility_30d, 100, 1, '%')} tooltip={t('glossary.volatility')} />
+      <Tile
+        label={t('metrics.vol30d')}
+        value={fmt(score.volatility_30d, 100, 1, '%')}
+        tooltip={t('glossary.volatility')}
+        tooltipAlign="left"
+      />
       <Tile
         label={t('metrics.var95')}
         value={fmt(score.var_95, 100, 2, '%')}
