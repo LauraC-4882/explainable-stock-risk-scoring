@@ -31,7 +31,7 @@ export default function StressTestPanel({ stressTest }) {
     <div className="border-b border-border">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="group flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent"
+        className="group flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent max-sm:text-[0.8rem]"
         aria-expanded={open}
       >
         <span className="inline-flex items-center gap-2">

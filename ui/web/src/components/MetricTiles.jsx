@@ -57,17 +57,20 @@ export default function MetricTiles({ score }) {
 
   return (
     <div className="border-b border-border bg-surface2/20">
-      <div className="grid grid-cols-4 divide-x divide-border">
+      {/* Phones get a roomier 2×2 grid (with bigger type) instead of four
+          cramped columns; the divide-x rules only make sense on one row, so
+          they apply from sm: up. */}
+      <div className="grid grid-cols-2 gap-y-1 py-1 sm:grid-cols-4 sm:gap-y-0 sm:divide-x sm:divide-border sm:py-0">
         {metrics.map((m) => (
           <button
             key={m.key}
             onClick={() => setOpen((o) => (o === m.key ? null : m.key))}
             aria-expanded={open === m.key}
-            className={`px-2 py-2.5 text-left transition-colors duration-150 hover:bg-surface2/60 sm:px-3.5 ${
+            className={`px-3 py-2.5 text-left transition-colors duration-150 hover:bg-surface2/60 sm:px-3.5 ${
               open === m.key ? 'bg-accent/[0.08]' : ''
             }`}
           >
-            <div className="flex items-center gap-1 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-wide text-muted sm:text-[0.65rem]">
+            <div className="flex items-center gap-1 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-wide text-muted max-sm:text-[0.72rem] sm:text-[0.65rem]">
               {m.label}
               <span
                 aria-hidden="true"
@@ -78,12 +81,14 @@ export default function MetricTiles({ score }) {
                 ?
               </span>
             </div>
-            <div className={`mt-0.5 text-sm font-bold tabular-nums ${m.valueClass || ''}`}>
+            <div
+              className={`mt-0.5 text-sm font-bold tabular-nums max-sm:text-lg ${m.valueClass || ''}`}
+            >
               {m.value}
             </div>
             {m.level && (
               <div
-                className={`mt-1 text-[0.55rem] font-bold uppercase tracking-wide sm:text-[0.58rem] ${
+                className={`mt-1 text-[0.55rem] font-bold uppercase tracking-wide max-sm:text-[0.66rem] sm:text-[0.58rem] ${
                   LEVEL_TONE[m.level] || 'text-muted'
                 }`}
               >
