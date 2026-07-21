@@ -1,78 +1,71 @@
-import { useId } from 'react'
-
-export default function RiskGauge({ score, color }) {
-  const uid = useId()
-  const gradId = `gauge-grad-${uid}`
-  const glowId = `gauge-glow-${uid}`
-  const pct = Math.min(+score, 100) / 100
-  const R = 50
-  const cx = 58
-  const cy = 58
-  const pt = (a) => [cx + R * Math.cos(a), cy + R * Math.sin(a)]
-  const [sx, sy] = pt(Math.PI)
-  const [ex, ey] = pt(2 * Math.PI)
-  const angle = Math.PI + pct * Math.PI
-  const [vx, vy] = pt(angle)
-  const large = pct > 0.5 ? 1 : 0
-  const track = `M ${sx} ${sy} A ${R} ${R} 0 0 1 ${ex} ${ey}`
-  const fill = pct > 0.005 ? `M ${sx} ${sy} A ${R} ${R} 0 ${large} 1 ${vx} ${vy}` : ''
-
-  const ticks = [0.25, 0.5, 0.75].map((p) => {
-    const a = Math.PI + p * Math.PI
-    const [x1, y1] = pt(a)
-    const x2 = cx + (R + 5) * Math.cos(a)
-    const y2 = cy + (R + 5) * Math.sin(a)
-    return { x1, y1, x2, y2 }
-  })
+// 270° arc gauge (ported from the Riscore.dc design): a 3/4 ring opening
+// downward with the score sitting inside it in Space Grotesk. The fill arc is
+// the risk-band color with a soft outer glow; `score` is already count-up
+// animated by the caller, and the stroke-dashoffset transition smooths it.
+export default function RiskGauge({ score, color, size = 184 }) {
+  const R = 82
+  const cx = 115
+  const cy = 108
+  const circ = 2 * Math.PI * R
+  const span = 0.75 * circ // 270° visible arc
+  const frac = Math.min(Math.max(+score || 0, 0), 100) / 100
+  const dash = `${span.toFixed(1)} ${circ.toFixed(1)}`
+  const offset = (span * (1 - frac)).toFixed(1)
 
   return (
-    <svg width="116" height="68" viewBox="0 0 116 68" style={{ overflow: 'visible' }}>
-      <defs>
-        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={color} stopOpacity="0.55" />
-          <stop offset="100%" stopColor={color} stopOpacity="1" />
-        </linearGradient>
-        <filter id={glowId} x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="2.4" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      {ticks.map((t, i) => (
-        <line
-          key={i}
-          x1={t.x1.toFixed(1)}
-          y1={t.y1.toFixed(1)}
-          x2={t.x2.toFixed(1)}
-          y2={t.y2.toFixed(1)}
-          stroke="#2b1c45"
-          strokeWidth="2"
-        />
-      ))}
-      <path d={track} fill="none" stroke="#221639" strokeWidth="10" strokeLinecap="round" />
-      {fill && (
-        <path
-          d={fill}
+    <svg
+      width={size}
+      height={(size * 200) / 230}
+      viewBox="0 0 230 200"
+      style={{ overflow: 'visible' }}
+      aria-hidden="true"
+    >
+      {/* rotate 135° so the 90° gap sits at the bottom, ends at 0 (bottom-left)
+          and 100 (bottom-right) — a downward-opening speedometer sweep. */}
+      <g transform="rotate(135 115 108)">
+        <circle
+          cx={cx}
+          cy={cy}
+          r={R}
           fill="none"
-          stroke={`url(#${gradId})`}
-          strokeWidth="10"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="16"
           strokeLinecap="round"
-          filter={`url(#${glowId})`}
-          className="transition-all duration-700 ease-out"
+          strokeDasharray={dash}
         />
-      )}
-      <text x={cx} y="56" textAnchor="middle" fill={color} fontSize="14" fontWeight="900">
-        {Math.round(score)}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={R}
+          fill="none"
+          stroke={color}
+          strokeWidth="16"
+          strokeLinecap="round"
+          strokeDasharray={dash}
+          strokeDashoffset={offset}
+          style={{ filter: `drop-shadow(0 0 10px ${color})`, transition: 'stroke-dashoffset 0.7s ease' }}
+        />
+      </g>
+      <text
+        x="115"
+        y="104"
+        textAnchor="middle"
+        style={{ font: "700 56px 'Space Grotesk', system-ui, sans-serif", fill: color }}
+      >
+        {Math.round(+score || 0)}
       </text>
-      <text x="8" y="66" fill="#9d7cb8" fontSize="8.5">
+      <text
+        x="115"
+        y="132"
+        textAnchor="middle"
+        style={{ font: '600 12px Manrope, system-ui, sans-serif', fill: '#8b83a6', letterSpacing: '2px' }}
+      >
+        / 100
+      </text>
+      <text x="42" y="188" textAnchor="middle" style={{ font: '600 11px Manrope, system-ui, sans-serif', fill: '#6f6890' }}>
         0
       </text>
-      <text x={cx - 6} y="10" fill="#9d7cb8" fontSize="8.5">
-        50
-      </text>
-      <text x="98" y="66" fill="#9d7cb8" fontSize="8.5">
+      <text x="188" y="188" textAnchor="middle" style={{ font: '600 11px Manrope, system-ui, sans-serif', fill: '#6f6890' }}>
         100
       </text>
     </svg>

@@ -15,13 +15,6 @@ import RiskGauge from './RiskGauge'
 import StressTestPanel from './StressTestPanel'
 import TopAnalysisWidget from './TopAnalysisWidget'
 
-const BADGE_CLASS = {
-  LOW: 'bg-risk-low/15 text-risk-low',
-  MODERATE: 'bg-risk-moderate/15 text-risk-moderate',
-  HIGH: 'bg-risk-high/15 text-risk-high',
-  EXTREME: 'bg-risk-extreme/15 text-risk-extreme',
-}
-
 export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   const { t } = useLanguage()
   const { isFavorited, toggleFavorite } = useAuth()
@@ -134,22 +127,32 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
       {score && !loading && !error && (
         <div className="animate-fade-in">
-          <div className="flex items-center gap-5 border-b border-border px-5 py-4">
-            <div className="glow-ring flex-shrink-0 rounded-full" style={{ boxShadow: `0 0 0 1px ${color}26, 0 0 24px -6px ${color}59` }}>
-              <RiskGauge score={animatedScore} color={color} />
+          {/* Score hero (Riscore.dc): the 270° arc gauge carries the number
+              itself, with the band pill + score caption beside it. A thin
+              risk-colored top accent bar with a periodic light-sweep crowns
+              the card. */}
+          <div className="relative flex flex-wrap items-center gap-4 border-b border-border px-5 py-5 sm:gap-6">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-[3px] overflow-hidden"
+              style={{ background: color, boxShadow: `0 0 18px ${color}` }}
+            >
+              <div className="animate-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/90 to-transparent" />
             </div>
-            <div>
-              <div className="text-[2.6rem] font-black leading-none tracking-tighter tabular-nums" style={{ color }}>
-                {Math.round(animatedScore)}
-              </div>
+            <div className="flex-shrink-0">
+              <RiskGauge score={animatedScore} color={color} size={180} />
+            </div>
+            <div className="min-w-0">
               <span
-                className={`mt-1.5 inline-block rounded-full px-3 py-0.5 text-[0.72rem] font-bold uppercase tracking-wide transition-colors duration-500 ${
-                  BADGE_CLASS[score.risk_label] || 'bg-muted/10 text-muted'
-                }`}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold uppercase tracking-wide transition-colors duration-500"
+                style={{ color, background: `${color}22`, border: `1px solid ${color}55` }}
               >
+                <span
+                  className="h-2 w-2 flex-shrink-0 rounded-full"
+                  style={{ background: color, boxShadow: `0 0 10px ${color}` }}
+                />
                 {t(`riskLabel.${score.risk_label}`)}
               </span>
-              <div className="mt-1.5 text-[0.72rem] text-muted">{t('card.riskScoreLabel')}</div>
+              <div className="mt-3.5 text-sm text-muted">{t('card.riskScoreLabel')}</div>
             </div>
           </div>
 
