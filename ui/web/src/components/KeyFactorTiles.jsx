@@ -45,11 +45,22 @@ export default function KeyFactorTiles({ breakdown }) {
               <div className="icon-badge h-7 w-7 transition-transform duration-200 group-hover:scale-110">
                 <Icon aria-hidden="true" size={16} />
               </div>
-              <div className="mt-1.5 truncate text-[0.68rem] font-semibold text-slate-200">
+              {/* max-sm: bumps — the root font-size lift (index.css) isn't
+                  enough for these micro-labels; phones get a full size up. */}
+              <div className="mt-1.5 truncate text-[0.68rem] font-semibold text-slate-200 max-sm:text-[0.8rem]">
                 {t(`categories.${key}.short`)}
               </div>
-              <div className="mt-0.5 flex items-baseline gap-1">
-                <span className="font-mono text-sm font-extrabold tabular-nums" style={{ color }}>
+              {/* The everyday question this factor answers, always visible —
+                  the finance term alone ("drawdown", "tail risk") told users
+                  nothing, and most never hover to find out. */}
+              <div className="mt-0.5 text-[0.6rem] leading-snug text-muted max-sm:text-[0.72rem]">
+                {t(`categories.${key}.plainShort`)}
+              </div>
+              <div className="mt-1 flex items-baseline gap-1">
+                <span
+                  className="font-mono text-sm font-extrabold tabular-nums max-sm:text-base"
+                  style={{ color }}
+                >
                   {Math.round(cat.score)}
                 </span>
                 <span className="text-[0.62rem] text-muted">/100</span>
@@ -62,7 +73,7 @@ export default function KeyFactorTiles({ breakdown }) {
               </div>
               {/* Deterministic one-line reading of where this percentile sits
                   in the stock's own history — see explain/readings.js. */}
-              <p className="mt-2 text-[0.68rem] leading-relaxed text-muted">
+              <p className="mt-2 text-[0.68rem] leading-relaxed text-muted max-sm:text-[0.78rem]">
                 {t(`readings.factor.${factorReading(cat.score)}`)}
               </p>
             </div>

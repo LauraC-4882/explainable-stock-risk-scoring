@@ -25,7 +25,7 @@ export default function RiskExplainer({ riskLabel, breakdown, defaultOpen = fals
     <div className="border-b border-border">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="group flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent"
+        className="group flex w-full items-center justify-between px-5 py-3 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted transition-colors duration-150 hover:text-accent max-sm:text-[0.8rem]"
         aria-expanded={open}
       >
         <span className="inline-flex items-center gap-2">
@@ -89,8 +89,13 @@ function CategoryRow({ catKey, score, weight, open, t }) {
       <div className="mb-1 flex items-center justify-between gap-2 text-xs">
         {/* Icon dropped on purpose — the tiles above already carry the
             category iconography; here plain text keeps the list clean. */}
-        <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+        <span className="flex min-w-0 items-center gap-1.5 font-semibold text-slate-200">
           {t(`categories.${catKey}.label`)}
+          {/* Plain-language gloss right next to the term, so the row reads
+              even for someone who has never met the word "drawdown". */}
+          <span className="truncate text-[0.68rem] font-normal text-muted">
+            · {t(`categories.${catKey}.plainShort`)}
+          </span>
           <InfoTooltip text={t(`categories.${catKey}.plain`)} align="left" />
         </span>
         <span className="flex-shrink-0 font-mono text-[0.7rem] text-muted">

@@ -39,10 +39,10 @@ export default {
     EXTREME: 'EXTREME',
   },
   labelExplanation: {
-    LOW: 'Calmer than usual for this stock — lower volatility and shallower drawdowns than its own recent history.',
-    MODERATE: 'Within a fairly normal range for this stock — nothing unusual compared to its own recent history.',
-    HIGH: 'More turbulent than usual for this stock — bigger price swings or deeper drawdowns than typical.',
-    EXTREME: 'Near the most turbulent levels seen in this stock’s recent history.',
+    LOW: 'Quieter than this stock’s own normal — smaller day-to-day moves, and it hasn’t fallen as far as it usually does.',
+    MODERATE: 'About normal for this stock. Nothing unusual compared with how it usually behaves.',
+    HIGH: 'Bumpier than this stock’s own normal — either it’s swinging more each day, or it has fallen further than it typically does.',
+    EXTREME: 'About as wild as this stock gets — it’s moving near the most extreme levels seen in its own recent history.',
   },
   keyFactors: {
     title: 'Key Factor Contributions',
@@ -56,35 +56,44 @@ export default {
   explainer: {
     toggle: 'What does this score mean?',
     intro:
-      'This 0–100 score compares the stock’s current behavior to its own trading history over roughly the last two years — it is not compared against other stocks, and it is not a prediction of future price movement or investment advice. A high score just means this stock is acting more turbulently than it usually does.',
+      'We compare this stock only with its own past two years — never with other stocks. 0 means “about as calm as this stock ever gets”, 100 means “about as wild as it ever gets”. A high score doesn’t mean it’s a bad stock, and it doesn’t mean it’s about to fall — it means it’s moving around more than this particular stock usually does.',
     makeup: 'What makes up the score',
     weight: 'weight',
   },
+  // Each category carries `plainShort` — the everyday question it answers, in
+  // a handful of words. It renders directly on the tile so the meaning is
+  // visible without hovering: users told us the finance terms alone
+  // ("drawdown", "tail risk") meant nothing to them.
   categories: {
     volatility: {
       label: 'Volatility',
       short: 'Vol',
-      plain: 'How much the price swings day to day. Higher means choppier, less predictable price moves.',
+      plainShort: 'How bumpy the ride is',
+      plain: 'How much the price jumps around day to day. Big moves up and down = high; steady, small moves = low. High isn’t automatically bad — it just means a rougher ride.',
     },
     tail: {
       label: 'Tail Risk',
       short: 'Tail Risk',
-      plain: 'How bad the worst-case days have historically been for this stock — the "what if things go really wrong" risk.',
+      plainShort: 'How ugly the rare bad days get',
+      plain: 'The “what if things really go wrong” risk. Not the normal ups and downs — this is about the handful of genuinely awful days, and how bad they’ve been for this stock.',
     },
     drawdown: {
       label: 'Drawdown',
       short: 'Drawdown',
-      plain: 'How far the stock has fallen from its recent peak, and how long it has stayed down before recovering.',
+      plainShort: 'How far it can fall at worst',
+      plain: 'The worst drop from top to bottom. If you’d bought at the peak, how much would you have been down at the lowest point — and how long did it stay down before climbing back?',
     },
     sensitivity: {
       label: 'Market Sensitivity',
       short: 'Sensitivity',
-      plain: 'How much this stock tends to move when the overall market moves. Higher means it amplifies market-wide swings.',
+      plainShort: 'Does it follow the whole market?',
+      plain: 'When the market as a whole drops, does this one drop with it? Moving about the same = it follows the market; moving less = steadier than the market; moving more = it magnifies whatever the market does.',
     },
     liquidity: {
       label: 'Liquidity',
       short: 'Liquidity',
-      plain: 'How easily shares can be bought or sold without noticeably moving the price. Lower liquidity can mean bigger price jumps on trades.',
+      plainShort: 'How easy it is to sell',
+      plain: 'Whether there are enough people buying and selling to trade without shoving the price around. Busy trading = you can usually get in and out near the price you see. Thin trading = your own order can move the price.',
     },
   },
   metrics: {
@@ -95,19 +104,20 @@ export default {
   },
   glossary: {
     volatility:
-      'How much a stock’s price swings up and down over a period. Higher volatility means bigger, choppier, less predictable moves — not necessarily a bad sign, just a wilder ride.',
+      'How bumpy the ride is. It measures how much the price jumps around over a stretch of time — bigger, choppier moves mean higher volatility. It says nothing about direction: a stock climbing steadily upward can still be very volatile.',
     var95:
-      'Value at Risk (95%): on a typical "bad day" (roughly the worst 1-in-20 trading days), this is about how much the stock could drop. It’s a rough guide, not a guaranteed floor.',
-    beta: 'How much this stock tends to move compared to its market benchmark. Beta = 1.0 means it moves with the benchmark; above 1.0 means bigger swings; below 1.0 means calmer than the benchmark.',
-    rsi: 'Relative Strength Index: a 0–100 gauge of recent buying/selling momentum. Above 70 is often called "overbought," below 30 "oversold" — these are just labels for recent momentum, not predictions of what happens next.',
+      'What a typical bad day looks like. Out of roughly every 20 trading days, the worst one has historically cost about this much. It’s a rough yardstick, not a floor — a genuinely bad day can be far worse.',
+    beta:
+      'How closely it follows the whole market. 1.0 means it moves about the same as the market; below 1.0 means it moves less (steadier); above 1.0 means it exaggerates the market’s moves — in both directions.',
+    rsi: 'Whether it’s been bought or sold hard recently. Above 70 means a lot of buying lately (people call that “overbought”); below 30 means a lot of selling (“oversold”). It describes what just happened — it does not predict what happens next.',
   },
   // Deterministic "what this number means" readings (see explain/readings.js).
   // Strictly descriptive: they characterise the measurement and never suggest
   // an action. Generated from threshold tables, not an LLM — so the wording
   // can be reviewed once and cannot drift.
   readings: {
-    title: 'What this number means',
-    disclaimer: 'Descriptive statistics about past behavior — not a forecast or a recommendation.',
+    title: 'What this number actually means',
+    disclaimer: 'This describes what already happened — it is not a prediction, and not advice.',
     chip: {
       low: 'LOW',
       normal: 'NORMAL',
@@ -127,36 +137,36 @@ export default {
       overbought: 'OVERBOUGHT',
     },
     vol: {
-      low: 'Day-to-day price swings are small — a comparatively steady tape for a listed stock.',
-      normal: 'Day-to-day swings sit in an ordinary range for a listed stock.',
-      elevated: 'This stock is swinging more than a typical one — wider daily moves in both directions.',
-      high: 'Daily moves are substantially wider than a typical stock’s over the last month.',
+      low: 'The price has been moving in small steps lately — a fairly smooth ride.',
+      normal: 'Day-to-day moves are about what you’d expect from an ordinary stock.',
+      elevated: 'It’s been jumping around more than most stocks — bigger moves in both directions.',
+      high: 'Very bumpy lately. Daily moves have been much bigger than a typical stock’s.',
     },
     var95: {
-      mild: 'This is roughly the loss seen on the worst 1-in-20 trading days — currently a mild figure.',
-      moderate: 'This is roughly the loss seen on the worst 1-in-20 trading days — a moderate figure.',
-      elevated: 'This is roughly the loss seen on the worst 1-in-20 trading days — a sizeable figure.',
-      severe: 'This is roughly the loss seen on the worst 1-in-20 trading days — a large figure.',
+      mild: 'On a bad day it has typically lost about this much — small, as these things go.',
+      moderate: 'On a bad day it has typically lost about this much — a middling amount.',
+      elevated: 'On a bad day it has typically lost about this much — enough to sting.',
+      severe: 'On a bad day it has typically lost about this much — a heavy one-day hit.',
     },
     beta: {
-      negative: 'Over this window it moved inversely to the benchmark — rising when the market fell, and vice versa.',
-      defensive: 'It moves less than the benchmark, so market-wide swings arrive damped.',
-      inline: 'It moves roughly in step with the benchmark.',
-      amplified: 'It amplifies the benchmark — a 1% market move has tended to produce a larger move here.',
-      high: 'It strongly amplifies the benchmark, so market-wide swings land here magnified.',
+      negative: 'It’s been going the opposite way to the market — up on days the market fell, and vice versa.',
+      defensive: 'It moves less than the market, so market-wide drops land more gently here.',
+      inline: 'It moves roughly in step with the market.',
+      amplified: 'It exaggerates the market — when the market moves 1%, this tends to move more.',
+      high: 'It exaggerates the market strongly, so market-wide swings hit this much harder.',
     },
     rsi: {
-      oversold: 'Selling pressure has dominated recently. Below 30 is conventionally called “oversold” — a description of momentum, not a forecast.',
-      weak: 'Momentum has leaned to the downside, without reaching an extreme.',
-      neutral: 'Buying and selling pressure have been roughly balanced.',
-      firm: 'Momentum has leaned to the upside, without reaching an extreme.',
-      overbought: 'Buying pressure has dominated recently. Above 70 is conventionally called “overbought” — a description of momentum, not a forecast.',
+      oversold: 'A lot of selling recently. Below 30 is what people call “oversold” — it describes what just happened, not what comes next.',
+      weak: 'Sellers have had the upper hand lately, but nothing extreme.',
+      neutral: 'Buyers and sellers have been fairly evenly matched.',
+      firm: 'Buyers have had the upper hand lately, but nothing extreme.',
+      overbought: 'A lot of buying recently. Above 70 is what people call “overbought” — it describes what just happened, not what comes next.',
     },
     factor: {
-      low: 'Sits in the calmer end of this stock’s own history.',
-      moderate: 'Sits in a normal range for this stock.',
-      elevated: 'Running above this stock’s normal range — one of the main things lifting the score.',
-      high: 'Near the top of this stock’s own historical range — a main driver of the score.',
+      low: 'Quieter than this stock’s own normal.',
+      moderate: 'About normal for this stock.',
+      elevated: 'Higher than this stock’s own normal — one of the main things pushing the score up.',
+      high: 'Near the highest this stock has ever been — a main reason the score sits where it does.',
     },
   },
   // Signed-in watchlist board (WatchlistBoard.jsx). "Up = warning" wording is
