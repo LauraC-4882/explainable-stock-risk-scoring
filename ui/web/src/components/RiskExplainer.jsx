@@ -1,5 +1,6 @@
+import { GraduationCap } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { CATEGORY_ICONS, CATEGORY_ORDER } from '../data/categoryMeta'
+import { CATEGORY_ORDER } from '../data/categoryMeta'
 import { useLanguage } from '../i18n/LanguageContext'
 import InfoTooltip from './InfoTooltip'
 
@@ -28,8 +29,8 @@ export default function RiskExplainer({ riskLabel, breakdown, defaultOpen = fals
         aria-expanded={open}
       >
         <span className="inline-flex items-center gap-2">
-          <span className="icon-badge h-6 w-6 text-[0.72rem] transition-colors duration-150 group-hover:bg-accent/20">
-            <span aria-hidden="true">{'\u{1F393}'}</span>
+          <span className="icon-badge h-7 w-7 transition-colors duration-150 group-hover:bg-accent/20">
+            <GraduationCap aria-hidden="true" size={16} />
           </span>
           {t('explainer.toggle')}
         </span>
@@ -86,8 +87,9 @@ function CategoryRow({ catKey, score, weight, open, t }) {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+        {/* Icon dropped on purpose — the tiles above already carry the
+            category iconography; here plain text keeps the list clean. */}
         <span className="flex items-center gap-1.5 font-semibold text-slate-200">
-          <span aria-hidden="true">{CATEGORY_ICONS[catKey]}</span>
           {t(`categories.${catKey}.label`)}
           <InfoTooltip text={t(`categories.${catKey}.plain`)} align="left" />
         </span>

@@ -1,3 +1,4 @@
+import { Star, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { apiScore, apiTimeseries } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -91,18 +92,20 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
         onClick={handleToggleFavorite}
         disabled={favBusy}
         title={favorited ? t('watchlist.unfavorite') : t('watchlist.favorite')}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg border border-border text-lg leading-none transition-all duration-150 hover:scale-110 hover:bg-surface2 active:scale-90 disabled:opacity-50 ${
-          favorited ? 'text-yellow-400' : 'text-muted hover:text-yellow-400'
-        }`}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:scale-110 hover:bg-surface2 active:scale-90 disabled:opacity-50"
       >
-        {favorited ? '★' : '☆'}
+        <Star
+          size={16}
+          weight={favorited ? 'fill' : 'thin'}
+          color={favorited ? '#fbbf24' : undefined}
+        />
       </button>
       <button
         onClick={() => onRemove(ticker)}
         title={t('card.remove')}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-base leading-none text-muted transition-all duration-150 hover:bg-down/10 hover:text-down active:scale-90"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:bg-down/10 active:scale-90"
       >
-        ✕
+        <X size={14} />
       </button>
     </div>
   )
@@ -266,11 +269,11 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
       {/* ── Charts row, full width ──────────────────────────────────── */}
       <div className="mt-5 grid gap-5 md:grid-cols-2">
         <Panel delay={6} hover className="px-3 pb-2.5 pt-2.5">
-          <ChartLabel icon="📈">{t('charts.price')}</ChartLabel>
+          <ChartLabel>{t('charts.price')}</ChartLabel>
           <PriceChart timeseries={timeseries} color={color} />
         </Panel>
         <Panel delay={7} hover className="px-3 pb-2.5 pt-2.5">
-          <ChartLabel icon="🩺">{t('charts.riskScore')}</ChartLabel>
+          <ChartLabel>{t('charts.riskScore')}</ChartLabel>
           <RiskChart timeseries={timeseries} />
         </Panel>
       </div>
@@ -295,13 +298,7 @@ function Panel({ children, className = '', delay = 0, hover = false }) {
   )
 }
 
-function ChartLabel({ icon, children }) {
-  return (
-    <div className="mb-1.5 flex items-center gap-1.5 px-1 pt-1 text-[0.67rem] font-semibold uppercase tracking-wide text-muted">
-      <span aria-hidden="true" className="text-[0.75rem] leading-none">
-        {icon}
-      </span>
-      {children}
-    </div>
-  )
+// Icon-free on purpose: the serif-gradient flourish type IS the ornament.
+function ChartLabel({ children }) {
+  return <div className="heading-flourish mb-1.5 px-1 pt-1 text-base">{children}</div>
 }

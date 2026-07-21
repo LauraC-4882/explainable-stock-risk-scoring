@@ -1,11 +1,12 @@
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
+import AlertsBell from './AlertsBell'
 import Avatar from './Avatar'
 import LanguageSwitcher from './LanguageSwitcher'
 import { RiscoreIcon, RiscoreWordmark } from './Logo'
 
-export default function Header({ onHome }) {
+export default function Header({ onHome, onOpenTicker }) {
   const { t } = useLanguage()
   const {
     user,
@@ -34,7 +35,7 @@ export default function Header({ onHome }) {
           aria-label={t('header.homeTitle')}
           className="group flex items-center gap-3.5 rounded-xl text-left transition-transform duration-150 hover:scale-[1.02] active:scale-95"
         >
-          <div className="animate-floaty rounded-2xl border border-accent/35 bg-gradient-to-br from-accent/25 to-rose/[0.14] p-1.5 shadow-[0_8px_30px_rgba(124,58,237,0.28)] transition-shadow duration-200 group-hover:shadow-[0_10px_36px_rgba(124,58,237,0.4)]">
+          <div className="animate-floaty rounded-2xl border border-accent/35 bg-gradient-to-br from-accent/25 to-accent2/[0.14] p-1.5 shadow-[0_8px_30px_rgba(37,99,235,0.3)] transition-shadow duration-200 group-hover:shadow-[0_10px_36px_rgba(37,99,235,0.45)]">
             <RiscoreIcon size={40} idPrefix="hdr" />
           </div>
           <div>
@@ -70,6 +71,7 @@ export default function Header({ onHome }) {
                   </span>
                 )}
               </button>
+              <AlertsBell onOpen={onOpenTicker} />
               <button
                 onClick={openProfilePanel}
                 title={user.email}

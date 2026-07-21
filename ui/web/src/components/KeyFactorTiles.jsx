@@ -30,20 +30,20 @@ export default function KeyFactorTiles({ breakdown }) {
 
   return (
     <div className="border-b border-border px-4 py-4 sm:px-5">
-      <div className="mb-2.5 text-[0.67rem] font-semibold uppercase tracking-wide text-muted">
-        {t('keyFactors.title')}
-      </div>
+      {/* Flourish serif title carries the design here — no icon needed. */}
+      <div className="heading-flourish mb-2.5 text-base">{t('keyFactors.title')}</div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {categories.map(([key, cat]) => {
           const color = SEVERITY_COLOR(cat.score)
+          const Icon = CATEGORY_ICONS[key]
           return (
             <div
               key={key}
               title={t(`categories.${key}.label`)}
-              className="panel-tile group px-2.5 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#3b2a5e]"
+              className="panel-tile group px-2.5 py-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40"
             >
-              <div className="icon-badge h-6 w-6 text-[0.72rem] transition-transform duration-200 group-hover:scale-110">
-                <span aria-hidden="true">{CATEGORY_ICONS[key]}</span>
+              <div className="icon-badge h-7 w-7 transition-transform duration-200 group-hover:scale-110">
+                <Icon aria-hidden="true" size={16} />
               </div>
               <div className="mt-1.5 truncate text-[0.68rem] font-semibold text-slate-200">
                 {t(`categories.${key}.short`)}

@@ -12,8 +12,8 @@ export function RiscoreIcon({ size = 110, idPrefix = 'ri' }) {
     <svg width={size} height={size} viewBox="0 0 110 110" aria-label="Riscore logo">
       <defs>
         <linearGradient id={grad} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#a855f7" />
-          <stop offset="100%" stopColor="#f43f5e" />
+          <stop offset="0%" stopColor="#7dd3fc" />
+          <stop offset="100%" stopColor="#2563eb" />
         </linearGradient>
         <linearGradient id={gold} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#f59e0b" />
@@ -21,15 +21,15 @@ export function RiscoreIcon({ size = 110, idPrefix = 'ri' }) {
         </linearGradient>
       </defs>
 
-      <circle cx="55" cy="55" r="50" fill="none" stroke="rgba(168,85,247,0.15)" strokeWidth="1" />
+      <circle cx="55" cy="55" r="50" fill="none" stroke="rgba(125,211,252,0.16)" strokeWidth="1" />
       <circle
-        cx="55" cy="55" r="44" fill="none" stroke="rgba(244,63,94,0.2)"
+        cx="55" cy="55" r="44" fill="none" stroke="rgba(79,216,235,0.22)"
         strokeWidth="0.8" strokeDasharray="5 7" className="logo-ring-spin"
       />
 
       <path
         d="M55,18 L82,30 L82,58 Q82,76 55,88 Q28,76 28,58 L28,30 Z"
-        fill="rgba(120,40,200,0.18)" stroke={`url(#${grad})`} strokeWidth="1.5"
+        fill="rgba(30,90,200,0.2)" stroke={`url(#${grad})`} strokeWidth="1.5"
       />
 
       <rect x="38" y="64" width="5" height="10" rx="1" fill="#f43f5e" opacity="0.9" />
@@ -60,7 +60,7 @@ export function RiscoreWordmark({ className = 'text-2xl' }) {
       <span className="text-gradient-purple">Ri</span>
       <span
         aria-hidden="true"
-        className="mb-[0.08em] inline-block h-[0.18em] w-[0.18em] rounded-full bg-[#8b5cf6]"
+        className="mb-[0.08em] inline-block h-[0.18em] w-[0.18em] rounded-full bg-[#38bdf8]"
       />
       <span className="text-gradient-rose">score</span>
     </span>
@@ -73,15 +73,15 @@ export function SloganRing({ size = 160, idPrefix = 'sr' }) {
     <svg width={size} height={size} viewBox="0 0 160 160" aria-label="Know your risk — invest with clarity">
       <defs>
         <linearGradient id={grad} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#a855f7" />
-          <stop offset="50%" stopColor="#e879f9" />
-          <stop offset="100%" stopColor="#f43f5e" />
+          <stop offset="0%" stopColor="#7dd3fc" />
+          <stop offset="50%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#fbbf24" />
         </linearGradient>
       </defs>
 
-      <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(168,85,247,0.15)" strokeWidth="1" />
+      <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(125,211,252,0.16)" strokeWidth="1" />
       <circle
-        cx="80" cy="80" r="64" fill="none" stroke="rgba(244,63,94,0.2)" strokeWidth="0.5"
+        cx="80" cy="80" r="64" fill="none" stroke="rgba(79,216,235,0.22)" strokeWidth="0.5"
         strokeDasharray="4 6" className="slogan-ring-spin-reverse"
       />
       <circle
@@ -91,16 +91,16 @@ export function SloganRing({ size = 160, idPrefix = 'sr' }) {
 
       <rect x="77" y="4" width="6" height="6" rx="1" fill="#f59e0b" transform="rotate(45 80 7)" opacity="0.8" />
       <rect x="77" y="147" width="6" height="6" rx="1" fill="#f59e0b" transform="rotate(45 80 150)" opacity="0.8" />
-      <rect x="4" y="77" width="6" height="6" rx="1" fill="#c084fc" transform="rotate(45 7 80)" opacity="0.6" />
-      <rect x="148" y="77" width="6" height="6" rx="1" fill="#f43f5e" transform="rotate(45 151 80)" opacity="0.6" />
+      <rect x="4" y="77" width="6" height="6" rx="1" fill="#7dd3fc" transform="rotate(45 7 80)" opacity="0.6" />
+      <rect x="148" y="77" width="6" height="6" rx="1" fill="#38bdf8" transform="rotate(45 151 80)" opacity="0.6" />
 
-      <text x="80" y="72" textAnchor="middle" fontSize="13" fontWeight="700" fill="#f0abfc" letterSpacing="0.5">
+      <text x="80" y="72" textAnchor="middle" fontSize="13" fontWeight="700" fill="#bfe6ff" letterSpacing="0.5">
         Know your
       </text>
-      <text x="80" y="88" textAnchor="middle" fontSize="13" fontWeight="700" fill="#f0abfc" letterSpacing="0.5">
+      <text x="80" y="88" textAnchor="middle" fontSize="13" fontWeight="700" fill="#bfe6ff" letterSpacing="0.5">
         risk.
       </text>
-      <text x="80" y="106" textAnchor="middle" fontSize="10" fill="#9d7cb8" letterSpacing="1">
+      <text x="80" y="106" textAnchor="middle" fontSize="10" fill="#8ba3c9" letterSpacing="1">
         INVEST WITH CLARITY
       </text>
     </svg>

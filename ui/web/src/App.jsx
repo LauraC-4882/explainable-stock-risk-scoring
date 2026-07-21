@@ -1,3 +1,4 @@
+import { IconContext } from '@phosphor-icons/react'
 import { useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
 import { AuthProvider } from './auth/AuthContext'
@@ -47,24 +48,28 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <OnboardingProvider>
+          {/* Phosphor icon defaults (phosphoricons.com, thin @ #71b8e5) —
+              every icon inherits these unless it explicitly overrides. */}
+          <IconContext.Provider value={{ size: 18, weight: 'thin', color: '#71b8e5' }}>
           <div className="relative flex min-h-screen flex-col text-slate-100">
-            {/* Ambient "Cosmic Trust" backdrop (ported from the Riscore.dc
-                design): three drifting aurora blobs, a twinkling starfield
+            {/* Ambient "Deep Network" backdrop matched to the user's
+                background artwork: three drifting glow orbs (blue top-left,
+                teal center-right, faint violet bottom), the animated plexus
                 canvas, and a perspective grid-floor — all fixed behind the
                 content, animated via transform/opacity only, and stilled
                 under prefers-reduced-motion. */}
             <div aria-hidden="true">
               <div
                 className="bg-orb animate-aurora1"
-                style={{ top: '-18%', left: '-8%', width: '48vw', height: '48vw', opacity: 0.28, filter: 'blur(70px)', background: 'radial-gradient(circle,rgba(56,189,248,0.5),transparent 68%)' }}
+                style={{ top: '-18%', left: '-8%', width: '48vw', height: '48vw', opacity: 0.3, filter: 'blur(70px)', background: 'radial-gradient(circle,rgba(64,144,255,0.55),transparent 68%)' }}
               />
               <div
                 className="bg-orb animate-aurora2"
-                style={{ top: '-10%', right: '-12%', width: '46vw', height: '46vw', opacity: 0.26, filter: 'blur(80px)', background: 'radial-gradient(circle,rgba(99,102,241,0.55),transparent 66%)' }}
+                style={{ top: '18%', right: '-14%', width: '50vw', height: '50vw', opacity: 0.28, filter: 'blur(85px)', background: 'radial-gradient(circle,rgba(20,170,180,0.5),transparent 66%)' }}
               />
               <div
                 className="bg-orb animate-aurora3"
-                style={{ bottom: '-24%', left: '22%', width: '52vw', height: '52vw', opacity: 0.2, filter: 'blur(90px)', background: 'radial-gradient(circle,rgba(139,92,246,0.4),transparent 68%)' }}
+                style={{ bottom: '-24%', left: '22%', width: '52vw', height: '52vw', opacity: 0.16, filter: 'blur(90px)', background: 'radial-gradient(circle,rgba(120,80,220,0.4),transparent 68%)' }}
               />
               <Starfield />
               <div className="grid-floor">
@@ -73,7 +78,7 @@ export default function App() {
             </div>
 
             <div className="relative z-10 flex flex-1 flex-col">
-              <Header onHome={goHome} />
+              <Header onHome={goHome} onOpenTicker={addStock} />
 
               {/* The design floats its controls and cards directly on the
                   cosmic backdrop (no competing wrapper box) inside a wide,
@@ -118,6 +123,7 @@ export default function App() {
               <OnboardingTour />
             </div>
           </div>
+          </IconContext.Provider>
         </OnboardingProvider>
       </AuthProvider>
     </LanguageProvider>

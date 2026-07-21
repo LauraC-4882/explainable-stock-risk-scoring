@@ -2,7 +2,7 @@
 // app has no durable file storage on most free-tier hosts, see db.py), so
 // the avatar is derived purely from the user's email: a hash picks one of
 // the brand hues, the first letter is the glyph.
-const HUES = ['#c084fc', '#e879f9', '#f43f5e', '#f59e0b', '#818cf8']
+const HUES = ['#38bdf8', '#4f9cf6', '#14b8a6', '#f59e0b', '#8b7be8']
 
 function hueFor(seed) {
   let hash = 0

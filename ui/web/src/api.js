@@ -54,6 +54,22 @@ export async function apiGetWatchlist(token) {
   return parseErrorOr(res, 'Failed to fetch watchlist')
 }
 
+// Unread risk-movement alerts for the signed-in user's watchlist, plus the
+// call that clears the unread badge. Both derive from stored snapshot history
+// (see /api/watchlist/alerts) — no polling job, no separate alert store.
+export async function apiWatchlistAlerts(token) {
+  const res = await fetch('/api/watchlist/alerts', { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load alerts')
+}
+
+export async function apiMarkAlertsSeen(token) {
+  const res = await fetch('/api/watchlist/alerts/seen', {
+    method: 'POST',
+    headers: authHeader(token),
+  })
+  if (!res.ok) throw new Error('Failed to mark alerts seen')
+}
+
 // Watchlist board data: latest stored risk reading per watchlisted ticker plus
 // the change since the previous one. Served straight from snapshot history
 // (no live scoring), so this stays fast and never hits upstream rate limits.

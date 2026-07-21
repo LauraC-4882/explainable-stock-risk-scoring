@@ -31,11 +31,11 @@ export default function EmptyState({ market, onAdd }) {
           pulsing gold dots (echoing the header's twinkle motif) — a
           deliberately designed centerpiece rather than a plain caption line. */}
       <div
-        className="my-1 inline-flex animate-fade-in items-center gap-3 rounded-full border border-accent2/30 bg-gradient-to-r from-accent/10 via-accent2/10 to-rose/10 px-6 py-2.5 shadow-lg shadow-accent/10"
+        className="my-1 inline-flex animate-fade-in items-center gap-3 rounded-full border border-accent2/30 bg-gradient-to-r from-accent/10 via-accent2/10 to-gold/10 px-6 py-2.5 shadow-lg shadow-accent/10"
         style={{ animationDuration: '0.75s' }}
       >
         <span className="h-1.5 w-1.5 flex-shrink-0 animate-glow-pulse rounded-full bg-gold" />
-        <p className="bg-gradient-to-r from-accent2 via-accent to-rose bg-clip-text text-sm font-bold uppercase tracking-[0.35em] text-transparent sm:text-base">
+        <p className="bg-gradient-to-r from-accent2 via-accent to-gold bg-clip-text text-sm font-bold uppercase tracking-[0.35em] text-transparent sm:text-base">
           {t('emptyState.slogan')}
         </p>
         <span

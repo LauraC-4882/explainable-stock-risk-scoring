@@ -1,27 +1,29 @@
 /** @type {import('tailwindcss').Config} */
-// Riscore "Cosmic Trust" palette (ported from the Riscore.dc design mockup):
-// deep space-navy base, violet structural chrome, a sky->indigo primary accent
-// for CTAs, and an orange/rose family for the "score" wordmark, price line and
-// high-risk bands. Risk-level colors stay semantically green->amber->orange->
-// rose. Token NAMES are unchanged from before so the whole app re-skins by
-// retuning values rather than rewriting every className.
+// Riscore "Deep Network" palette, matched to the user's supplied background
+// artwork (2026-07-20): a deep navy base with a teal glow on the right and a
+// blue glow top-left, pale-blue plexus lines/nodes, cyan + violet node
+// accents — plus a warm gold kept deliberately NON-blue as the contrast
+// family for the "score" wordmark, gauge and price line. Risk-level colors
+// stay semantically green->amber->orange->rose. Token NAMES are unchanged
+// from before so the whole app re-skins by retuning values rather than
+// rewriting every className.
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        bg: '#070510',
-        surface: '#140d26',
-        surface2: '#1d1438',
-        border: '#2e2350',
-        accent: '#a78bfa', // violet-400 — structural (links, hovers, icon tints)
-        accent2: '#c4b5fd', // lighter violet (link hover / gradient partner)
+        bg: '#071228',
+        surface: '#0c1c3a',
+        surface2: '#12274d',
+        border: '#23406b',
+        accent: '#4f9cf6', // clear blue — structural (links, hovers, icon tints)
+        accent2: '#7dd3fc', // ice cyan (link hover / gradient partner)
         sky: '#38bdf8', // primary CTA start
-        indigo: '#6366f1', // primary CTA end
+        indigo: '#2563eb', // primary CTA end (blue, not violet)
         rose: '#fb7185',
-        gold: '#fb923c', // design "orange" — score wordmark + price line
+        gold: '#fbbf24', // warm contrast — score wordmark + price line
         amber: '#fbbf24',
-        muted: '#8b83a6',
+        muted: '#8ba3c9',
         up: '#34d399',
         down: '#fb7185',
         risk: {
@@ -112,7 +114,7 @@ export default {
         cta: '0 8px 26px rgba(56,189,248,0.32)',
       },
       backgroundImage: {
-        'cta-grad': 'linear-gradient(90deg,#38bdf8,#6366f1)',
+        'cta-grad': 'linear-gradient(90deg,#38bdf8,#2563eb)',
       },
     },
   },

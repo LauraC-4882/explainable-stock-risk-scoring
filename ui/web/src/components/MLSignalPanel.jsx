@@ -1,3 +1,4 @@
+import { Cpu } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 
@@ -25,8 +26,8 @@ export default function MLSignalPanel({ probability, explanation }) {
         aria-expanded={open}
       >
         <span className="inline-flex items-center gap-2">
-          <span className="icon-badge h-6 w-6 text-[0.72rem] transition-colors duration-150 group-hover:bg-accent/20">
-            <span aria-hidden="true">{'\u{1F916}'}</span>
+          <span className="icon-badge h-7 w-7 transition-colors duration-150 group-hover:bg-accent/20">
+            <Cpu aria-hidden="true" size={16} />
           </span>
           {t('mlSignal.toggle')}
         </span>

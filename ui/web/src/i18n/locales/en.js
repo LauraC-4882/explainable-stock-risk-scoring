@@ -169,6 +169,13 @@ export default {
     noReading: 'no reading yet',
     note: 'A rising score means risk increased, a falling score means it eased — shown the same way for every market, because a risk score is not a price. Readings come from stored daily snapshots, not a live quote.',
   },
+  // Risk-movement bell (AlertsBell.jsx).
+  alerts: {
+    title: 'Risk movement',
+    subtitle: 'Notable changes on your watchlist',
+    empty: 'No notable movement since you last checked.',
+    note: 'Triggered by a large change or a band crossing. Descriptive of stored readings — not a forecast or a recommendation.',
+  },
   charts: {
     price: 'Price History',
     riskScore: 'Daily Risk Score (0–100)',

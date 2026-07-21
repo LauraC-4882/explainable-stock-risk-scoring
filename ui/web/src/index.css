@@ -7,57 +7,63 @@
     box-sizing: border-box;
   }
   body {
-    /* Riscore "Cosmic Trust" backdrop: layered radial nebulae over a deep
-       space-navy vertical gradient. The animated aurora blobs, starfield
-       canvas and perspective grid-floor live in App.jsx on top of this. */
+    /* "Deep Network" backdrop, matched to the user's background artwork:
+       blue glow top-left, broad teal glow center-right, faint violet hint
+       bottom-center, over a deep navy diagonal gradient. The animated
+       aurora blobs and plexus canvas live in App.jsx on top of this. */
     background:
-      radial-gradient(1300px 800px at 80% -12%, rgba(56, 189, 248, 0.12), transparent 60%),
-      radial-gradient(1100px 700px at 12% 6%, rgba(99, 102, 241, 0.14), transparent 58%),
-      radial-gradient(900px 900px at 50% 120%, rgba(124, 58, 237, 0.1), transparent 60%),
-      linear-gradient(180deg, #050810, #070b1c 55%, #04060f) fixed;
+      radial-gradient(1200px 750px at 10% -6%, rgba(64, 144, 255, 0.2), transparent 60%),
+      radial-gradient(1400px 950px at 90% 55%, rgba(20, 160, 170, 0.2), transparent 62%),
+      radial-gradient(900px 700px at 42% 115%, rgba(120, 80, 220, 0.12), transparent 60%),
+      linear-gradient(165deg, #0b1e42, #0b2049 45%, #071228) fixed;
     min-height: 100vh;
     position: relative;
     font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-    color: #e7e2f5;
+    color: #e4edfa;
   }
 }
 
 @layer utilities {
   .glass {
-    background: rgba(20, 14, 38, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(10, 24, 50, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
+  /* Wordmark "Ri" — ice-blue family (class name kept so callers don't change). */
   .text-gradient-purple {
-    background: linear-gradient(90deg, #a855f7, #c084fc);
+    background: linear-gradient(90deg, #7dd3fc, #bfe6ff);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
+  /* Wordmark "score" — warm gold, the deliberate non-blue contrast family. */
   .text-gradient-rose {
-    background: linear-gradient(90deg, #f97316, #fb7185);
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   .text-gradient-cta {
-    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    background: linear-gradient(90deg, #38bdf8, #60a5fa);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
-  /* ── Glassmorphic panel chrome (design's card language) ──────────────── */
+  /* ── Glassmorphic panel chrome ─────────────────────────────────────────
+     Every section sits on one of these: translucent enough that the plexus
+     backdrop shows through, blurred enough that text on top stays fully
+     readable. */
   .panel {
-    background: linear-gradient(180deg, rgba(30, 22, 54, 0.5), rgba(17, 12, 32, 0.5));
-    border: 1px solid rgba(139, 92, 246, 0.16);
+    background: linear-gradient(180deg, rgba(14, 30, 60, 0.52), rgba(8, 18, 40, 0.55));
+    border: 1px solid rgba(90, 150, 230, 0.18);
     border-radius: 1.375rem; /* 22px */
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
   .panel-tile {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(139, 92, 246, 0.14);
+    background: rgba(140, 190, 255, 0.05);
+    border: 1px solid rgba(90, 150, 230, 0.16);
     border-radius: 0.9rem;
   }
   .icon-badge {
@@ -65,12 +71,12 @@
     align-items: center;
     justify-content: center;
     border-radius: 0.6rem;
-    background: rgba(139, 92, 246, 0.16);
-    border: 1px solid rgba(167, 139, 250, 0.22);
+    background: rgba(56, 130, 230, 0.16);
+    border: 1px solid rgba(125, 190, 250, 0.24);
   }
-  /* Primary CTA — sky→indigo gradient pill (Sign in, Share analysis, etc.) */
+  /* Primary CTA — sky→blue gradient pill (Sign in, Share analysis, etc.) */
   .btn-cta {
-    background: linear-gradient(90deg, #38bdf8, #6366f1);
+    background: linear-gradient(90deg, #38bdf8, #2563eb);
     color: #fff;
     box-shadow: 0 8px 26px rgba(56, 189, 248, 0.32);
   }
@@ -79,16 +85,34 @@
     box-shadow: 0 12px 34px rgba(56, 189, 248, 0.42);
   }
   .glow-ring {
-    box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.15), 0 0 24px -6px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 0 1px rgba(125, 190, 250, 0.16), 0 0 24px -6px rgba(56, 150, 240, 0.4);
   }
   .skeleton-shimmer {
     background-image: linear-gradient(
       100deg,
-      rgba(30, 22, 54, 0.6) 30%,
-      rgba(59, 42, 94, 0.55) 45%,
-      rgba(30, 22, 54, 0.6) 60%
+      rgba(14, 30, 60, 0.6) 30%,
+      rgba(28, 58, 105, 0.55) 45%,
+      rgba(14, 30, 60, 0.6) 60%
     );
     background-size: 200% 100%;
+  }
+
+  /* ── Flourish headings ────────────────────────────────────────────────
+     Serif-italic gradient section titles used INSTEAD of icons where an
+     icon added nothing — the type itself carries the design. The gradient
+     pans very slowly; stilled under prefers-reduced-motion below. */
+  .heading-flourish {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    background: linear-gradient(100deg, #bfe6ff 0%, #71b8e5 40%, #7dd3fc 70%, #bfe6ff 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: flourish-pan 9s ease-in-out infinite;
   }
 
   /* Aurora blob helper — a big blurred radial circle drifting behind content. */
@@ -118,8 +142,8 @@
     inset: -40% -20% -2% -20%;
     transform: rotateX(68deg);
     background-image:
-      linear-gradient(rgba(56, 189, 248, 0.28) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(99, 102, 241, 0.22) 1px, transparent 1px);
+      linear-gradient(rgba(56, 189, 248, 0.22) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(45, 130, 220, 0.18) 1px, transparent 1px);
     background-size: 64px 64px;
   }
 }
@@ -158,6 +182,11 @@
   50% { r: 6; }
 }
 
+@keyframes flourish-pan {
+  0%, 100% { background-position: 0% 0; }
+  50% { background-position: 100% 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .logo-ring-spin,
   .slogan-ring-spin-reverse,
@@ -175,7 +204,8 @@
   .animate-sweep,
   .animate-grid-scroll,
   .animate-spin-slow,
-  .animate-spin-reverse {
+  .animate-spin-reverse,
+  .heading-flourish {
     animation: none !important;
     stroke-dashoffset: 0 !important;
   }
@@ -189,9 +219,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.28);
+  background: rgba(79, 156, 246, 0.28);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.45);
+  background: rgba(79, 156, 246, 0.45);
 }
