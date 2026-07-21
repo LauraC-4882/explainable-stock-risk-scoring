@@ -25,6 +25,18 @@ const TILT_COLOR = {
   balanced: 'text-muted',
 }
 
+// [G7] Compression is the only one of these coloured as a risk read, because
+// it is the only one with a direction-free link to risk (vol clusters, so a
+// narrow range means the next move is likely bigger — not that it is coming,
+// and not which way). Trend-stack and momentum states stay neutral-toned:
+// colouring "bullish_stack" green would editorialise a chart description into
+// a call.
+const SQUEEZE_COLOR = {
+  compressed: 'text-risk-moderate',
+  expanded: 'text-muted',
+  normal: 'text-muted',
+}
+
 function Row({ label, children }) {
   return (
     <div className="rounded-lg border border-border bg-surface2/50 p-3 transition-colors duration-150 hover:bg-surface2">
@@ -54,10 +66,10 @@ export default function RegimeSignalsPanel({ regimeTechnicals }) {
 
   const rt = regimeTechnicals
   if (!rt) return null
-  const { regime, sector_tilt: tilt, trend, patterns, momentum } = rt
+  const { regime, sector_tilt: tilt, trend, patterns, momentum, technicals } = rt
   // Nothing computed at all (e.g. every leg degraded) — render nothing rather
   // than an empty box promising information it doesn't have.
-  if (!regime && !tilt && !trend && !patterns && !momentum) return null
+  if (!regime && !tilt && !trend && !patterns && !momentum && !technicals) return null
 
   return (
     <div className="border-b border-border">
@@ -136,6 +148,85 @@ export default function RegimeSignalsPanel({ regimeTechnicals }) {
                     <Stat
                       label={t('regimeSignals.momentum.vs52wHigh')}
                       value={signed(momentum.vs_52w_high_pct)}
+                    />
+                  )}
+                </div>
+              </Row>
+            )}
+
+            {technicals?.squeeze && (
+              <Row label={t('regimeSignals.squeeze.label')}>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
+                  <span
+                    className={`font-mono text-sm font-bold ${SQUEEZE_COLOR[technicals.squeeze.state] || 'text-muted'}`}
+                  >
+                    {t(`regimeSignals.squeeze.${technicals.squeeze.state}`)}
+                  </span>
+                  <Stat
+                    label={t('regimeSignals.squeeze.bandWidth')}
+                    value={`${Math.round(technicals.squeeze.bb_width_pctile * 100)}%ile`}
+                  />
+                  {technicals.squeeze.atr_compression !== null && (
+                    <Stat
+                      label={t('regimeSignals.squeeze.atr')}
+                      value={`${technicals.squeeze.atr_compression.toFixed(2)}x`}
+                    />
+                  )}
+                </div>
+                <p className="mt-1.5 text-[0.65rem] leading-relaxed text-muted">
+                  {t('regimeSignals.squeeze.note')}
+                </p>
+              </Row>
+            )}
+
+            {technicals?.momentum_extremes && (
+              <Row label={t('regimeSignals.extremes.label')}>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
+                  <span className="font-mono text-sm font-bold text-slate-200">
+                    {t(`regimeSignals.extremes.${technicals.momentum_extremes.state}`)}
+                  </span>
+                  <Stat label="RSI 6/14/24" value={
+                    [6, 14, 24]
+                      .map((h) => {
+                        const v = technicals.momentum_extremes[`rsi_${h}`]
+                        return v === null || v === undefined ? '—' : v.toFixed(0)
+                      })
+                      .join(' / ')
+                  } />
+                  {technicals.momentum_extremes.kdj_j !== null && (
+                    <Stat
+                      label="KDJ J"
+                      value={technicals.momentum_extremes.kdj_j.toFixed(1)}
+                    />
+                  )}
+                </div>
+              </Row>
+            )}
+
+            {technicals?.trend_structure && (
+              <Row label={t('regimeSignals.stack.label')}>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
+                  <span className="font-mono text-sm font-bold text-slate-200">
+                    {t(`regimeSignals.stack.${technicals.trend_structure.state}`)}
+                  </span>
+                  <Stat
+                    label={t('regimeSignals.stack.alignment')}
+                    value={technicals.trend_structure.ma_alignment.toFixed(2)}
+                  />
+                </div>
+              </Row>
+            )}
+
+            {technicals?.participation && (
+              <Row label={t('regimeSignals.participation.label')}>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
+                  <span className="font-mono text-sm font-bold text-slate-200">
+                    {t(`regimeSignals.participation.${technicals.participation.state}`)}
+                  </span>
+                  {technicals.participation.obv_trend !== null && (
+                    <Stat
+                      label={t('regimeSignals.participation.obv')}
+                      value={signed(technicals.participation.obv_trend * 100)}
                     />
                   )}
                 </div>

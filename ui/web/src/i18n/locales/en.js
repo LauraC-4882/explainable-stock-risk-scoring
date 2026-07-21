@@ -96,6 +96,10 @@ export default {
       plain: 'Trading frictions. Blends the 21-day Amihud illiquidity ratio — absolute return per unit of dollar volume (50%) — with volume volatility (30%) and the dollar-volume level (20%).',
     },
   },
+  radar: {
+    title: 'Risk profile radar',
+    hint: 'The five score ingredients, each vs. this stock’s own 2-year history — shape, not verdict.',
+  },
   metrics: {
     vol30d: '30d Vol',
     var95: 'VaR 95%',
@@ -222,6 +226,35 @@ export default {
       crashRisk: 'Crash risk',
       vs52wHigh: 'vs 52w high',
       band: { low: 'Low', moderate: 'Moderate', elevated: 'Elevated' },
+    },
+    squeeze: {
+      label: 'Volatility compression',
+      compressed: 'Compressed',
+      normal: 'Normal',
+      expanded: 'Expanded',
+      bandWidth: 'Band width',
+      atr: 'ATR vs 60d',
+      note: 'Where this stock’s trading range sits against its own past year. A narrow range tends to be followed by wider ones — that says the next moves are likely to be bigger, not when they come or which way they go.',
+    },
+    extremes: {
+      label: 'Momentum extremes',
+      oversold: 'Stretched low',
+      overbought: 'Stretched high',
+      neutral: 'No extreme',
+    },
+    stack: {
+      label: 'Moving-average stack',
+      bullish_stack: 'Fast above slow',
+      bearish_stack: 'Fast below slow',
+      mixed: 'Tangled',
+      alignment: 'Alignment',
+    },
+    participation: {
+      label: 'Volume participation',
+      confirmed: 'Volume agrees',
+      price_up_volume_weak: 'Price up, volume not confirming',
+      price_down_volume_firm: 'Price down, volume not confirming',
+      obv: 'OBV vs 20d',
     },
     tilt: {
       label: 'Sector tilt',

@@ -94,6 +94,10 @@ export default {
       plain: '交易摩擦。由 21 日 Amihud 非流动性比率(单位成交额对应的绝对收益,50%),加成交量波动率(30%)与成交额水平(20%)加权。',
     },
   },
+  radar: {
+    title: '风险维度雷达',
+    hint: '构成总分的五个维度,各自相对这只股票自身两年历史的百分位——看形状,不下结论。',
+  },
   metrics: {
     vol30d: '30日波动率',
     var95: 'VaR 95%',
@@ -207,6 +211,35 @@ export default {
       crashRisk: '动量崩盘风险',
       vs52wHigh: '距52周高点',
       band: { low: '低', moderate: '中等', elevated: '偏高' },
+    },
+    squeeze: {
+      label: '波动率压缩',
+      compressed: '已收窄',
+      normal: '正常',
+      expanded: '已放大',
+      bandWidth: '布林带宽',
+      atr: 'ATR / 60日均值',
+      note: '这只股票当前的波动区间，在它自己过去一年里处于什么位置。区间收窄之后，往往会跟着更大的波动——这说明的是「接下来的幅度可能更大」，而不是什么时候来、往哪个方向走。',
+    },
+    extremes: {
+      label: '动能极值',
+      oversold: '偏冷',
+      overbought: '偏热',
+      neutral: '无极值',
+    },
+    stack: {
+      label: '均线排列',
+      bullish_stack: '短期均线在上',
+      bearish_stack: '短期均线在下',
+      mixed: '交织',
+      alignment: '排列强度',
+    },
+    participation: {
+      label: '成交量配合',
+      confirmed: '量价一致',
+      price_up_volume_weak: '价涨，量未跟上',
+      price_down_volume_firm: '价跌，量未跟上',
+      obv: 'OBV / 20日',
     },
     tilt: {
       label: '板块属性',

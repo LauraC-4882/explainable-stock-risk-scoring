@@ -47,6 +47,7 @@ from stock_risk.features.momentum_risk import MomentumRiskFeatures  # noqa: E402
 from stock_risk.features.regime import RegimeFeatures  # noqa: E402
 from stock_risk.features.risk_metrics import RiskMetrics  # noqa: E402
 from stock_risk.features.sma_search import OptimizedSMAFeatures  # noqa: E402
+from stock_risk.features.technical import TechnicalFeatures  # noqa: E402
 
 ROOT = Path(__file__).parent.parent
 OHLCV_CACHE = ROOT / "data/experiments/ohlcv"
@@ -64,6 +65,18 @@ SIGNALS = {
     "cdl_bull_minus_bear_20d": False,
     "price_vs_52w_high": False,
     "momentum_12m": True,        # the momentum-crash hypothesis, on its own
+    # [G7] chart-structure signals. bb_width_pctile is the one with a prior
+    # worth stating: volatility clustering predicts that a compressed range
+    # (LOW percentile) precedes larger moves, so low width should map to
+    # DEEPER forward drawdowns — i.e. higher-is-riskier is False here, and if
+    # the data says otherwise the compression story does not hold on this
+    # universe and the signal stays at weight 0.
+    "bb_width_pctile": False,
+    "atr_compression": False,
+    "ma_alignment": False,       # a broken-down stack should precede more damage
+    "kdj_j": False,
+    "obv_trend": False,
+    "pv_divergence_20d": True,   # price up without volume = the warning case
 }
 
 
@@ -72,7 +85,8 @@ def build_frames(vix_close: pd.Series | None) -> dict[str, pd.DataFrame]:
     for path in sorted(OHLCV_CACHE.glob("*.parquet")):
         raw = pd.read_parquet(path)
         raw["log_return"] = np.log(raw["close"] / raw["close"].shift(1))
-        df = RiskMetrics().compute(raw)
+        df = TechnicalFeatures().compute(raw)
+        df = RiskMetrics().compute(df)
         df = CandlestickFeatures().compute(df)
         df = MomentumRiskFeatures().compute(df)
         df = OptimizedSMAFeatures().compute(df)

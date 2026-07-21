@@ -424,6 +424,30 @@
       "crash_risk_band": "elevated",
       "vs_52w_high_pct": -18.6,
       "pct_of_52w_range": 41.2
+    },
+    "technicals": {
+      "squeeze": {
+        "bb_width_pctile": 0.08,
+        "atr_compression": 0.51,
+        "state": "compressed"
+      },
+      "trend_structure": {
+        "ma_alignment": -1.0,
+        "state": "bearish_stack"
+      },
+      "momentum_extremes": {
+        "kdj_k": 28.4,
+        "kdj_d": 31.2,
+        "kdj_j": 20.8,
+        "rsi_6": 24.1,
+        "rsi_14": 28.6,
+        "rsi_24": 29.4,
+        "state": "oversold"
+      },
+      "participation": {
+        "obv_trend": -0.1842,
+        "state": "price_up_volume_weak"
+      }
     }
   }
 }

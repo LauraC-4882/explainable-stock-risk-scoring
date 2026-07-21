@@ -17,6 +17,7 @@ from stock_risk.features.regime import RegimeFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
 from stock_risk.features.sector_rotation import SectorRotationFeatures
 from stock_risk.features.sma_search import OptimizedSMAFeatures
+from stock_risk.features.technical import TECHNICAL_STRUCTURE_COLS, TechnicalFeatures
 from stock_risk.scoring.producers import (
     RegimeTechnicalsProducer,
     ScoringContext,
@@ -48,7 +49,7 @@ def frame() -> pd.DataFrame:
 
 @pytest.fixture
 def enriched(frame) -> pd.DataFrame:
-    df = RiskMetrics().compute(frame)
+    df = RiskMetrics().compute(TechnicalFeatures().compute(frame))
     df = CandlestickFeatures().compute(df)
     df = MomentumRiskFeatures().compute(df)
     df = OptimizedSMAFeatures().compute(df)
@@ -160,7 +161,7 @@ def test_a_forced_nonzero_weight_is_refused():
 
 def test_all_blocks_present_on_a_fully_enriched_frame(enriched, ctx):
     raw = RegimeTechnicalsProducer().produce(enriched, ctx).raw
-    for block in ("regime", "sector_tilt", "trend", "patterns", "momentum"):
+    for block in ("regime", "sector_tilt", "trend", "patterns", "momentum", "technicals"):
         assert raw[block] is not None, f"{block} missing"
     assert raw["regime"]["state"] in {"risk_on", "risk_off"}
     assert raw["sector_tilt"]["reading"] in {"cyclical", "defensive", "balanced"}
@@ -219,6 +220,123 @@ def test_tilt_deadband_reports_balanced_rather_than_a_direction(enriched, ctx):
     latest.loc[latest.index[-1], "risk_on_tilt"] = 0.05
     raw = RegimeTechnicalsProducer().produce(latest, ctx).raw
     assert raw["sector_tilt"]["reading"] == "balanced"
+
+
+# ── [G7] chart-structure indicators ──────────────────────────────────────────
+
+def test_technical_structure_columns_produced(frame):
+    out = TechnicalFeatures().compute(frame)
+    missing = [c for c in TECHNICAL_STRUCTURE_COLS if c not in out.columns]
+    assert not missing, f"declared but not produced: {missing}"
+
+
+def test_kdj_follows_the_cn_convention_not_tas_stochastic(frame):
+    """K and D must be the 1/3-smoothed recursion, and J = 3K - 2D exactly.
+
+    `ta`'s StochasticOscillator returns raw RSV as %K and its SMA as %D, which
+    differs by several points on the same bar — a J line that doesn't match a
+    user's broker chart is worse than none.
+    """
+    out = TechnicalFeatures().compute(frame)
+    k, d, j = out["kdj_k"], out["kdj_d"], out["kdj_j"]
+    valid = pd.concat([k, d, j], axis=1).dropna()
+    assert (valid["kdj_j"] - (3 * valid["kdj_k"] - 2 * valid["kdj_d"])).abs().max() < 1e-9
+
+    low_9 = frame["low"].rolling(9, min_periods=9).min()
+    high_9 = frame["high"].rolling(9, min_periods=9).max()
+    rsv = 100 * (frame["close"] - low_9) / (high_9 - low_9)
+    expected_k = rsv.ewm(alpha=1 / 3, adjust=False).mean()
+    pd.testing.assert_series_equal(k.dropna(), expected_k.dropna(), check_names=False)
+
+
+def test_kdj_j_may_leave_the_zero_hundred_band(frame):
+    """J overshooting is the feature, not a bug — clamping it would erase the
+    extremes it exists to mark."""
+    out = TechnicalFeatures().compute(frame)
+    k = out["kdj_k"].dropna()
+    assert k.between(0, 100).all(), "K itself must stay bounded"
+
+
+def test_ma_alignment_is_plus_one_on_a_perfect_stack():
+    idx = pd.date_range("2020-01-01", periods=300, freq="B")
+    rising = pd.Series(np.linspace(100, 400, 300), index=idx)
+    df = pd.DataFrame(
+        {"open": rising, "high": rising * 1.01, "low": rising * 0.99,
+         "close": rising, "volume": 1e6},
+        index=idx,
+    )
+    out = TechnicalFeatures().compute(df)
+    assert out["ma_alignment"].dropna().iloc[-1] == pytest.approx(1.0)
+
+    falling = pd.Series(np.linspace(400, 100, 300), index=idx)
+    df2 = df.assign(open=falling, high=falling * 1.01, low=falling * 0.99, close=falling)
+    out2 = TechnicalFeatures().compute(df2)
+    assert out2["ma_alignment"].dropna().iloc[-1] == pytest.approx(-1.0)
+
+
+def test_bb_width_percentile_is_a_rank_not_a_level(frame):
+    """Absolute band width is not comparable across tickers; its rank within
+    the stock's own trailing year is."""
+    out = TechnicalFeatures().compute(frame)
+    pctile = out["bb_width_pctile"].dropna()
+    assert pctile.between(0, 1).all()
+
+    scaled = frame.assign(**{c: frame[c] * 1000 for c in ("open", "high", "low", "close")})
+    scaled_pctile = TechnicalFeatures().compute(scaled)["bb_width_pctile"].dropna()
+    # A pure price rescaling leaves every rank untouched.
+    pd.testing.assert_series_equal(pctile, scaled_pctile, check_names=False)
+
+
+def test_pv_divergence_flags_price_up_without_volume():
+    idx = pd.date_range("2020-01-01", periods=60, freq="B")
+    close = pd.Series(np.linspace(100, 130, 60), index=idx)
+    # Volume concentrated on down-days early then vanishing keeps OBV falling
+    # while price rises — the 价升量缩 case.
+    volume = pd.Series(np.r_[np.full(30, 5e6), np.full(30, 1e5)], index=idx)
+    df = pd.DataFrame(
+        {"open": close, "high": close * 1.01, "low": close * 0.99,
+         "close": close, "volume": volume},
+        index=idx,
+    )
+    out = TechnicalFeatures().compute(df)
+    assert set(out["pv_divergence_20d"].dropna().unique()) <= {-1.0, 0.0, 1.0}
+
+
+def test_squeeze_state_is_descriptive_only(enriched, ctx):
+    """The compliance boundary, asserted in code: the block may describe the
+    current range, and must never emit a directional or target-bearing state."""
+    raw = RegimeTechnicalsProducer().produce(enriched, ctx).raw
+    squeeze = raw["technicals"]["squeeze"]
+    assert squeeze["state"] in {"compressed", "normal", "expanded"}
+
+    forbidden = {"breakout", "buy", "sell", "target", "rally", "imminent", "bullish", "bearish"}
+    states = [
+        raw["technicals"]["squeeze"]["state"],
+        raw["technicals"]["momentum_extremes"]["state"],
+        raw["technicals"]["participation"]["state"],
+    ]
+    for state in states:
+        assert not (forbidden & set(state.lower().split("_"))), f"directional state: {state}"
+
+
+def test_rsi_extreme_requires_all_three_horizons_to_agree(enriched, ctx):
+    """One stretched horizon is noise. Disagreement must report neutral rather
+    than being resolved by majority vote."""
+    latest = enriched.copy()
+    idx = latest.index[-1]
+    latest.loc[idx, ["rsi_6", "rsi_14"]] = 20.0
+    latest.loc[idx, "rsi_24"] = 55.0
+    raw = RegimeTechnicalsProducer().produce(latest, ctx).raw
+    assert raw["technicals"]["momentum_extremes"]["state"] == "neutral"
+
+    latest.loc[idx, "rsi_24"] = 25.0
+    raw = RegimeTechnicalsProducer().produce(latest, ctx).raw
+    assert raw["technicals"]["momentum_extremes"]["state"] == "oversold"
+
+
+def test_technicals_block_absent_on_a_bare_frame(frame, ctx):
+    raw = RegimeTechnicalsProducer().produce(frame, ctx).raw
+    assert raw["technicals"] is None
 
 
 def test_patterns_are_limited_to_the_lookback_window(enriched, ctx):

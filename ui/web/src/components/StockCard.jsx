@@ -15,6 +15,7 @@ import RegimeSignalsPanel from './RegimeSignalsPanel'
 import RiskChart from './RiskChart'
 import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
+import RiskRadar from './RiskRadar'
 import StressTestPanel from './StressTestPanel'
 import TopAnalysisWidget from './TopAnalysisWidget'
 
@@ -203,6 +204,11 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
                   <p className="mt-3 text-sm leading-relaxed text-slate-300">
                     {t(`labelExplanation.${score.risk_label}`)}
                   </p>
+                </div>
+                {/* Radar re-visualizes the five category scores in the hero's
+                    spare width; on narrow layouts it wraps below the text. */}
+                <div className="animate-fade-in flex-shrink-0 sm:ml-auto">
+                  <RiskRadar breakdown={score.risk_breakdown} color={color} />
                 </div>
               </div>
             </div>

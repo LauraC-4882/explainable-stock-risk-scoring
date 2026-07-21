@@ -176,12 +176,46 @@ class MomentumRisk(BaseModel):
     pct_of_52w_range: Optional[float] = None
 
 
+class VolatilitySqueeze(BaseModel):
+    bb_width_pctile: float  # rank of the current band width in its own trailing year
+    atr_compression: Optional[float] = None
+    state: str  # "compressed" | "normal" | "expanded" — descriptive, not a forecast
+
+
+class TrendStructure(BaseModel):
+    ma_alignment: float  # +1 fully stacked fast-over-slow, -1 fully inverted
+    state: str  # "bullish_stack" | "bearish_stack" | "mixed"
+
+
+class MomentumExtremes(BaseModel):
+    kdj_k: Optional[float] = None
+    kdj_d: Optional[float] = None
+    kdj_j: Optional[float] = None
+    rsi_6: Optional[float] = None
+    rsi_14: Optional[float] = None
+    rsi_24: Optional[float] = None
+    state: str  # "oversold" | "overbought" | "neutral" (all 3 horizons must agree)
+
+
+class Participation(BaseModel):
+    obv_trend: Optional[float] = None
+    state: str  # "price_up_volume_weak" | "price_down_volume_firm" | "confirmed"
+
+
+class TechnicalStructure(BaseModel):
+    squeeze: Optional[VolatilitySqueeze] = None
+    trend_structure: Optional[TrendStructure] = None
+    momentum_extremes: Optional[MomentumExtremes] = None
+    participation: Optional[Participation] = None
+
+
 class RegimeTechnicals(BaseModel):
     regime: Optional[VolRegime] = None
     sector_tilt: Optional[SectorTilt] = None
     trend: Optional[TrendState] = None
     patterns: Optional[PatternSummary] = None
     momentum: Optional[MomentumRisk] = None
+    technicals: Optional[TechnicalStructure] = None
 
 
 class Fundamentals(BaseModel):

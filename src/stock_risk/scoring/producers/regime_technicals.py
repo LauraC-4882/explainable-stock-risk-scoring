@@ -37,6 +37,26 @@ What each block reports:
     range, and the momentum-crash interaction (high run-up AND high
     volatility), which neither a momentum column nor a volatility column
     expresses on its own.
+  - **technicals** — [G7] chart-structure reads: volatility compression,
+    moving-average stack alignment, multi-horizon momentum extremes, and
+    volume participation.
+
+[G7] note on framing. Every state string in the `technicals` block is
+DESCRIPTIVE of what the chart currently shows, never PREDICTIVE of where the
+price goes next. "compressed" says the trading range has narrowed to the low
+end of its own year; it does not say a breakout is coming, and above all it
+does not say which way. That distinction is the product boundary, not a
+stylistic preference: the moment a band reads "expect a move to X" this stops
+being risk analysis and becomes a trade recommendation. Volatility compression
+earns its place here precisely because it is direction-free — vol clusters, so
+a compressed range means the *size* of the next move is likely larger than the
+recent ones, which is a statement about risk and about nothing else.
+
+Deliberately absent: Fibonacci retracement levels and derived support/
+resistance price targets. They have no statistical grounding to justify a risk
+claim, they add nothing to the 52-week position already reported under
+`momentum`, and their only real output is a price target — which is the one
+output this product does not make.
 
 Every block degrades to None independently: a throttled VIX fetch empties
 `regime` and leaves `patterns` (pure OHLC, no network) intact.
@@ -97,6 +117,7 @@ class RegimeTechnicalsProducer(RiskProducer):
                 "trend": self._trend(latest),
                 "patterns": self._patterns(df),
                 "momentum": self._momentum(latest),
+                "technicals": self._technicals(latest),
             },
         )
 
@@ -184,6 +205,81 @@ class RegimeTechnicalsProducer(RiskProducer):
                 if (v := _num(latest.get("pct_of_52w_range"))) is not None
                 else None
             ),
+        }
+
+    @staticmethod
+    def _technicals(latest: pd.Series) -> Optional[dict]:
+        """[G7] Chart-structure reads. Every `state` is descriptive of the
+        present, never a forecast — see the module docstring."""
+        width_pctile = _num(latest.get("bb_width_pctile"))
+        alignment = _num(latest.get("ma_alignment"))
+        j = _num(latest.get("kdj_j"))
+        if width_pctile is None and alignment is None and j is None:
+            return None
+
+        rsis = {h: _num(latest.get(f"rsi_{h}")) for h in (6, 14, 24)}
+        present = [v for v in rsis.values() if v is not None]
+        # "Extended" only when every horizon agrees. One stretched horizon is
+        # noise; three agreeing is the state worth naming, and disagreement is
+        # reported as neutral rather than resolved by majority vote.
+        if len(present) == 3 and all(v < 30 for v in present):
+            rsi_state = "oversold"
+        elif len(present) == 3 and all(v > 70 for v in present):
+            rsi_state = "overbought"
+        else:
+            rsi_state = "neutral"
+
+        divergence = _num(latest.get("pv_divergence_20d"))
+        participation = None
+        if divergence is not None:
+            participation = (
+                "price_up_volume_weak" if divergence > 0
+                else "price_down_volume_firm" if divergence < 0
+                else "confirmed"
+            )
+
+        return {
+            "squeeze": None if width_pctile is None else {
+                "bb_width_pctile": round(width_pctile, 3),
+                "atr_compression": (
+                    round(a, 3)
+                    if (a := _num(latest.get("atr_compression"))) is not None
+                    else None
+                ),
+                # Bands, not predictions: "compressed" = this stock's own range
+                # is in the bottom fifth of its trailing year. Where it goes
+                # from here is not claimed.
+                "state": (
+                    "compressed" if width_pctile <= 0.20
+                    else "expanded" if width_pctile >= 0.80
+                    else "normal"
+                ),
+            },
+            "trend_structure": None if alignment is None else {
+                "ma_alignment": round(alignment, 3),
+                "state": (
+                    "bullish_stack" if alignment >= 0.9
+                    else "bearish_stack" if alignment <= -0.9
+                    else "mixed"
+                ),
+            },
+            "momentum_extremes": {
+                "kdj_j": round(j, 2) if j is not None else None,
+                "kdj_k": round(k, 2) if (k := _num(latest.get("kdj_k"))) is not None else None,
+                "kdj_d": round(d, 2) if (d := _num(latest.get("kdj_d"))) is not None else None,
+                "rsi_6": round(rsis[6], 1) if rsis[6] is not None else None,
+                "rsi_14": round(rsis[14], 1) if rsis[14] is not None else None,
+                "rsi_24": round(rsis[24], 1) if rsis[24] is not None else None,
+                "state": rsi_state,
+            },
+            "participation": None if participation is None else {
+                "obv_trend": (
+                    round(o, 4)
+                    if (o := _num(latest.get("obv_trend"))) is not None
+                    else None
+                ),
+                "state": participation,
+            },
         }
 
     @staticmethod

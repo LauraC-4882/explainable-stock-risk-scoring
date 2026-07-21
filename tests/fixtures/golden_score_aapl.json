@@ -382,6 +382,30 @@
       "crash_risk_band": "low",
       "vs_52w_high_pct": -21.02,
       "pct_of_52w_range": 0.0
+    },
+    "technicals": {
+      "squeeze": {
+        "bb_width_pctile": 0.087,
+        "atr_compression": 0.961,
+        "state": "compressed"
+      },
+      "trend_structure": {
+        "ma_alignment": -1.0,
+        "state": "bearish_stack"
+      },
+      "momentum_extremes": {
+        "kdj_j": 8.62,
+        "kdj_k": 19.97,
+        "kdj_d": 25.65,
+        "rsi_6": 32.1,
+        "rsi_14": 38.0,
+        "rsi_24": 39.9,
+        "state": "neutral"
+      },
+      "participation": {
+        "obv_trend": -0.3156,
+        "state": "confirmed"
+      }
     }
   },
   "ticker": "AAPL",

@@ -379,7 +379,7 @@ class RiskScorer:
             # producer degrades, so the response shape never varies.
             "regime_technicals": regime_tech.raw if regime_tech else {
                 "regime": None, "sector_tilt": None, "trend": None,
-                "patterns": None, "momentum": None,
+                "patterns": None, "momentum": None, "technicals": None,
             },
             "stress_test": stress_test,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
