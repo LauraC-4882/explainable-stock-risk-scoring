@@ -1,4 +1,4 @@
-import { ChatsCircle, ShieldStar, Star } from '@phosphor-icons/react'
+import { ChatsCircle, Info, ShieldStar, Star } from '@phosphor-icons/react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
@@ -17,6 +17,7 @@ export default function Header({ onHome, onOpenTicker }) {
     openProfilePanel,
     openCommunityPanel,
     openAdminPanel,
+    openAboutPanel,
   } = useAuth()
   const { openTour } = useOnboarding()
 
@@ -50,6 +51,9 @@ export default function Header({ onHome, onOpenTicker }) {
         </button>
 
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
+          <button onClick={openAboutPanel} className={pill}>
+            <Info aria-hidden="true" size={16} /> {t('about.navButton')}
+          </button>
           <button onClick={() => openCommunityPanel()} className={pill}>
             <ChatsCircle aria-hidden="true" size={16} /> {t('community.navButton')}
           </button>

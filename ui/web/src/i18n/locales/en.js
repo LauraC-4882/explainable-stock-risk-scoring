@@ -26,6 +26,14 @@ export default {
     slogan: 'Invest smarter · Risk safer',
     heading: 'Search any stock to see its risk',
     body: 'Type a company name or ticker above. Scores update live using real market data.',
+    trustTitle: 'Why trust this score',
+    trust: {
+      data: { title: 'Real market data', body: 'Live US / CN / HK prices with daily snapshot fallback.' },
+      explain: { title: 'Explainable by construction', body: 'Five visible lenses; every number carries a plain-language reading.' },
+      validated: { title: 'Walk-forward validated ML', body: '56 stocks × 5 years; accuracy published, weight capped at 15%.' },
+      honest: { title: 'Honest about limits', body: 'Weaknesses documented. Descriptive statistics — never advice.' },
+    },
+    learnMore: 'How Riscore works →',
   },
   card: {
     remove: 'Remove',
@@ -434,6 +442,71 @@ export default {
         body: 'Sign in and tap the star on any card to track it here across visits — useful for monitoring how a position’s risk profile evolves over time instead of starting fresh every time you check it.',
       },
     },
+  },
+  about: {
+    navButton: 'About',
+    title: 'About Riscore — how it works',
+    intro:
+      'Riscore turns live market data into one explainable 0–100 risk score per stock — a reading of how turbulently a stock is behaving versus its own history, with every input visible and every number explained in plain language. Built as a serious, transparent risk-analysis tool: no black boxes, no advice, no hype.',
+    pipelineTitle: 'How the score is built',
+    pipeline: {
+      data: {
+        title: 'Live market data, resilient by design',
+        body: 'US prices via the Twelve Data market-data API; China & Hong Kong via akshare. Daily-refreshed snapshots keep scores available even when an upstream source throttles.',
+      },
+      lenses: {
+        title: 'Five explainable risk lenses',
+        body: 'Volatility, tail risk, drawdown, market sensitivity and liquidity — each measured as a percentile against the same stock’s own ~2-year history, then combined with regime-aware weights that adapt to overall market stress (VIX).',
+      },
+      ml: {
+        title: 'Machine learning, kept on a leash',
+        body: 'A walk-forward-validated XGBoost model estimates the probability of a 10%+ drawdown in the next 20 trading days. It contributes a deliberately capped 15% of the headline score, and every prediction ships with its SHAP factor breakdown.',
+      },
+      stress: {
+        title: 'Historical stress tests & outcome bands',
+        body: 'Every stock is replayed against 2008 / 2020 / 2022 crisis conditions, and each risk band shows what actually happened at that level in the past — real frequencies, not promises.',
+      },
+      explain: {
+        title: 'Deterministic plain-language explanations',
+        body: 'Every metric’s reading comes from reviewed threshold tables — not from a language model — so the wording is auditable, consistent, and can never drift into advice.',
+      },
+    },
+    validationTitle: 'Validated, with the numbers published',
+    validationIntro:
+      'The ML leg is evaluated walk-forward — trained only on data that came before what it is tested on, the same way it would run live:',
+    stats: {
+      stocks: { value: '56', label: 'stocks in the validation universe' },
+      years: { value: '5 yrs', label: 'of walk-forward evaluation' },
+      auc: { value: '0.67', label: 'mean ROC-AUC, documented' },
+      weight: { value: '15%', label: 'capped ML share of the score' },
+    },
+    honesty1:
+      'We publish the model’s weaknesses too: its recall is documented as low — it misses more real drawdowns than it flags. Treat a low probability as “no signal here”, never as “safe”.',
+    honesty2:
+      'The score describes the past and present — percentiles of observed behavior. It is not a prediction of future prices and never becomes one.',
+    honesty3:
+      'When a data source is throttled or a model artefact is unavailable, the app says so and degrades visibly — it never silently invents numbers.',
+    securityTitle: 'Security & privacy',
+    security: {
+      accounts: {
+        title: 'Accounts done properly',
+        body: 'Passwords are bcrypt-hashed (never stored or logged in plain text) and sessions use signed JWTs. Banned accounts are locked out at every endpoint on their next request.',
+      },
+      data: {
+        title: 'Minimal data, explicit consent',
+        body: 'We store only what the product needs: email, nickname, watchlist, posts and votes. Sign-up requires itemized consent, and the privacy notice says exactly what the admin can see and why — data analysis and site security, nothing else. Nothing is sold or shared.',
+      },
+      community: {
+        title: 'A moderated community',
+        body: 'Posts are screened against scope rules (no trade directives, no solicitation, no abuse), any user can report a post, and reports go to an admin review queue with ban powers behind it.',
+      },
+      transparency: {
+        title: 'Transparent by construction',
+        body: 'The factor weights, thresholds, validation write-up and known limitations are documented openly — the same numbers this page quotes. If the docs and the app ever disagree, that’s a bug, not marketing.',
+      },
+    },
+    responsible:
+      'Riscore is an educational risk-analysis tool. Scores are descriptive statistics about observed market behavior; community posts are individual users’ opinions. Nothing on this site is investment advice or a solicitation to trade — always use your own judgment.',
   },
   footer: {
     tagline: 'Explainable risk scoring on live market data.',

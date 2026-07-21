@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
   // router to carry it as a URL param instead (see TopAnalysisWidget).
   const [communityPanelTicker, setCommunityPanelTicker] = useState(null)
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
+  const [aboutPanelOpen, setAboutPanelOpen] = useState(false)
 
   // Restore the session on load (and whenever the token changes) by re-fetching
   // the user + watchlist — a stale/expired token is dropped rather than surfaced
@@ -135,6 +136,9 @@ export function AuthProvider({ children }) {
         adminPanelOpen,
         openAdminPanel: () => setAdminPanelOpen(true),
         closeAdminPanel: () => setAdminPanelOpen(false),
+        aboutPanelOpen,
+        openAboutPanel: () => setAboutPanelOpen(true),
+        closeAboutPanel: () => setAboutPanelOpen(false),
       }}
     >
       {children}
