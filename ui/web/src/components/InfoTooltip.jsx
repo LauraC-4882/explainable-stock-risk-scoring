@@ -26,7 +26,12 @@ export default function InfoTooltip({ text, align = 'center' }) {
       </button>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full z-30 mb-2 w-56 rounded-lg border border-border bg-surface2 px-3 py-2 text-[11px] font-normal normal-case leading-relaxed text-slate-200 shadow-xl shadow-black/40 transition-all duration-150 ease-out ${alignClass} ${
+        // whitespace-normal + text-left are load-bearing, not cosmetic: this
+        // span inherits white-space/text-align from wherever the (?) sits,
+        // and inside a whitespace-nowrap label row the explanation would
+        // otherwise render as one long unwrapped line shooting out of the
+        // panel (seen live with the VaR glossary tooltip).
+        className={`pointer-events-none absolute bottom-full z-30 mb-2 w-56 whitespace-normal rounded-lg border border-border bg-surface2 px-3 py-2 text-left text-[11px] font-normal normal-case leading-relaxed text-slate-200 shadow-xl shadow-black/40 transition-all duration-150 ease-out ${alignClass} ${
           open ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-1 scale-95 opacity-0'
         }`}
       >

@@ -89,24 +89,13 @@ export default function App() {
                 {tickers.length === 0 ? (
                   <EmptyState market={market} onAdd={addStock} />
                 ) : (
-                  // Capped at 2 columns (never 3+) so any pair of cards placed
-                  // side by side stays legible for comparison. A single card is
-                  // centered in a comfortable reading width instead of clinging
-                  // to the left of an otherwise-empty two-column row.
-                  <div
-                    className={`grid grid-cols-1 gap-5 pt-7 ${
-                      tickers.length === 1 ? 'mx-auto w-full max-w-[1240px]' : 'xl:grid-cols-2'
-                    }`}
-                  >
+                  // Every stock gets the full wide bento layout; comparing
+                  // means stacking those full dashboards vertically rather
+                  // than shrinking each into a cramped side-by-side card —
+                  // scroll between them, every section keeps its room.
+                  <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7">
                     {tickers.map((t, i) => (
-                      <StockCard
-                        key={t}
-                        ticker={t}
-                        period={period}
-                        onRemove={removeStock}
-                        index={i}
-                        wide={tickers.length === 1}
-                      />
+                      <StockCard key={t} ticker={t} period={period} onRemove={removeStock} index={i} />
                     ))}
                   </div>
                 )}
