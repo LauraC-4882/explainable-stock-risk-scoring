@@ -137,6 +137,12 @@ class TechnicalFeatures:
         df["ma_alignment"] = df["ma_alignment"].where(df[f"ma_{pairs[-1][1]}"].notna())
 
         # ── [G7] KDJ (CN convention: 9-period RSV, 1/3-smoothed K and D) ──────
+        # Warm-up caveat (verified numerically, not assumed): CN platforms seed
+        # the K/D recursion at 50 before the 9-bar RSV window fills, whereas
+        # ewm(adjust=False) seeds K at the first available RSV. The two
+        # therefore disagree on absolute K/D for roughly the first ~15-20 bars,
+        # then converge (alpha=1/3 forgets the seed geometrically). The J = 3K-2D
+        # identity holds exactly on every row regardless of seed.
         # Implemented directly rather than via ta.momentum.StochasticOscillator:
         # `ta` gives %K as the raw RSV and %D as its simple moving average,
         # while KDJ as quoted by CN platforms smooths both with a 1/3-weighted
@@ -170,7 +176,12 @@ class TechnicalFeatures:
         # for one name and wide for another, so the absolute width means
         # nothing cross-sectionally and the rank means everything.
         df["bb_width_pctile"] = df["bb_width"].rolling(252, min_periods=126).rank(pct=True)
-        df["atr_compression"] = df["atr_14"] / df["atr_14"].rolling(60, min_periods=30).mean()
+        # Guard the denominator: `ta`'s ATR emits 0 (not NaN) during its warm-up,
+        # and a genuinely flat 60-day stretch (a halted or limit-locked name)
+        # would make this rolling mean 0 and the ratio +inf. NaN there instead,
+        # matching how alpha_grid.py normalises its own degenerate ratios.
+        atr_mean_60 = df["atr_14"].rolling(60, min_periods=30).mean()
+        df["atr_compression"] = df["atr_14"] / atr_mean_60.replace(0, np.nan)
 
         # ── [G7] Volume participation ─────────────────────────────────────────
         obv_ma = df["obv"].rolling(20, min_periods=20).mean()

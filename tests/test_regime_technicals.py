@@ -339,6 +339,31 @@ def test_technicals_block_absent_on_a_bare_frame(frame, ctx):
     assert raw["technicals"] is None
 
 
+def test_new_technical_columns_never_emit_inf(frame):
+    """Numerical-audit regression: every [G7] column must degrade to NaN on a
+    degenerate input, never +/-inf — an inf survives scaling as a giant outlier
+    and poisons the model, a NaN is imputed."""
+    out = TechnicalFeatures().compute(frame)
+    for col in TECHNICAL_STRUCTURE_COLS:
+        assert not np.isinf(out[col]).any(), f"{col} leaked inf on ordinary data"
+
+
+def test_atr_compression_is_nan_not_inf_on_a_halted_stock():
+    """The exact edge the denominator guard exists for: a flat 60-day stretch
+    makes the trailing ATR mean 0, and an unguarded ratio would be +inf."""
+    idx = pd.date_range("2021-01-01", periods=120, freq="B")
+    # 60 normal bars, then 60 completely flat ones (halted / limit-locked).
+    close = np.r_[100 + np.arange(60) * 0.3, np.full(60, 118.0)]
+    df = pd.DataFrame(
+        {"open": close, "high": np.r_[close[:60] * 1.01, np.full(60, 118.0)],
+         "low": np.r_[close[:60] * 0.99, np.full(60, 118.0)],
+         "close": close, "volume": 1e6},
+        index=idx,
+    )
+    comp = TechnicalFeatures().compute(df)["atr_compression"]
+    assert not np.isinf(comp).any()
+
+
 def test_patterns_are_limited_to_the_lookback_window(enriched, ctx):
     raw = RegimeTechnicalsProducer().produce(enriched, ctx).raw
     lookback = raw["patterns"]["lookback_days"]
