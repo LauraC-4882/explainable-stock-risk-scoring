@@ -113,6 +113,19 @@ vote; see `shoot_community` in `scripts/ui_shot.py`)
       or the page's right edge, and no text is illegible against its
       background — same bar as the desktop/mobile checks above.
 
+## Sign-up modal + privacy consent (`ui-signup-consent.png`, desktop —
+the modal opened in signUp mode; see `shoot_signup` in `scripts/ui_shot.py`)
+
+- [ ] The modal shows, in order: a Nickname field (with the "shown on your
+      posts instead of your email" hint), the Email field, the Password
+      field, then a privacy-consent notice paragraph, then a checkbox.
+- [ ] The consent notice is legible and actually states what it should —
+      that the nickname (not email) is public, and that the admin can see
+      the nickname, sign-up email, and usage data, used only for analytics
+      and site security. Not a bare "I agree" with no context.
+- [ ] The "Continue" submit button is visibly disabled (dimmed) because the
+      consent box starts unchecked — confirms the gate works.
+
 ## Admin panel (`ui-admin-overview.png`, `ui-admin-usage.png`,
 `ui-admin-users.png` — desktop, captured logged-in as the seeded admin;
 see `shoot_admin` in `scripts/ui_shot.py`)
