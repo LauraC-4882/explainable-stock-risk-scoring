@@ -9,9 +9,17 @@ export default function AuthModal() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nickname, setNickname] = useState('')
-  const [consent, setConsent] = useState(false)
+  // Three separate agreements rather than one blanket checkbox — each is
+  // its own affirmative click so a user can't later claim they didn't know
+  // posts aren't investment advice or that off-topic/political content
+  // isn't allowed. All three gate the submit button; the backend still only
+  // takes a single `consent: bool`, so this is a frontend-only distinction.
+  const [agreeAdvice, setAgreeAdvice] = useState(false)
+  const [agreeRules, setAgreeRules] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const consent = agreeAdvice && agreeRules && agreePrivacy
 
   // Adopt whichever mode the caller requested (e.g. Header's separate
   // Sign in / Sign up buttons) each time the modal opens.
@@ -25,7 +33,9 @@ export default function AuthModal() {
     setEmail('')
     setPassword('')
     setNickname('')
-    setConsent(false)
+    setAgreeAdvice(false)
+    setAgreeRules(false)
+    setAgreePrivacy(false)
     setError(null)
     setSubmitting(false)
   }
@@ -127,23 +137,41 @@ export default function AuthModal() {
         {mode === 'signUp' && <p className="mb-3 text-[0.7rem] text-muted">{t('auth.passwordHint')}</p>}
 
         {mode === 'signUp' && (
-          <>
-            <p className="mb-2.5 rounded-lg border border-border bg-surface2/50 px-3 py-2.5 text-[0.7rem] leading-relaxed text-muted">
-              {t('auth.consentNotice')}
-            </p>
-            <label className="mb-3 flex cursor-pointer items-start gap-2.5">
+          <div className="mb-3 space-y-2 rounded-lg border border-border bg-surface2/50 px-3 py-2.5">
+            <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="checkbox"
                 required
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
+                checked={agreeAdvice}
+                onChange={(e) => setAgreeAdvice(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-surface2 accent-accent"
+              />
+              <span className="text-xs leading-relaxed text-slate-300">{t('auth.agreeNotAdvice')}</span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                required
+                checked={agreeRules}
+                onChange={(e) => setAgreeRules(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-surface2 accent-accent"
+              />
+              <span className="text-xs leading-relaxed text-slate-300">{t('auth.agreeCommunityRules')}</span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                required
+                checked={agreePrivacy}
+                onChange={(e) => setAgreePrivacy(e.target.checked)}
                 className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-surface2 accent-accent"
               />
               <span className="text-xs leading-relaxed text-slate-300">
                 {t('auth.consentLabel')}
+                <span className="block text-muted">{t('auth.consentNotice')}</span>
               </span>
             </label>
-          </>
+          </div>
         )}
 
         {error && (

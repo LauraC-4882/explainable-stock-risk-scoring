@@ -126,6 +126,8 @@ export default {
     passwordHint: '至少 8 个字符',
     nickname: '昵称',
     nicknameHint: '2–30 个字符——将显示在你的帖子上，代替邮箱',
+    agreeNotAdvice: '我理解风险分数及社区所有帖子仅为数据参考，不构成投资建议',
+    agreeCommunityRules: '我同意仅在此发布与股票风险分析相关的内容——不发布买卖指令、政治言论、拉人/广告或无关内容',
     consentNotice:
       '你的昵称（而非邮箱）会公开显示在你的帖子上。网站管理员可以看到你的昵称、注册邮箱，以及基本的使用数据（你使用了哪些功能、在什么时间）——仅用于数据分析和维护网站安全。',
     consentLabel: '我已阅读并同意',
@@ -177,6 +179,8 @@ export default {
     ownPost: '你发布的',
     tickerPlaceholder: '股票代码',
     bodyPlaceholder: '分享你对这只股票风险的看法…',
+    scopeHint: '💡 仅限风险分析类观察——不支持买卖指令、政治内容或无关话题。',
+    postDisclaimer: '发布即表示这是风险分析讨论，不构成投资建议。',
     posting: '发布中…',
     post: '发布',
     signInToPost: '登录后即可分享你自己的分析。',

@@ -128,6 +128,10 @@ export default {
     passwordHint: 'At least 8 characters',
     nickname: 'Nickname',
     nicknameHint: '2–30 characters — shown on your posts instead of your email',
+    agreeNotAdvice:
+      'I understand risk scores and all community posts are data-driven reference only, not investment advice',
+    agreeCommunityRules:
+      'I agree to only post stock risk-analysis content here — no trading directives, political discussion, solicitation, or off-topic content',
     consentNotice:
       'Your nickname (not your email) is shown publicly on your posts. The site admin can see your nickname, the email you sign up with, and basic usage data (which features you use and when) — used only for data analysis and keeping the site secure.',
     consentLabel: 'I understand and agree',
@@ -179,6 +183,8 @@ export default {
     ownPost: 'Your post',
     tickerPlaceholder: 'TICKER',
     bodyPlaceholder: 'Share your read on this stock’s risk…',
+    scopeHint: '💡 Risk-analysis observations only — no trading directives, political content, or off-topic posts.',
+    postDisclaimer: 'Posting means this is a risk-analysis discussion, not investment advice.',
     posting: 'Posting…',
     post: 'Post',
     signInToPost: 'Sign in to share your own analysis.',

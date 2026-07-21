@@ -48,6 +48,7 @@ export default function PostComposer({ initialTicker, onPosted }) {
 
   return (
     <form onSubmit={handleSubmit} className="panel space-y-2.5 px-4 py-3.5">
+      <p className="text-[0.7rem] leading-relaxed text-muted">{t('community.scopeHint')}</p>
       <div className="flex items-center gap-2">
         <input
           value={ticker}
@@ -68,11 +69,12 @@ export default function PostComposer({ initialTicker, onPosted }) {
         className="w-full resize-none rounded-lg border border-border bg-surface2/60 px-3 py-2 text-sm text-slate-100 placeholder:text-muted focus:border-accent focus:outline-none"
       />
       {error && <p className="text-xs text-down">⚠ {error}</p>}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[0.65rem] leading-relaxed text-muted">{t('community.postDisclaimer')}</p>
         <button
           type="submit"
           disabled={busy || !ticker.trim() || !body.trim()}
-          className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-accent/20 transition-all duration-150 hover:brightness-110 active:scale-95 disabled:opacity-50"
+          className="flex-shrink-0 rounded-full bg-accent px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-accent/20 transition-all duration-150 hover:brightness-110 active:scale-95 disabled:opacity-50"
         >
           {busy ? t('community.posting') : t('community.post')}
         </button>
