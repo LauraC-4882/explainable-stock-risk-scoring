@@ -6,6 +6,7 @@ import AuthModal from './auth/AuthModal'
 import CommunityPanel from './auth/CommunityPanel'
 import ProfilePanel from './auth/ProfilePanel'
 import WatchlistPanel from './auth/WatchlistPanel'
+import CompareView from './components/CompareView'
 import EmptyState from './components/EmptyState'
 import Footer from './components/Footer'
 import Header from './components/Header'
@@ -15,7 +16,7 @@ import Starfield from './components/Starfield'
 import StockCard from './components/StockCard'
 import TimeframeSelector from './components/TimeframeSelector'
 import WatchlistBoard from './components/WatchlistBoard'
-import { LanguageProvider } from './i18n/LanguageContext'
+import { LanguageProvider, useLanguage } from './i18n/LanguageContext'
 import { OnboardingProvider } from './onboarding/OnboardingContext'
 import OnboardingTour from './onboarding/OnboardingTour'
 
@@ -23,6 +24,9 @@ export default function App() {
   const [tickers, setTickers] = useState([])
   const [period, setPeriod] = useState('1mo')
   const [market, setMarket] = useState('us')
+  // 'cards' = full dashboard per stock (default); 'compare' = one
+  // aligned row per measure across every added stock.
+  const [view, setView] = useState('cards')
 
   function addStock(rawTicker) {
     const ticker = rawTicker.toUpperCase().trim()
@@ -101,15 +105,28 @@ export default function App() {
                     <EmptyState market={market} onAdd={addStock} />
                   </>
                 ) : (
-                  // Every stock gets the full wide bento layout; comparing
-                  // means stacking those full dashboards vertically rather
-                  // than shrinking each into a cramped side-by-side card —
-                  // scroll between them, every section keeps its room.
-                  <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7">
-                    {tickers.map((t, i) => (
-                      <StockCard key={t} ticker={t} period={period} onRemove={removeStock} index={i} />
-                    ))}
-                  </div>
+                  <>
+                    {tickers.length > 1 && <ViewToggle view={view} onChange={setView} />}
+                    {view === 'compare' && tickers.length > 1 ? (
+                      <CompareView tickers={tickers} onRemove={removeStock} />
+                    ) : (
+                      // Every stock gets the full wide bento layout; comparing
+                      // means stacking those full dashboards vertically rather
+                      // than shrinking each into a cramped side-by-side card —
+                      // scroll between them, every section keeps its room.
+                      <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7">
+                        {tickers.map((t, i) => (
+                          <StockCard
+                            key={t}
+                            ticker={t}
+                            period={period}
+                            onRemove={removeStock}
+                            index={i}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </main>
 
@@ -127,5 +144,30 @@ export default function App() {
         </OnboardingProvider>
       </AuthProvider>
     </LanguageProvider>
+  )
+}
+
+// Cards vs. compare switch — only meaningful once there are two stocks to
+// line up, so App renders it conditionally.
+function ViewToggle({ view, onChange }) {
+  const { t } = useLanguage()
+  const opts = [
+    ['cards', t('compare.viewCards')],
+    ['compare', t('compare.viewCompare')],
+  ]
+  return (
+    <div className="mx-auto mt-7 flex w-fit items-center gap-1.5 rounded-full border border-accent/20 bg-white/[0.03] p-1.5">
+      {opts.map(([key, label]) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-200 active:scale-95 ${
+            view === key ? 'btn-cta' : 'text-muted hover:text-white'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   )
 }

@@ -176,6 +176,15 @@ export default {
     empty: 'No notable movement since you last checked.',
     note: 'Triggered by a large change or a band crossing. Descriptive of stored readings — not a forecast or a recommendation.',
   },
+  // Side-by-side comparison table (CompareView.jsx).
+  compare: {
+    viewCards: 'Cards',
+    viewCompare: 'Compare',
+    measure: 'Measure',
+    riskScore: 'Risk score',
+    unavailable: 'unavailable',
+    note: 'Each score is relative to that stock’s own history, so a higher number means "more turbulent than usual for itself" — not "riskier than the stock next to it". Descriptive statistics, not a recommendation.',
+  },
   charts: {
     price: 'Price History',
     riskScore: 'Daily Risk Score (0–100)',

@@ -173,6 +173,15 @@ export default {
     empty: '自上次查看以来没有显著变化。',
     note: '由较大幅度变化或风险等级跨档触发。以上是对已存读数的描述,不是预测,也不构成投资建议。',
   },
+  // 并排对比表(CompareView.jsx)。
+  compare: {
+    viewCards: '卡片',
+    viewCompare: '对比',
+    measure: '指标',
+    riskScore: '风险分数',
+    unavailable: '暂无数据',
+    note: '每只股票的分数都是相对它自己的历史而言,所以数值更高代表「比它自己平时更动荡」,并不代表「比旁边那只股票风险更高」。以上为描述性统计,不构成投资建议。',
+  },
   charts: {
     price: '价格走势',
     riskScore: '每日风险分数（0–100）',
