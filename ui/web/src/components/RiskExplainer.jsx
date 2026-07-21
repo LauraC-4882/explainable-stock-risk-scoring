@@ -11,10 +11,11 @@ const BAR_COLOR = (score) => {
 }
 
 // Beginner-friendly, expandable "what does this score mean" panel. Collapsed by
-// default so it doesn't crowd the card for users who already know what they're doing.
-export default function RiskExplainer({ riskLabel, breakdown }) {
+// default so it doesn't crowd the card — except in the wide single-stock layout
+// (defaultOpen), where the mockup shows it expanded and there's room for it.
+export default function RiskExplainer({ riskLabel, breakdown, defaultOpen = false }) {
   const { t } = useLanguage()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const categories = CATEGORY_ORDER.map((key) => [key, breakdown?.[key]]).filter(
     ([, cat]) => cat && cat.score != null
   )

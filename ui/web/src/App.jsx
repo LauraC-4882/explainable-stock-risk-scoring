@@ -95,11 +95,18 @@ export default function App() {
                   // to the left of an otherwise-empty two-column row.
                   <div
                     className={`grid grid-cols-1 gap-5 pt-7 ${
-                      tickers.length === 1 ? 'mx-auto w-full max-w-2xl' : 'xl:grid-cols-2'
+                      tickers.length === 1 ? 'mx-auto w-full max-w-[1240px]' : 'xl:grid-cols-2'
                     }`}
                   >
                     {tickers.map((t, i) => (
-                      <StockCard key={t} ticker={t} period={period} onRemove={removeStock} index={i} />
+                      <StockCard
+                        key={t}
+                        ticker={t}
+                        period={period}
+                        onRemove={removeStock}
+                        index={i}
+                        wide={tickers.length === 1}
+                      />
                     ))}
                   </div>
                 )}

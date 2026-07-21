@@ -248,6 +248,26 @@ export default {
     signInToPost: 'Sign in to share your own analysis.',
     topAnalysis: 'Top community take',
     beFirst: 'No analysis yet for this stock — be the first to share your take.',
+    shareCta: 'Share your analysis',
+    moderation: {
+      trading_directive:
+        'Posts can’t contain buy/sell calls or price targets — describe the risk data instead.',
+      solicitation: 'Posts can’t contain contact info, group invites, or promotions.',
+      abuse: 'That language isn’t allowed here — keep it civil.',
+    },
+    report: {
+      button: 'Report this post',
+      prompt: 'Why are you reporting this post?',
+      done: 'Reported',
+      reasons: {
+        investment_advice: 'Investment advice',
+        political: 'Political content',
+        misinformation: 'Misinformation',
+        solicitation: 'Spam / solicitation',
+        abuse: 'Abusive language',
+        off_topic: 'Off-topic',
+      },
+    },
   },
   admin: {
     navButton: 'Admin',
@@ -256,6 +276,13 @@ export default {
       overview: 'Overview',
       usage: 'Usage',
       users: 'Users',
+      reports: 'Reports',
+    },
+    reports: {
+      empty: 'No pending reports — the community queue is clear.',
+      reportedBy: 'reported by',
+      dismiss: 'Dismiss',
+      deletePost: 'Delete post',
     },
     totalRequests: 'Total requests',
     uniqueUsers: 'Unique users',
