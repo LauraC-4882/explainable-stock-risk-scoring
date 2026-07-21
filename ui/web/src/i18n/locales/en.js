@@ -205,6 +205,49 @@ export default {
       'A “what if” exercise: if a crash like one of these happened again, where would this stock’s score likely end up? We take how this particular stock behaves today and replay those past conditions against it. Nobody is predicting these events will repeat — it’s a way to see how much room there is to get worse.',
     baseline: 'baseline',
   },
+  regimeSignals: {
+    toggle: 'Market regime & technical structure',
+    intro:
+      'Context, not scoring. These read the market backdrop and the stock’s own price structure: is volatility running hotter than the market priced, does it behave like a cyclical or a defensive name, has it run up hard while getting choppy, and what has its candle chart printed lately. None of it moves the risk score above — it has not been backtested against future losses yet, so it is shown as information rather than folded into the number.',
+    regime: {
+      label: 'Volatility regime',
+      risk_on: 'Risk-on',
+      risk_off: 'Risk-off',
+      realized: 'Realized vol',
+      implied: 'Implied (1M ago)',
+      persistence: 'Risk-on days (21d)',
+    },
+    momentum: {
+      label: 'Momentum & crash risk',
+      crashRisk: 'Crash risk',
+      vs52wHigh: 'vs 52w high',
+      band: { low: 'Low', moderate: 'Moderate', elevated: 'Elevated' },
+    },
+    tilt: {
+      label: 'Sector tilt',
+      cyclical: 'Cyclical',
+      defensive: 'Defensive',
+      balanced: 'Balanced',
+      betaOn: 'β cyclical',
+      betaOff: 'β defensive',
+    },
+    trend: {
+      label: 'Trend',
+      above: 'Above trend',
+      below: 'Below trend',
+      window: 'Optimized SMA',
+      distance: 'Distance',
+    },
+    patterns: {
+      label: 'Candlestick patterns',
+      none: 'No reversal patterns in the last {days} sessions.',
+      hammer: 'Hammer',
+      shooting_star: 'Shooting star',
+      bullish_engulfing: 'Bullish engulfing',
+      bearish_engulfing: 'Bearish engulfing',
+      doji: 'Doji',
+    },
+  },
   mlSignal: {
     toggle: 'ML downside-risk signal (secondary)',
     intro:
@@ -364,15 +407,15 @@ export default {
     steps: {
       welcome: {
         title: 'Welcome to Riscore',
-        body: 'Riscore turns a stock’s recent price and volatility behavior into one explainable 0–100 risk score, plus the individual signals behind it — so you can quickly judge how turbulent a stock is acting right now. This short tour explains what each piece of information is actually useful for when deciding what to do next.',
+        body: 'Riscore turns a stock’s recent price and volatility behavior into one explainable 0–100 risk score, plus the individual signals behind it — so you can quickly see how turbulent a stock is acting right now. This short tour explains what each number describes, and what it deliberately does not: Riscore visualizes risk statistics; it never gives investment advice.',
       },
       score: {
         title: 'The Risk Score (0–100)',
-        body: 'Your at-a-glance read: LOW / MODERATE / HIGH / EXTREME compares the stock to its own recent history, not to other stocks. Use it to triage which of your positions deserve a closer look today — a jump into HIGH or EXTREME is a cue to check position size or hedges, not a buy/sell signal by itself.',
+        body: 'Your at-a-glance read: LOW / MODERATE / HIGH / EXTREME compares the stock to its own recent history, not to other stocks. A jump into HIGH or EXTREME describes turbulence — bigger swings than this stock’s own normal — and nothing more. It is not a buy/sell signal, and Riscore never suggests what to do about it; for decisions, consult a licensed financial adviser.',
       },
       breakdown: {
         title: 'What’s driving the score',
-        body: 'Open "What does this score mean?" to see the five ingredients — Volatility, Tail Risk, Drawdown, Market Sensitivity, Liquidity — and their weights. Knowing which category is elevated tells you what kind of risk you’re actually holding: high Liquidity risk and high Tail risk call for very different responses.',
+        body: 'Open "What does this score mean?" to see the five ingredients — Volatility, Tail Risk, Drawdown, Market Sensitivity, Liquidity — and their weights. Knowing which category is elevated tells you what kind of turbulence the number is describing: elevated Liquidity and elevated Tail Risk are very different situations, even at the same headline score.',
       },
       mlSignal: {
         title: 'ML downside-risk signal',
@@ -395,6 +438,17 @@ export default {
   footer: {
     tagline: 'Explainable risk scoring on live market data.',
     legal: 'Legal',
+    disclaimer: 'Disclaimer',
+    disclaimerTitle: 'Disclaimer',
+    disclaimerBody1:
+      'Riscore is a quantitative risk visualization tool. We display statistical risk metrics based on historical market data.',
+    disclaimerNotHeading: 'We do NOT provide:',
+    disclaimerNot1: 'Investment advice',
+    disclaimerNot2: 'Buy / sell recommendations',
+    disclaimerNot3: 'Return forecasts',
+    disclaimerNot4: 'Personalized financial guidance',
+    disclaimerAdviser:
+      'Always consult a licensed financial adviser before making investment decisions.',
     privacy: 'Privacy & Consent',
     license: 'License & Data Sources',
     support: 'Support',

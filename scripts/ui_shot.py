@@ -112,6 +112,19 @@ def shoot_signup(base_url: str, out_dir: Path, errors: list[str]) -> None:
         page.click("text=Skip")
         page.wait_for_timeout(200)
 
+        # Footer "Disclaimer" popup — the platform's is/is-NOT boundary
+        # statement (no advice / no buy-sell calls / no forecasts), which no
+        # other capture opens.
+        page.click('footer button:has-text("Disclaimer")')
+        page.wait_for_selector("text=We do NOT provide", timeout=5000)
+        page.wait_for_timeout(300)
+        disclaimer_path = out_dir / "ui-disclaimer.png"
+        page.screenshot(path=str(disclaimer_path), full_page=True)
+        print(f"[ui_shot] disclaimer -> {disclaimer_path} ({disclaimer_path.stat().st_size} bytes)")
+        page.keyboard.press("Escape")
+        page.click("body", position={"x": 10, "y": 10})  # click backdrop to close
+        page.wait_for_timeout(200)
+
         # Header's outline "Sign up" button opens the modal already in signUp
         # mode (the nickname + consent fields only render in that mode).
         page.click('button:has-text("Sign up")')
@@ -124,9 +137,10 @@ def shoot_signup(base_url: str, out_dir: Path, errors: list[str]) -> None:
 
         browser.close()
 
-        if not signup_path.exists() or signup_path.stat().st_size == 0:
-            print(f"[ui_shot] FAILED: {signup_path} is empty or missing", file=sys.stderr)
-            raise SystemExit(1)
+        for path in (disclaimer_path, signup_path):
+            if not path.exists() or path.stat().st_size == 0:
+                print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
+                raise SystemExit(1)
 
 
 def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:

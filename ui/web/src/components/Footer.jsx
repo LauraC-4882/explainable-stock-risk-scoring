@@ -37,7 +37,7 @@ function FooterModal({ title, onClose, children }) {
 export default function Footer() {
   const { t } = useLanguage()
   const { openCommunityPanel } = useAuth()
-  const [modal, setModal] = useState(null) // 'privacy' | 'license' | 'contact' | null
+  const [modal, setModal] = useState(null) // 'disclaimer' | 'privacy' | 'license' | 'contact' | null
 
   return (
     <footer className="relative z-10 mt-12 px-6 py-9 sm:px-8">
@@ -60,6 +60,12 @@ export default function Footer() {
             <span className="font-semibold uppercase tracking-wide text-slate-300">
               {t('footer.legal')}
             </span>
+            <button
+              onClick={() => setModal('disclaimer')}
+              className="text-left text-muted transition hover:text-accent"
+            >
+              {t('footer.disclaimer')}
+            </button>
             <button
               onClick={() => setModal('privacy')}
               className="text-left text-muted transition hover:text-accent"
@@ -86,6 +92,20 @@ export default function Footer() {
           </div>
         </div>
       </div>
+
+      {modal === 'disclaimer' && (
+        <FooterModal title={t('footer.disclaimerTitle')} onClose={() => setModal(null)}>
+          <p>{t('footer.disclaimerBody1')}</p>
+          <p className="font-semibold text-slate-200">{t('footer.disclaimerNotHeading')}</p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>{t('footer.disclaimerNot1')}</li>
+            <li>{t('footer.disclaimerNot2')}</li>
+            <li>{t('footer.disclaimerNot3')}</li>
+            <li>{t('footer.disclaimerNot4')}</li>
+          </ul>
+          <p>{t('footer.disclaimerAdviser')}</p>
+        </FooterModal>
+      )}
 
       {modal === 'privacy' && (
         <FooterModal title={t('footer.privacyTitle')} onClose={() => setModal(null)}>
