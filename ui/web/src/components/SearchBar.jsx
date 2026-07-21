@@ -103,44 +103,57 @@ export default function SearchBar({ market, onAdd }) {
     setOpen(false)
   }
 
+  const hasQuery = query.trim().length > 0
+
   return (
     <div ref={wrapRef} className="relative">
-      <svg
-        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 stroke-muted"
-        viewBox="0 0 24 24"
-        fill="none"
-        strokeWidth="2"
+      <div
+        className={`flex h-[58px] items-center gap-3.5 rounded-2xl border bg-white/[0.035] px-5 transition-all duration-200 ${
+          hasQuery
+            ? 'border-accent/45 ring-[3px] ring-sky/[0.12]'
+            : 'border-accent/16 focus-within:border-accent/45 focus-within:ring-[3px] focus-within:ring-sky/[0.12]'
+        }`}
       >
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-      <input
-        value={query}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        type="text"
-        autoComplete="off"
-        spellCheck="false"
-        placeholder={t(`search.placeholder.${market}`)}
-        className="w-full rounded-xl border border-border bg-surface2 py-2.5 pl-10 pr-4 text-sm text-slate-100 outline-none transition placeholder:text-muted focus:border-accent focus:ring-4 focus:ring-accent/10"
-      />
+        <svg
+          className="pointer-events-none h-5 w-5 flex-shrink-0 stroke-muted"
+          viewBox="0 0 24 24"
+          fill="none"
+          strokeWidth="2"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          value={query}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          type="text"
+          autoComplete="off"
+          spellCheck="false"
+          placeholder={t(`search.placeholder.${market}`)}
+          className="min-w-0 flex-1 bg-transparent text-base text-slate-100 outline-none placeholder:text-muted sm:text-[17px]"
+        />
+        <kbd className="hidden flex-shrink-0 rounded-md border border-accent/[0.18] bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-muted sm:inline-block">
+          ⏎ Enter
+        </kbd>
+      </div>
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 animate-fade-in overflow-hidden rounded-xl border border-border bg-surface2 shadow-2xl shadow-black/50">
+        <div className="glass absolute left-0 right-0 top-[calc(100%+8px)] z-20 animate-fade-in overflow-hidden rounded-2xl border border-accent/28 p-2 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
           {results.map((r, i) => (
             <div
               key={r.symbol}
               onClick={() => pick(r.symbol)}
               onMouseEnter={() => setHighlight(i)}
-              className={`flex animate-fade-in cursor-pointer items-center justify-between border-b border-border px-4 py-2.5 transition-colors duration-150 last:border-b-0 active:scale-[0.98] ${
-                i === highlight ? 'bg-accent/10' : ''
+              className={`flex animate-fade-in cursor-pointer items-center justify-between rounded-xl px-3.5 py-3 transition-colors duration-150 active:scale-[0.98] ${
+                i === highlight ? 'bg-accent/[0.14]' : ''
               }`}
               style={{ animationDelay: `${Math.min(i, 6) * 30}ms`, animationFillMode: 'backwards', animationDuration: '0.18s' }}
             >
-              <div>
-                <span className="text-sm font-bold text-accent">{r.symbol}</span>
-                <span className="ml-2 text-xs text-muted">{r.name}</span>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-display text-[15px] font-bold text-slate-100">{r.symbol}</span>
+                <span className="text-xs text-muted">{r.name}</span>
               </div>
-              <span className="text-xs text-muted">{r.exchange}</span>
+              <span className="text-[11px] tracking-wide text-muted">{r.exchange}</span>
             </div>
           ))}
         </div>

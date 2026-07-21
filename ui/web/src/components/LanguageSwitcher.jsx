@@ -14,10 +14,10 @@ export default function LanguageSwitcher() {
         <button
           key={o.code}
           onClick={() => setLang(o.code)}
-          className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all duration-200 ease-out active:scale-90 ${
+          className={`rounded-full border px-3.5 py-2 text-xs font-bold transition-all duration-200 ease-out active:scale-90 ${
             lang === o.code
-              ? 'scale-105 border-accent bg-accent text-white shadow-lg shadow-accent/20'
-              : 'border-border text-muted hover:-translate-y-px hover:border-accent hover:text-accent'
+              ? 'border-accent/40 bg-sky/15 text-white'
+              : 'border-transparent text-muted hover:text-white'
           }`}
         >
           {o.label}

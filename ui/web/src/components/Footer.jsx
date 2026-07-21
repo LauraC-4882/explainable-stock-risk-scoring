@@ -39,8 +39,11 @@ export default function Footer() {
   const [modal, setModal] = useState(null) // 'privacy' | 'license' | 'contact' | null
 
   return (
-    <footer className="relative z-10 mt-12 border-t border-border px-6 py-8 sm:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+    <footer className="relative z-10 mt-12 px-6 py-9 sm:px-8">
+      {/* Gradient hairline instead of a flat border — the one accent that
+          reads "deliberate surface" against the cosmic backdrop. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
+      <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-2.5">
           <RiscoreIcon size={28} idPrefix="ftr" />
           <div>

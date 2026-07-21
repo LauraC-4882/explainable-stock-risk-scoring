@@ -60,7 +60,7 @@ export function RiscoreWordmark({ className = 'text-2xl' }) {
       <span className="text-gradient-purple">Ri</span>
       <span
         aria-hidden="true"
-        className="mb-[0.08em] inline-block h-[0.18em] w-[0.18em] rounded-full bg-gold"
+        className="mb-[0.08em] inline-block h-[0.18em] w-[0.18em] rounded-full bg-[#8b5cf6]"
       />
       <span className="text-gradient-rose">score</span>
     </span>

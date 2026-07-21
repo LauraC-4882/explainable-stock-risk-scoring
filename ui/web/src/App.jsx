@@ -10,6 +10,7 @@ import Footer from './components/Footer'
 import Header from './components/Header'
 import MarketSwitcher from './components/MarketSwitcher'
 import SearchBar from './components/SearchBar'
+import Starfield from './components/Starfield'
 import StockCard from './components/StockCard'
 import TimeframeSelector from './components/TimeframeSelector'
 import { LanguageProvider } from './i18n/LanguageContext'
@@ -46,52 +47,62 @@ export default function App() {
       <AuthProvider>
         <OnboardingProvider>
           <div className="relative flex min-h-screen flex-col text-slate-100">
-            {/* Ambient sci-fi/fintech backdrop: two slow breathing orbs and a
-                few twinkle dots on top of the fixed gradient+grid from
-                index.css — deliberately sparse, animated via transform/opacity
-                only, and stilled under prefers-reduced-motion. */}
+            {/* Ambient "Cosmic Trust" backdrop (ported from the Riscore.dc
+                design): three drifting aurora blobs, a twinkling starfield
+                canvas, and a perspective grid-floor — all fixed behind the
+                content, animated via transform/opacity only, and stilled
+                under prefers-reduced-motion. */}
             <div aria-hidden="true">
-              <div className="bg-orb animate-breathe" style={{ width: 260, height: 260, top: -70, left: -70, background: '#7c3aed', opacity: 0.15 }} />
-              <div className="bg-orb animate-breathe" style={{ width: 220, height: 220, bottom: -50, right: -50, background: '#db2777', opacity: 0.13, animationDelay: '2s' }} />
-              <span className="animate-twinkle fixed left-[3%] top-[40%] h-1 w-1 rounded-full bg-accent" />
-              <span className="animate-twinkle fixed right-[4%] top-[26%] h-[3px] w-[3px] rounded-full bg-rose" style={{ animationDelay: '0.6s' }} />
-              <span className="animate-twinkle fixed bottom-[14%] left-[4%] h-[5px] w-[5px] rounded-full bg-gold" style={{ animationDelay: '1.1s' }} />
-              <span className="animate-twinkle fixed bottom-[30%] right-[3%] h-[3px] w-[3px] rounded-full bg-accent2" style={{ animationDelay: '1.6s' }} />
+              <div
+                className="bg-orb animate-aurora1"
+                style={{ top: '-18%', left: '-8%', width: '48vw', height: '48vw', opacity: 0.28, filter: 'blur(70px)', background: 'radial-gradient(circle,rgba(56,189,248,0.5),transparent 68%)' }}
+              />
+              <div
+                className="bg-orb animate-aurora2"
+                style={{ top: '-10%', right: '-12%', width: '46vw', height: '46vw', opacity: 0.26, filter: 'blur(80px)', background: 'radial-gradient(circle,rgba(99,102,241,0.55),transparent 66%)' }}
+              />
+              <div
+                className="bg-orb animate-aurora3"
+                style={{ bottom: '-24%', left: '22%', width: '52vw', height: '52vw', opacity: 0.2, filter: 'blur(90px)', background: 'radial-gradient(circle,rgba(139,92,246,0.4),transparent 68%)' }}
+              />
+              <Starfield />
+              <div className="grid-floor">
+                <div className="grid-floor-inner animate-grid-scroll" />
+              </div>
             </div>
 
             <div className="relative z-10 flex flex-1 flex-col">
               <Header onHome={goHome} />
 
-              {/* Side gutters at every breakpoint (wider as the viewport
-                  grows) keep the page from stretching edge-to-edge, and the
-                  bordered/blurred panel below reads as a distinct surface
-                  "popped" up from the center of the page rather than raw
-                  content sitting directly on the ambient backdrop. */}
-              <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-16 pt-6 sm:px-8 lg:px-12 xl:px-20">
-                <div
-                  className="animate-fade-in rounded-3xl border border-border/60 bg-surface/40 p-4 shadow-2xl shadow-black/30 backdrop-blur-sm sm:p-6"
-                  style={{ animationDuration: '0.35s' }}
-                >
-                  <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
-                    <MarketSwitcher market={market} onChange={setMarket} />
-                    <SearchBar market={market} onAdd={addStock} />
-                    <TimeframeSelector period={period} onChange={setPeriod} />
-                  </div>
-
-                  {tickers.length === 0 ? (
-                    <EmptyState market={market} onAdd={addStock} />
-                  ) : (
-                    // Capped at 2 columns (never 3+) so any pair of cards
-                    // placed side by side stays legible for comparison —
-                    // more than two get their own new row instead of
-                    // squeezing a third card into the same row.
-                    <div className="grid grid-cols-1 gap-5 pt-7 sm:grid-cols-2">
-                      {tickers.map((t, i) => (
-                        <StockCard key={t} ticker={t} period={period} onRemove={removeStock} index={i} />
-                      ))}
-                    </div>
-                  )}
+              {/* The design floats its controls and cards directly on the
+                  cosmic backdrop (no competing wrapper box) inside a wide,
+                  centered column. Controls sit in a left-aligned stack; the
+                  search bar spans the column while the market/timeframe
+                  pill-groups size to their content. */}
+              <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-5 pb-16 pt-5 sm:px-8">
+                <div className="flex flex-col gap-4">
+                  <MarketSwitcher market={market} onChange={setMarket} />
+                  <SearchBar market={market} onAdd={addStock} />
+                  <TimeframeSelector period={period} onChange={setPeriod} />
                 </div>
+
+                {tickers.length === 0 ? (
+                  <EmptyState market={market} onAdd={addStock} />
+                ) : (
+                  // Capped at 2 columns (never 3+) so any pair of cards placed
+                  // side by side stays legible for comparison. A single card is
+                  // centered in a comfortable reading width instead of clinging
+                  // to the left of an otherwise-empty two-column row.
+                  <div
+                    className={`grid grid-cols-1 gap-5 pt-7 ${
+                      tickers.length === 1 ? 'mx-auto w-full max-w-2xl' : 'xl:grid-cols-2'
+                    }`}
+                  >
+                    {tickers.map((t, i) => (
+                      <StockCard key={t} ticker={t} period={period} onRemove={removeStock} index={i} />
+                    ))}
+                  </div>
+                )}
               </main>
 
               <Footer />

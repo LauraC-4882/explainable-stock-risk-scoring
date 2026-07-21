@@ -7,75 +7,120 @@
     box-sizing: border-box;
   }
   body {
-    /* Riscore backdrop: deep-violet gradient + a faint fintech grid.
-       Restrained on purpose — the animated layer is two slow blurred orbs
-       and a few twinkle dots (see .bg-decor in App.jsx), nothing busier. */
-    background: linear-gradient(135deg, #0d0814 0%, #160d24 50%, #0f0a1a 100%) fixed;
+    /* Riscore "Cosmic Trust" backdrop: layered radial nebulae over a deep
+       space-navy vertical gradient. The animated aurora blobs, starfield
+       canvas and perspective grid-floor live in App.jsx on top of this. */
+    background:
+      radial-gradient(1300px 800px at 80% -12%, rgba(56, 189, 248, 0.12), transparent 60%),
+      radial-gradient(1100px 700px at 12% 6%, rgba(99, 102, 241, 0.14), transparent 58%),
+      radial-gradient(900px 900px at 50% 120%, rgba(124, 58, 237, 0.1), transparent 60%),
+      linear-gradient(180deg, #050810, #070b1c 55%, #04060f) fixed;
     min-height: 100vh;
     position: relative;
-  }
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(168, 85, 247, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(168, 85, 247, 0.05) 1px, transparent 1px);
-    background-size: 36px 36px;
-    pointer-events: none;
-    z-index: 0;
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    color: #e7e2f5;
   }
 }
 
 @layer utilities {
   .glass {
-    background: rgba(20, 13, 32, 0.6);
+    background: rgba(20, 14, 38, 0.6);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
   .text-gradient-purple {
-    background: linear-gradient(135deg, #c084fc, #e879f9);
+    background: linear-gradient(90deg, #a855f7, #c084fc);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   .text-gradient-rose {
-    background: linear-gradient(135deg, #f43f5e, #fb923c);
+    background: linear-gradient(90deg, #f97316, #fb7185);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .text-gradient-cta {
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
-  /* ── Dashboard panel chrome (StockCard sub-sections) ─────────────────── */
+  /* ── Glassmorphic panel chrome (design's card language) ──────────────── */
   .panel {
-    background: linear-gradient(180deg, rgba(29, 18, 48, 0.55) 0%, rgba(20, 13, 32, 0.45) 100%);
-    border: 1px solid #2b1c45;
-    border-radius: 0.85rem;
+    background: linear-gradient(180deg, rgba(30, 22, 54, 0.5), rgba(17, 12, 32, 0.5));
+    border: 1px solid rgba(139, 92, 246, 0.16);
+    border-radius: 1.375rem; /* 22px */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
   .panel-tile {
-    background: rgba(29, 18, 48, 0.4);
-    border: 1px solid #2b1c45;
-    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(139, 92, 246, 0.14);
+    border-radius: 0.9rem;
   }
   .icon-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 0.6rem;
-    background: rgba(192, 132, 252, 0.12);
-    border: 1px solid rgba(192, 132, 252, 0.18);
+    background: rgba(139, 92, 246, 0.16);
+    border: 1px solid rgba(167, 139, 250, 0.22);
+  }
+  /* Primary CTA — sky→indigo gradient pill (Sign in, Share analysis, etc.) */
+  .btn-cta {
+    background: linear-gradient(90deg, #38bdf8, #6366f1);
+    color: #fff;
+    box-shadow: 0 8px 26px rgba(56, 189, 248, 0.32);
+  }
+  .btn-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 34px rgba(56, 189, 248, 0.42);
   }
   .glow-ring {
-    box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.15), 0 0 24px -6px rgba(192, 132, 252, 0.35);
+    box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.15), 0 0 24px -6px rgba(139, 92, 246, 0.4);
   }
   .skeleton-shimmer {
     background-image: linear-gradient(
       100deg,
-      rgba(29, 18, 48, 0.6) 30%,
+      rgba(30, 22, 54, 0.6) 30%,
       rgba(59, 42, 94, 0.55) 45%,
-      rgba(29, 18, 48, 0.6) 60%
+      rgba(30, 22, 54, 0.6) 60%
     );
     background-size: 200% 100%;
+  }
+
+  /* Aurora blob helper — a big blurred radial circle drifting behind content. */
+  .bg-orb {
+    position: fixed;
+    border-radius: 9999px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Perspective "grid floor" at the bottom of the viewport. */
+  .grid-floor {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 44vh;
+    z-index: 0;
+    pointer-events: none;
+    perspective: 340px;
+    overflow: hidden;
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(to top, #000, transparent);
+    mask-image: linear-gradient(to top, #000, transparent);
+  }
+  .grid-floor-inner {
+    position: absolute;
+    inset: -40% -20% -2% -20%;
+    transform: rotateX(68deg);
+    background-image:
+      linear-gradient(rgba(56, 189, 248, 0.28) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.22) 1px, transparent 1px);
+    background-size: 64px 64px;
   }
 }
 
@@ -112,13 +157,6 @@
   0%, 100% { r: 4; }
   50% { r: 6; }
 }
-.bg-orb {
-  position: fixed;
-  border-radius: 9999px;
-  filter: blur(70px);
-  pointer-events: none;
-  z-index: 0;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .logo-ring-spin,
@@ -129,23 +167,31 @@
   .animate-breathe,
   .animate-twinkle,
   .animate-glow-pulse,
-  .animate-shimmer {
+  .animate-floaty,
+  .animate-shimmer,
+  .animate-aurora1,
+  .animate-aurora2,
+  .animate-aurora3,
+  .animate-sweep,
+  .animate-grid-scroll,
+  .animate-spin-slow,
+  .animate-spin-reverse {
     animation: none !important;
     stroke-dashoffset: 0 !important;
   }
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2b1c45;
-  border-radius: 4px;
+  background: rgba(139, 92, 246, 0.28);
+  border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b2a5e;
+  background: rgba(139, 92, 246, 0.45);
 }
