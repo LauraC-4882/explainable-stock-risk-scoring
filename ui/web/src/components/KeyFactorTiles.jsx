@@ -1,4 +1,5 @@
 import { CATEGORY_ICONS, CATEGORY_ORDER } from '../data/categoryMeta'
+import { factorReading } from '../explain/readings'
 import { useLanguage } from '../i18n/LanguageContext'
 
 const SEVERITY_COLOR = (score) => {
@@ -59,6 +60,11 @@ export default function KeyFactorTiles({ breakdown }) {
               >
                 {t(`keyFactors.impact.${SEVERITY_KEY(cat.score)}`)}
               </div>
+              {/* Deterministic one-line reading of where this percentile sits
+                  in the stock's own history — see explain/readings.js. */}
+              <p className="mt-2 text-[0.68rem] leading-relaxed text-muted">
+                {t(`readings.factor.${factorReading(cat.score)}`)}
+              </p>
             </div>
           )
         })}

@@ -1,44 +1,115 @@
+import { useState } from 'react'
+import { betaReading, LEVEL_TONE, rsiReading, varReading, volReading } from '../explain/readings'
 import { useLanguage } from '../i18n/LanguageContext'
 import { fmt } from '../utils'
-import InfoTooltip from './InfoTooltip'
 
+// Each tile is clickable: it shows the value plus a one-word reading of that
+// value, and expands into "what this measures" + "what this particular number
+// means". Both sentences come from the deterministic threshold table in
+// explain/readings.js — no model call, so the copy is fixed, reviewable and
+// strictly descriptive (never an action suggestion).
 export default function MetricTiles({ score }) {
   const { t } = useLanguage()
+  const [open, setOpen] = useState(null)
+
   const rsi = score.indicators?.rsi_14
+  const beta = score.beta != null ? +score.beta : null
   const rsiClass = rsi > 70 ? 'text-down' : rsi < 30 ? 'text-up' : 'text-slate-100'
 
-  return (
-    <div className="grid grid-cols-4 divide-x divide-border border-b border-border bg-surface2/20">
-      <Tile
-        label={t('metrics.vol30d')}
-        value={fmt(score.volatility_30d, 100, 1, '%')}
-        tooltip={t('glossary.volatility')}
-        tooltipAlign="left"
-      />
-      <Tile
-        label={t('metrics.var95')}
-        value={fmt(score.var_95, 100, 2, '%')}
-        valueClass="text-down"
-        tooltip={t('glossary.var95')}
-      />
-      <Tile
-        label={t('metrics.beta')}
-        value={score.beta != null ? (+score.beta).toFixed(2) : '—'}
-        tooltip={t('glossary.beta')}
-      />
-      <Tile label={t('metrics.rsi')} value={fmt(rsi, 1, 1)} valueClass={rsiClass} tooltip={t('glossary.rsi')} tooltipAlign="right" />
-    </div>
-  )
-}
+  const metrics = [
+    {
+      key: 'vol30d',
+      label: t('metrics.vol30d'),
+      value: fmt(score.volatility_30d, 100, 1, '%'),
+      level: volReading(score.volatility_30d),
+      group: 'vol',
+      glossary: t('glossary.volatility'),
+    },
+    {
+      key: 'var95',
+      label: t('metrics.var95'),
+      value: fmt(score.var_95, 100, 2, '%'),
+      valueClass: 'text-down',
+      level: varReading(score.var_95),
+      group: 'var95',
+      glossary: t('glossary.var95'),
+    },
+    {
+      key: 'beta',
+      label: t('metrics.beta'),
+      value: beta != null ? beta.toFixed(2) : '—',
+      level: betaReading(beta),
+      group: 'beta',
+      glossary: t('glossary.beta'),
+    },
+    {
+      key: 'rsi',
+      label: t('metrics.rsi'),
+      value: fmt(rsi, 1, 1),
+      valueClass: rsiClass,
+      level: rsiReading(rsi),
+      group: 'rsi',
+      glossary: t('glossary.rsi'),
+    },
+  ]
 
-function Tile({ label, value, valueClass = '', tooltip, tooltipAlign = 'center' }) {
+  const active = metrics.find((m) => m.key === open)
+
   return (
-    <div className="px-2 py-2.5 transition-colors duration-150 hover:bg-surface2/60 sm:px-3.5">
-      <div className="flex items-center gap-1 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-wide text-muted sm:text-[0.65rem]">
-        {label}
-        {tooltip && <InfoTooltip text={tooltip} align={tooltipAlign} />}
+    <div className="border-b border-border bg-surface2/20">
+      <div className="grid grid-cols-4 divide-x divide-border">
+        {metrics.map((m) => (
+          <button
+            key={m.key}
+            onClick={() => setOpen((o) => (o === m.key ? null : m.key))}
+            aria-expanded={open === m.key}
+            className={`px-2 py-2.5 text-left transition-colors duration-150 hover:bg-surface2/60 sm:px-3.5 ${
+              open === m.key ? 'bg-accent/[0.08]' : ''
+            }`}
+          >
+            <div className="flex items-center gap-1 whitespace-nowrap text-[0.62rem] font-semibold uppercase tracking-wide text-muted sm:text-[0.65rem]">
+              {m.label}
+              <span
+                aria-hidden="true"
+                className={`flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full border text-[9px] font-bold leading-none transition-colors ${
+                  open === m.key ? 'border-accent text-accent' : 'border-muted/40 text-muted'
+                }`}
+              >
+                ?
+              </span>
+            </div>
+            <div className={`mt-0.5 text-sm font-bold tabular-nums ${m.valueClass || ''}`}>
+              {m.value}
+            </div>
+            {m.level && (
+              <div
+                className={`mt-1 text-[0.55rem] font-bold uppercase tracking-wide sm:text-[0.58rem] ${
+                  LEVEL_TONE[m.level] || 'text-muted'
+                }`}
+              >
+                {t(`readings.chip.${m.level}`)}
+              </div>
+            )}
+          </button>
+        ))}
       </div>
-      <div className={`mt-0.5 text-sm font-bold tabular-nums ${valueClass}`}>{value}</div>
+
+      {active && (
+        <div className="animate-fade-in border-t border-border px-5 py-4">
+          <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+            {active.label} · {t('readings.title')}
+          </div>
+          <p className="mt-2 text-sm leading-relaxed text-slate-300">{active.glossary}</p>
+          {active.level && (
+            <p className="mt-2 text-sm leading-relaxed text-slate-200">
+              {t(`readings.${active.group}.${active.level}`)}
+            </p>
+          )}
+          <p className="mt-2.5 text-[0.68rem] leading-relaxed text-muted">
+            {t('readings.disclaimer')}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

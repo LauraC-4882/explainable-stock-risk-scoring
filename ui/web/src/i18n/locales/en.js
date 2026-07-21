@@ -101,6 +101,64 @@ export default {
     beta: 'How much this stock tends to move compared to its market benchmark. Beta = 1.0 means it moves with the benchmark; above 1.0 means bigger swings; below 1.0 means calmer than the benchmark.',
     rsi: 'Relative Strength Index: a 0–100 gauge of recent buying/selling momentum. Above 70 is often called "overbought," below 30 "oversold" — these are just labels for recent momentum, not predictions of what happens next.',
   },
+  // Deterministic "what this number means" readings (see explain/readings.js).
+  // Strictly descriptive: they characterise the measurement and never suggest
+  // an action. Generated from threshold tables, not an LLM — so the wording
+  // can be reviewed once and cannot drift.
+  readings: {
+    title: 'What this number means',
+    disclaimer: 'Descriptive statistics about past behavior — not a forecast or a recommendation.',
+    chip: {
+      low: 'LOW',
+      normal: 'NORMAL',
+      mild: 'MILD',
+      moderate: 'MODERATE',
+      elevated: 'ELEVATED',
+      high: 'HIGH',
+      severe: 'SEVERE',
+      negative: 'INVERSE',
+      defensive: 'DEFENSIVE',
+      inline: 'IN LINE',
+      amplified: 'AMPLIFIED',
+      oversold: 'OVERSOLD',
+      weak: 'SOFT',
+      neutral: 'NEUTRAL',
+      firm: 'FIRM',
+      overbought: 'OVERBOUGHT',
+    },
+    vol: {
+      low: 'Day-to-day price swings are small — a comparatively steady tape for a listed stock.',
+      normal: 'Day-to-day swings sit in an ordinary range for a listed stock.',
+      elevated: 'This stock is swinging more than a typical one — wider daily moves in both directions.',
+      high: 'Daily moves are substantially wider than a typical stock’s over the last month.',
+    },
+    var95: {
+      mild: 'This is roughly the loss seen on the worst 1-in-20 trading days — currently a mild figure.',
+      moderate: 'This is roughly the loss seen on the worst 1-in-20 trading days — a moderate figure.',
+      elevated: 'This is roughly the loss seen on the worst 1-in-20 trading days — a sizeable figure.',
+      severe: 'This is roughly the loss seen on the worst 1-in-20 trading days — a large figure.',
+    },
+    beta: {
+      negative: 'Over this window it moved inversely to the benchmark — rising when the market fell, and vice versa.',
+      defensive: 'It moves less than the benchmark, so market-wide swings arrive damped.',
+      inline: 'It moves roughly in step with the benchmark.',
+      amplified: 'It amplifies the benchmark — a 1% market move has tended to produce a larger move here.',
+      high: 'It strongly amplifies the benchmark, so market-wide swings land here magnified.',
+    },
+    rsi: {
+      oversold: 'Selling pressure has dominated recently. Below 30 is conventionally called “oversold” — a description of momentum, not a forecast.',
+      weak: 'Momentum has leaned to the downside, without reaching an extreme.',
+      neutral: 'Buying and selling pressure have been roughly balanced.',
+      firm: 'Momentum has leaned to the upside, without reaching an extreme.',
+      overbought: 'Buying pressure has dominated recently. Above 70 is conventionally called “overbought” — a description of momentum, not a forecast.',
+    },
+    factor: {
+      low: 'Sits in the calmer end of this stock’s own history.',
+      moderate: 'Sits in a normal range for this stock.',
+      elevated: 'Running above this stock’s normal range — one of the main things lifting the score.',
+      high: 'Near the top of this stock’s own historical range — a main driver of the score.',
+    },
+  },
   charts: {
     price: 'Price History',
     riskScore: 'Daily Risk Score (0–100)',
