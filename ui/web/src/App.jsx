@@ -1,6 +1,7 @@
 import { IconContext } from '@phosphor-icons/react'
 import { useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
+import AboutPanel from './components/AboutPanel'
 import { AuthProvider } from './auth/AuthContext'
 import AuthModal from './auth/AuthModal'
 import CommunityPanel from './auth/CommunityPanel'
@@ -137,6 +138,7 @@ export default function App() {
               <ProfilePanel />
               <CommunityPanel />
               <AdminPanel />
+              <AboutPanel />
               <OnboardingTour />
             </div>
           </div>

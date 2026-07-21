@@ -36,7 +36,7 @@ function FooterModal({ title, onClose, children }) {
 
 export default function Footer() {
   const { t } = useLanguage()
-  const { openCommunityPanel } = useAuth()
+  const { openCommunityPanel, openAboutPanel } = useAuth()
   const [modal, setModal] = useState(null) // 'disclaimer' | 'privacy' | 'license' | 'contact' | null
 
   return (
@@ -83,6 +83,12 @@ export default function Footer() {
             <span className="font-semibold uppercase tracking-wide text-slate-300">
               {t('footer.support')}
             </span>
+            <button
+              onClick={openAboutPanel}
+              className="text-left text-muted transition hover:text-accent"
+            >
+              {t('about.navButton')}
+            </button>
             <button
               onClick={() => setModal('contact')}
               className="text-left text-muted transition hover:text-accent"

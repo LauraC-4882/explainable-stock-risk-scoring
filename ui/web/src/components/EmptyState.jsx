@@ -1,5 +1,14 @@
+import { ChartLineUp, Database, Scales, ShieldCheck } from '@phosphor-icons/react'
+import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { RiscoreIcon, RiscoreWordmark, SloganRing } from './Logo'
+
+const TRUST_TILES = [
+  { key: 'data', icon: Database },
+  { key: 'explain', icon: ChartLineUp },
+  { key: 'validated', icon: ShieldCheck },
+  { key: 'honest', icon: Scales },
+]
 
 const POPULAR = {
   us: ['AAPL', 'TSLA', 'MSFT', 'GOOGL', 'NVDA', 'AMZN', 'META', 'JPM'],
@@ -12,6 +21,7 @@ const POPULAR = {
 // and quick-pick chips.
 export default function EmptyState({ market, onAdd }) {
   const { t } = useLanguage()
+  const { openAboutPanel } = useAuth()
   const popular = POPULAR[market] || POPULAR.us
 
   return (
@@ -61,6 +71,37 @@ export default function EmptyState({ market, onAdd }) {
             {ticker}
           </button>
         ))}
+      </div>
+
+      {/* Trust strip: the four pillars the About page expands on, right on
+          the landing view — data, explainability, validation, honesty. */}
+      <div className="mt-12 w-full max-w-3xl">
+        <h3 className="heading-flourish mb-4 text-xl">{t('emptyState.trustTitle')}</h3>
+        <div className="grid gap-2.5 text-left sm:grid-cols-2 lg:grid-cols-4">
+          {TRUST_TILES.map(({ key, icon: Icon }, i) => (
+            <div
+              key={key}
+              style={{ animationDelay: `${200 + i * 80}ms`, animationFillMode: 'backwards' }}
+              className="panel-tile animate-rise-in p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40"
+            >
+              <span className="icon-badge h-8 w-8">
+                <Icon aria-hidden="true" size={16} />
+              </span>
+              <div className="mt-2 text-[0.83rem] font-semibold text-slate-100">
+                {t(`emptyState.trust.${key}.title`)}
+              </div>
+              <div className="mt-1 text-[0.74rem] leading-relaxed text-muted">
+                {t(`emptyState.trust.${key}.body`)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={openAboutPanel}
+          className="mt-4 text-sm font-semibold text-accent transition hover:text-accent2"
+        >
+          {t('emptyState.learnMore')}
+        </button>
       </div>
     </div>
   )
