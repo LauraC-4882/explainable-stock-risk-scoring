@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
   // composer with this ticker" — one param, one reasonable meaning, no
   // router to carry it as a URL param instead (see TopAnalysisWidget).
   const [communityPanelTicker, setCommunityPanelTicker] = useState(null)
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false)
 
   // Restore the session on load (and whenever the token changes) by re-fetching
   // the user + watchlist — a stale/expired token is dropped rather than surfaced
@@ -131,6 +132,9 @@ export function AuthProvider({ children }) {
           setCommunityPanelOpen(true)
         },
         closeCommunityPanel: () => setCommunityPanelOpen(false),
+        adminPanelOpen,
+        openAdminPanel: () => setAdminPanelOpen(true),
+        closeAdminPanel: () => setAdminPanelOpen(false),
       }}
     >
       {children}

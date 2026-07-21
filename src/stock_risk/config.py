@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     database_url: str | None = None
     jwt_secret_key: str = "dev-insecure-secret-change-me-before-deploying"
 
+    # Site-owner admin account, re-created/promoted idempotently on every
+    # boot (see auth/admin.py:ensure_admin_user) rather than seeded once —
+    # a one-off seed would vanish along with data/app.db on the next
+    # redeploy, same limitation as jwt_secret_key's insecure default above.
+    # Unset: no admin account exists, admin features are simply
+    # unavailable, same "log a warning, don't crash" treatment as an unset
+    # JWT_SECRET_KEY.
+    admin_email: str | None = None
+    admin_password: str | None = None
+
     # [Data-source migration] Yahoo throttles shared datacenter IPs for
     # extended windows (see README "Deployment") — Twelve Data is a real
     # commercial API built for exactly this traffic pattern, unlike

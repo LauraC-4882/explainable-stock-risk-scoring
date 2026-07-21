@@ -18,6 +18,11 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     hashed_password: str
     created_at: datetime = Field(default_factory=_utc_now)
+    # Added to an already-existing table via db.ensure_columns() — create_all()
+    # alone can't retrofit columns onto a table that was created before these
+    # existed. See db.py for why.
+    is_admin: bool = False
+    is_banned: bool = False
 
 
 class WatchlistItem(SQLModel, table=True):
@@ -50,3 +55,22 @@ class PostVote(SQLModel, table=True):
     post_id: int = Field(foreign_key="analystpost.id", index=True)
     value: int  # +1 upvote ("correct") / -1 downvote ("incorrect")
     voted_at: datetime = Field(default_factory=_utc_now)
+
+
+class PageView(SQLModel, table=True):
+    """One row per non-static request, for the admin usage dashboard.
+    user_email is a denormalized string, not a user_id FK: resolved
+    straight from the bearer token with zero extra DB reads in the request
+    hot path, and it's telemetry (no cascade/FK-integrity story needed),
+    not owned data.
+
+    No retention/pruning policy yet — fine at this project's expected
+    scale, worth revisiting only if this grows large on a long-lived
+    deployment."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    path: str = Field(index=True)
+    method: str
+    status_code: int
+    user_email: Optional[str] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=_utc_now, index=True)

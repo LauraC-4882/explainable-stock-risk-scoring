@@ -111,6 +111,22 @@ def _label(score: float) -> str:
     return "EXTREME"
 
 
+def _resolve_beta(fundamental_beta, computed_beta) -> Optional[float]:
+    """The beta shown in the metric tile: yfinance's fundamental beta when
+    available, else the 63-day rolling beta computed against the market
+    benchmark (SPY / CSI 300 / HSI — all now sourced from Twelve Data or
+    akshare, see data/fetcher.py). fetch_info is yfinance-only and degrades
+    to {} whenever Yahoo throttles the egress IP, so without this fallback
+    every stock's beta tile reads "—" on a throttled deploy even though a
+    perfectly good benchmark-relative beta was already computed for the
+    sensitivity risk category."""
+    if fundamental_beta is not None:
+        return fundamental_beta
+    if computed_beta is not None and pd.notna(computed_beta):
+        return round(float(computed_beta), 2)
+    return None
+
+
 class RiskScorer:
     """Orchestrates data fetch → feature engineering → model scoring."""
 
@@ -290,7 +306,7 @@ class RiskScorer:
             "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),
             "cvar_95": round(float(latest.get("cvar_95_21d", np.nan)), 4),
             "max_drawdown_90d": round(float(latest.get("max_drawdown_63d", np.nan)), 4),
-            "beta": info.get("beta"),
+            "beta": _resolve_beta(info.get("beta"), latest.get("beta_63d")),
             "implied_volatility": round(iv, 4) if iv else None,
             "name": info.get("shortName") or ticker.upper(),
             "indicators": {

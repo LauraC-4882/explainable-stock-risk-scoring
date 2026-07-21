@@ -17,10 +17,14 @@ was actually verified live (not assumed) to work for that market:
     the stock endpoint first and falls back to the ETF one.
   - HK equities   -> akshare, Tencent-backed (`stock_hk_daily`) — verified
     live, full OHLCV including real volume.
-  - Index symbols (^VIX, ^VIX3M, ^HSI — the HK benchmark) stay on
-    yfinance unconditionally: none of the above are equity/ETF data
-    sources, and index-level fetches are low-volume (a handful of calls,
-    not the per-scoring-request hot path this migration targets).
+  - ^HSI (the HK beta benchmark) -> akshare, Sina-backed
+    (`stock_hk_index_daily_sina`) — verified live. This is what makes the
+    whole "China" bucket (A-shares + HK equities + the HK benchmark) fully
+    akshare-backed with ZERO yfinance dependency in its price/beta path.
+  - ^VIX, ^VIX3M stay on yfinance: they're US CBOE volatility indices
+    feeding only the soft, already-degrading market-regime signal — not
+    any China-bucket price/beta computation — so leaving them on yfinance
+    costs nothing when they fail (the score still returns without them).
 
 Every path still funnels through the same OHLCV contract (validate_ohlcv),
 the same TTL cache, and the same snapshot fallback below — a provider
@@ -62,6 +66,16 @@ _PERIOD_TO_DAYS = {
 
 def _is_index_symbol(ticker: str) -> bool:
     return ticker.startswith("^")
+
+
+# Index symbols akshare's Sina endpoint serves, keyed by the app's Yahoo-style
+# symbol -> akshare's own symbol. ^HSI is the HK beta benchmark
+# (MARKET_BENCHMARKS["hk"]); routing it here is what makes the whole China
+# bucket — A-shares, HK equities, AND the HK benchmark — fully akshare-backed
+# with zero yfinance dependency in the price path. ^VIX/^VIX3M are deliberately
+# NOT here: they feed only the soft, already-degrading market-regime signal,
+# not any China-bucket price/beta computation, so they stay on yfinance.
+_AKSHARE_INDEX_SYMBOLS = {"^HSI": "HSI"}
 
 
 def _is_cn_ticker(ticker: str) -> bool:
@@ -171,6 +185,8 @@ class MarketDataFetcher:
                         df = self._fetch_cn_akshare(ticker, period)
                     elif _is_hk_ticker(ticker):
                         df = self._fetch_hk_akshare(ticker, period)
+                    elif ticker in _AKSHARE_INDEX_SYMBOLS:
+                        df = self._fetch_index_akshare(_AKSHARE_INDEX_SYMBOLS[ticker], period)
                     elif not _is_index_symbol(ticker) and settings.twelve_data_key:
                         df = self._fetch_us_twelvedata(ticker, period)
                     else:
@@ -275,6 +291,15 @@ class MarketDataFetcher:
         live, full OHLCV including real volume."""
         symbol = _akshare_hk_symbol(ticker)
         df = ak.stock_hk_daily(symbol=symbol, adjust="qfq")
+        return self._normalize_akshare_history(df, period)
+
+    def _fetch_index_akshare(self, ak_symbol: str, period: str) -> pd.DataFrame:
+        """HK indices (currently just ^HSI, the HK beta benchmark) via
+        akshare's Sina-backed stock_hk_index_daily_sina — verified live, full
+        OHLCV. Its eastmoney counterpart (stock_hk_index_daily_em) got
+        connection-reset from this dev machine, same as every other
+        eastmoney-backed akshare function (see module docstring)."""
+        df = ak.stock_hk_index_daily_sina(symbol=ak_symbol)
         return self._normalize_akshare_history(df, period)
 
     @staticmethod

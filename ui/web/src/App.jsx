@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AdminPanel from './auth/AdminPanel'
 import { AuthProvider } from './auth/AuthContext'
 import AuthModal from './auth/AuthModal'
 import CommunityPanel from './auth/CommunityPanel'
@@ -70,6 +71,7 @@ export default function App() {
               <WatchlistPanel onAdd={addStock} />
               <ProfilePanel />
               <CommunityPanel />
+              <AdminPanel />
               <OnboardingTour />
             </div>
           </div>

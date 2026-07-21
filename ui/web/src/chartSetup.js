@@ -1,4 +1,6 @@
 import {
+  BarController,
+  BarElement,
   CategoryScale,
   Chart as ChartJS,
   Filler,
@@ -9,14 +11,17 @@ import {
   Tooltip,
 } from 'chart.js'
 
-// LineController is the chart-type registration itself — the scale/element
-// pieces alone aren't enough for react-chartjs-2's <Line> to render anything.
+// LineController/BarController are the chart-type registrations themselves
+// — the scale/element pieces alone aren't enough for react-chartjs-2's
+// <Line>/<Bar> to render anything.
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
   LineController,
+  BarElement,
+  BarController,
   Filler,
   Tooltip,
 )

@@ -33,10 +33,10 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
           <span className="font-mono text-muted">{post.author_handle}</span>
           <AccuracyBadge accuracy={post.author_accuracy} />
         </div>
-        {post.is_own_post && (
+        {post.can_delete && (
           <button
             onClick={handleDelete}
-            title={t('community.deletePost')}
+            title={post.is_own_post ? t('community.deletePost') : t('admin.deleteAsAdmin')}
             className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-xs leading-none text-muted transition-colors duration-150 hover:bg-down/10 hover:text-down"
           >
             ✕

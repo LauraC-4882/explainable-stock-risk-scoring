@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
 import yfinance as yf
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -18,11 +18,18 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
+from ..auth.admin import ensure_admin_user, require_admin
 from ..auth.dependencies import get_current_user, get_current_user_optional
-from ..auth.models import AnalystPost, PostVote, User, WatchlistItem
-from ..auth.security import create_access_token, handle_for, hash_password, verify_password
+from ..auth.models import AnalystPost, PageView, PostVote, User, WatchlistItem
+from ..auth.security import (
+    create_access_token,
+    decode_access_token,
+    handle_for,
+    hash_password,
+    verify_password,
+)
 from ..config import settings
-from ..db import get_session, init_db
+from ..db import engine, get_session, init_db
 from ..monitoring.metrics import ModelMonitor
 from ..scoring.scorer import RiskScorer
 from .schemas import ScoreResponse
@@ -40,6 +47,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Usage-analytics middleware ──────────────────────────────────────────────
+# Logs one PageView row per non-static request — the admin dashboard's data
+# source. Never allowed to fail or slow down the real request, same
+# philosophy as ModelMonitor.record() (monitoring/metrics.py): wrapped in
+# its own try/except, logged rather than raised. Opens its own short-lived
+# session rather than depending on get_session, since middleware runs
+# outside FastAPI's per-route dependency injection.
+_TRACK_EXCLUDED_PATHS = {"/health", "/metrics"}
+_TRACK_EXCLUDED_PREFIXES = ("/assets",)
+
+
+def _record_page_view(request: Request, response: Response) -> None:
+    user_email = None
+    authorization = request.headers.get("authorization")
+    if authorization and authorization.startswith("Bearer "):
+        user_email = decode_access_token(authorization.removeprefix("Bearer "))
+    with Session(engine) as session:
+        session.add(
+            PageView(
+                path=request.url.path,
+                method=request.method,
+                status_code=response.status_code,
+                user_email=user_email,
+            )
+        )
+        session.commit()
+
+
+@app.middleware("http")
+async def track_page_views(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if (
+        request.method != "OPTIONS"
+        and path not in _TRACK_EXCLUDED_PATHS
+        and not path.startswith(_TRACK_EXCLUDED_PREFIXES)
+    ):
+        try:
+            _record_page_view(request, response)
+        except Exception as exc:
+            logger.exception(f"Page view tracking failed for {path} (request still served): {exc}")
+    return response
+
+
 scorer = RiskScorer()
 monitor = ModelMonitor(settings.monitoring_log_dir)
 
@@ -49,6 +100,9 @@ if settings.jwt_secret_key == "dev-insecure-secret-change-me-before-deploying":
         "JWT_SECRET_KEY is unset — using the insecure dev default. "
         "Set it via environment variable before deploying with real users."
     )
+
+with Session(engine) as _admin_seed_session:
+    ensure_admin_user(_admin_seed_session, settings.admin_email, settings.admin_password)
 
 _WEB_DIR = Path(__file__).parent.parent.parent.parent / "ui" / "web"
 _DIST_DIR = _WEB_DIR / "dist"
@@ -223,6 +277,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     created_at: datetime
+    is_admin: bool = False
 
 
 @app.post("/api/auth/register", response_model=TokenResponse)
@@ -243,12 +298,20 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
     user = session.exec(select(User).where(User.email == payload.email)).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    if user.is_banned:
+        # Checked before issuing a token: without this, a banned user could
+        # still log in successfully and get a fresh token that immediately
+        # 403s on their next call (get_current_user) — a confusing loop
+        # instead of a clear message at the one place they'd try next.
+        raise HTTPException(status_code=403, detail="This account has been suspended")
     return TokenResponse(access_token=create_access_token(user.email))
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
-    return UserResponse(id=user.id, email=user.email, created_at=user.created_at)
+    return UserResponse(
+        id=user.id, email=user.email, created_at=user.created_at, is_admin=user.is_admin
+    )
 
 
 # ── Watchlist (requires auth) ───────────────────────────────────────────────────
@@ -339,6 +402,7 @@ class PostResponse(BaseModel):
     downvotes: int
     my_vote: Optional[int] = None
     is_own_post: bool = False
+    can_delete: bool = False
 
 
 class PostListResponse(BaseModel):
@@ -407,12 +471,14 @@ def _post_response(
     emails_by_user_id: dict[int, str],
     viewer_id: Optional[int],
     my_votes: dict[int, int],
+    viewer_is_admin: bool = False,
 ) -> PostResponse:
     tally = tallies.get(post.id, {"upvotes": 0, "downvotes": 0})
     astats = author_stats.get(
         post.user_id,
         {"post_count": 0, "upvotes": 0, "downvotes": 0, "latest_post_at": post.created_at},
     )
+    is_own_post = viewer_id is not None and viewer_id == post.user_id
     return PostResponse(
         id=post.id,
         ticker=post.ticker,
@@ -425,7 +491,10 @@ def _post_response(
         upvotes=tally["upvotes"],
         downvotes=tally["downvotes"],
         my_vote=my_votes.get(post.id),
-        is_own_post=viewer_id is not None and viewer_id == post.user_id,
+        is_own_post=is_own_post,
+        # Server-computed, same precedent as is_own_post: authorization
+        # logic stays here, not replicated as a frontend boolean expression.
+        can_delete=is_own_post or (viewer_id is not None and viewer_is_admin),
     )
 
 
@@ -460,6 +529,7 @@ def create_post(
         emails_by_user_id={user.id: user.email},
         viewer_id=user.id,
         my_votes={},
+        viewer_is_admin=user.is_admin,
     )
 
 
@@ -521,6 +591,7 @@ def list_posts(
             emails_by_user_id=emails_by_user_id,
             viewer_id=user.id if user else None,
             my_votes=my_votes,
+            viewer_is_admin=user.is_admin if user else False,
         )
         for p in page
     ]
@@ -532,8 +603,10 @@ def delete_post(
     post_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
 ):
     post = session.get(AnalystPost, post_id)
-    if not post or post.user_id != user.id:
+    if not post or (post.user_id != user.id and not user.is_admin):
         raise HTTPException(status_code=404, detail="Post not found")
+    if post.user_id != user.id:
+        logger.warning(f"Admin {user.email} deleted post {post_id} (author_id={post.user_id})")
     for vote in session.exec(select(PostVote).where(PostVote.post_id == post_id)).all():
         session.delete(vote)
     session.delete(post)
@@ -574,6 +647,7 @@ def vote_post(
         emails_by_user_id=emails_by_user_id,
         viewer_id=user.id,
         my_votes={post_id: payload.value},
+        viewer_is_admin=user.is_admin,
     )
 
 
@@ -644,6 +718,7 @@ def my_posts(user: User = Depends(get_current_user), session: Session = Depends(
             emails_by_user_id={user.id: user.email},
             viewer_id=user.id,
             my_votes={},
+            viewer_is_admin=user.is_admin,
         )
         for p in posts
     ]
@@ -676,10 +751,184 @@ def my_votes_endpoint(
             emails_by_user_id=emails_by_user_id,
             viewer_id=user.id,
             my_votes=my_votes,
+            viewer_is_admin=user.is_admin,
         )
         for v in votes
         if v.post_id in posts_by_id  # a vote's post may have since been deleted
     ]
+
+
+# ── Admin (usage analytics + moderation) ────────────────────────────────────
+# Gated by require_admin (auth/admin.py), built on get_current_user, so ban
+# handling is inherited for free. Post moderation itself reuses the existing
+# DELETE /api/community/posts/{id} above (extended to allow an admin to
+# delete any post, not just their own) rather than a duplicate endpoint —
+# one code path, one test surface.
+
+DAILY_HISTORY_DAYS = 14  # zero-filled window for the "requests per day" chart
+
+
+class AdminUserResponse(BaseModel):
+    id: int
+    email: str
+    created_at: datetime
+    is_admin: bool
+    is_banned: bool
+
+
+class AdminUserListResponse(BaseModel):
+    items: list[AdminUserResponse]
+    total: int
+
+
+class HourlyBucket(BaseModel):
+    hour: int  # 0-23, UTC
+    count: int
+
+
+class DailyBucket(BaseModel):
+    date: str  # "YYYY-MM-DD"
+    count: int
+
+
+class PathCount(BaseModel):
+    path: str
+    method: str
+    count: int
+
+
+class AdminAnalyticsResponse(BaseModel):
+    total_requests: int
+    unique_users: int
+    requests_last_24h: int
+    requests_last_7d: int
+    hourly_histogram: list[HourlyBucket]  # always 24 entries, zero-filled
+    top_paths: list[PathCount]
+    daily_counts: list[DailyBucket]  # always DAILY_HISTORY_DAYS entries, zero-filled
+
+
+def _admin_user_response(user: User) -> AdminUserResponse:
+    return AdminUserResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        is_admin=user.is_admin,
+        is_banned=user.is_banned,
+    )
+
+
+@app.get("/api/admin/analytics/summary", response_model=AdminAnalyticsResponse)
+def admin_analytics_summary(
+    admin: User = Depends(require_admin), session: Session = Depends(get_session)
+):
+    views = session.exec(select(PageView)).all()
+    # Normalized to naive UTC throughout: SQLite doesn't reliably round-trip
+    # tzinfo through its datetime column, so comparing a fresh
+    # timezone-aware "now" against DB-read values risks a
+    # "can't compare offset-naive and offset-aware datetimes" TypeError.
+    # Both sides are stripped here rather than assumed either way.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    cutoff_24h = now - timedelta(hours=24)
+    cutoff_7d = now - timedelta(days=7)
+    cutoff_history = (now - timedelta(days=DAILY_HISTORY_DAYS - 1)).date()
+
+    hourly_counts = [0] * 24
+    daily_counts: dict[str, int] = {}
+    path_counts: dict[tuple[str, str], int] = {}
+    requests_last_24h = 0
+    requests_last_7d = 0
+    user_emails: set[str] = set()
+
+    for v in views:
+        created = v.created_at.replace(tzinfo=None) if v.created_at.tzinfo else v.created_at
+        hourly_counts[created.hour] += 1
+        if created >= cutoff_24h:
+            requests_last_24h += 1
+        if created >= cutoff_7d:
+            requests_last_7d += 1
+        if created.date() >= cutoff_history:
+            key = created.date().isoformat()
+            daily_counts[key] = daily_counts.get(key, 0) + 1
+        path_counts[(v.path, v.method)] = path_counts.get((v.path, v.method), 0) + 1
+        if v.user_email:
+            user_emails.add(v.user_email)
+
+    hourly_histogram = [HourlyBucket(hour=h, count=hourly_counts[h]) for h in range(24)]
+    daily_bucket_list = []
+    for i in range(DAILY_HISTORY_DAYS - 1, -1, -1):
+        day = (now - timedelta(days=i)).date().isoformat()
+        daily_bucket_list.append(DailyBucket(date=day, count=daily_counts.get(day, 0)))
+    top_paths = [
+        PathCount(path=p, method=m, count=c)
+        for (p, m), c in sorted(path_counts.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    ]
+
+    return AdminAnalyticsResponse(
+        total_requests=len(views),
+        unique_users=len(user_emails),
+        requests_last_24h=requests_last_24h,
+        requests_last_7d=requests_last_7d,
+        hourly_histogram=hourly_histogram,
+        top_paths=top_paths,
+        daily_counts=daily_bucket_list,
+    )
+
+
+@app.get("/api/admin/users", response_model=AdminUserListResponse)
+def admin_list_users(
+    q: Optional[str] = None,
+    banned_only: bool = False,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    users = session.exec(select(User)).all()
+    if q:
+        needle = q.lower()
+        users = [u for u in users if needle in u.email.lower()]
+    if banned_only:
+        users = [u for u in users if u.is_banned]
+    users.sort(key=lambda u: u.created_at, reverse=True)
+    total = len(users)
+    page = users[offset : offset + limit]
+    return AdminUserListResponse(items=[_admin_user_response(u) for u in page], total=total)
+
+
+@app.post("/api/admin/users/{user_id}/ban", response_model=AdminUserResponse)
+def admin_ban_user(
+    user_id: int, admin: User = Depends(require_admin), session: Session = Depends(get_session)
+):
+    target = session.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.id == admin.id:
+        raise HTTPException(status_code=403, detail="You cannot ban your own account")
+    if target.is_admin:
+        raise HTTPException(status_code=403, detail="Cannot ban another admin account")
+    if not target.is_banned:
+        target.is_banned = True
+        session.add(target)
+        session.commit()
+        session.refresh(target)
+        logger.warning(f"Admin {admin.email} banned {target.email}")
+    return _admin_user_response(target)
+
+
+@app.post("/api/admin/users/{user_id}/unban", response_model=AdminUserResponse)
+def admin_unban_user(
+    user_id: int, admin: User = Depends(require_admin), session: Session = Depends(get_session)
+):
+    target = session.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.is_banned:
+        target.is_banned = False
+        session.add(target)
+        session.commit()
+        session.refresh(target)
+        logger.warning(f"Admin {admin.email} unbanned {target.email}")
+    return _admin_user_response(target)
 
 
 # ── Legacy endpoints (keep for Prometheus / Streamlit compat) ─────────────────

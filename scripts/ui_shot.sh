@@ -48,7 +48,13 @@ echo "[ui_shot] building frontend..."
 (cd ui/web && npm run build) || { echo "[ui_shot] npm run build failed" >&2; exit 1; }
 
 echo "[ui_shot] starting uvicorn (mock mode) on port ${PORT}..."
-STOCK_RISK_MOCK=1 "$PYTHON" -m uvicorn stock_risk.api.app:app --host 127.0.0.1 --port "$PORT" \
+# ADMIN_EMAIL/ADMIN_PASSWORD seed a real admin in this throwaway subprocess's
+# own DB via the real ensure_admin_user code path, so shoot_admin() in
+# ui_shot.py can log in and reach the admin-gated screens — isolated the same
+# way the temp DB/model dir/free port are, never touching real Render config.
+STOCK_RISK_MOCK=1 \
+  ADMIN_EMAIL="ui-shot-admin@example.com" ADMIN_PASSWORD="ui-shot-admin-pass1" \
+  "$PYTHON" -m uvicorn stock_risk.api.app:app --host 127.0.0.1 --port "$PORT" \
   > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 

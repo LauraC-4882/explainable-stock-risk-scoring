@@ -113,6 +113,31 @@ vote; see `shoot_community` in `scripts/ui_shot.py`)
       or the page's right edge, and no text is illegible against its
       background — same bar as the desktop/mobile checks above.
 
+## Admin panel (`ui-admin-overview.png`, `ui-admin-usage.png`,
+`ui-admin-users.png` — desktop, captured logged-in as the seeded admin;
+see `shoot_admin` in `scripts/ui_shot.py`)
+
+- [ ] The header shows a distinct gold-tinted "Admin" nav button (with the
+      🛡️ icon) that the community/other screenshots — captured as a
+      non-admin — do NOT show. Confirms the button is gated on `is_admin`.
+- [ ] `ui-admin-overview.png`: the Admin Dashboard modal is open, centered,
+      with three tabs (Overview / Usage / Users); the Overview tab shows
+      four stat tiles (Total requests, Unique users, Last 24h, Last 7 days)
+      with non-negative integer values, none blank or "NaN".
+- [ ] `ui-admin-usage.png`: the hour-of-day bar chart renders with visible
+      bars of differing heights (not all-zero, not one flat row) — the
+      seeded traffic hit a single UTC hour, so at least one bar is clearly
+      taller than the empty hours around it. Below it, a "Top pages" list
+      shows real paths (e.g. `/api/score/TSLA`, `/api/community/posts`)
+      with integer counts.
+- [ ] `ui-admin-users.png`: the Users tab lists at least the admin account
+      (with an "Admin" badge) and the seeded member account. The admin's
+      own row has NO ban button; the normal member's row DOES have a red
+      "Ban" button. A search box sits above the list.
+- [ ] No element in any of the three screenshots is clipped by the modal's
+      or the page's right edge, and all text is legible against its
+      background — same bar as the desktop/mobile checks above.
+
 ## Cross-check: do the two score displays on the same card agree?
 
 - [ ] The gauge/large-number score at the top of the card and the

@@ -7,8 +7,15 @@ import { RiscoreIcon, RiscoreWordmark } from './Logo'
 
 export default function Header() {
   const { t } = useLanguage()
-  const { user, watchlist, openAuthModal, openWatchlistPanel, openProfilePanel, openCommunityPanel } =
-    useAuth()
+  const {
+    user,
+    watchlist,
+    openAuthModal,
+    openWatchlistPanel,
+    openProfilePanel,
+    openCommunityPanel,
+    openAdminPanel,
+  } = useAuth()
   const { openTour } = useOnboarding()
 
   return (
@@ -35,6 +42,14 @@ export default function Header() {
           >
             <span aria-hidden="true">💬</span> {t('community.navButton')}
           </button>
+          {user?.is_admin && (
+            <button
+              onClick={openAdminPanel}
+              className="flex items-center gap-1.5 rounded-full border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-gold transition-all duration-150 hover:bg-gold/10 active:scale-95"
+            >
+              <span aria-hidden="true">🛡️</span> {t('admin.navButton')}
+            </button>
+          )}
           {user ? (
             <>
               <button

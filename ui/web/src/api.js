@@ -133,3 +133,34 @@ export async function apiMyVotes(token) {
   const res = await fetch('/api/community/me/votes', { headers: authHeader(token) })
   return parseErrorOr(res, 'Failed to load your votes')
 }
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export async function apiAdminAnalytics(token) {
+  const res = await fetch('/api/admin/analytics/summary', { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load analytics')
+}
+
+export async function apiAdminListUsers(token, { q, bannedOnly, limit = 50, offset = 0 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (q) params.set('q', q)
+  if (bannedOnly) params.set('banned_only', 'true')
+  const res = await fetch(`/api/admin/users?${params}`, { headers: authHeader(token) })
+  return parseErrorOr(res, 'Failed to load users')
+}
+
+export async function apiAdminBanUser(token, userId) {
+  const res = await fetch(`/api/admin/users/${userId}/ban`, {
+    method: 'POST',
+    headers: authHeader(token),
+  })
+  return parseErrorOr(res, 'Failed to ban user')
+}
+
+export async function apiAdminUnbanUser(token, userId) {
+  const res = await fetch(`/api/admin/users/${userId}/unban`, {
+    method: 'POST',
+    headers: authHeader(token),
+  })
+  return parseErrorOr(res, 'Failed to unban user')
+}

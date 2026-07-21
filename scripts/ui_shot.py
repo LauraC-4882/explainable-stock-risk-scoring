@@ -209,6 +209,79 @@ def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
                 raise SystemExit(1)
 
 
+# Must match ui_shot.sh's ADMIN_EMAIL/ADMIN_PASSWORD, which seed this account
+# into the throwaway server's DB via the real ensure_admin_user code path.
+ADMIN_EMAIL = "ui-shot-admin@example.com"
+ADMIN_PASSWORD = "ui-shot-admin-pass1"
+
+
+def shoot_admin(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """Admin dashboard states, logging in as the seeded admin (the real
+    ensure_admin_user ran at the server's own startup). Fires a handful of
+    ordinary requests first so the usage dashboard isn't empty, then
+    screenshots the Overview / Usage / Users tabs."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        page.on(
+            "console",
+            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
+        )
+        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+        admin_token = page.request.post(
+            f"{base_url}/api/auth/login",
+            data={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+        ).json()["access_token"]
+
+        # Generate some tracked traffic + a normal user to show in the Users
+        # tab (and to have someone bannable), so no screen is empty.
+        page.request.post(
+            f"{base_url}/api/auth/register",
+            data={"email": "ui-shot-member@example.com", "password": "ui-shot-pass1"},
+        )
+        for _ in range(3):
+            page.request.get(f"{base_url}/api/score/TSLA")
+            page.request.get(f"{base_url}/api/community/posts")
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        page.evaluate("(t) => localStorage.setItem('stock-risk-token', t)", admin_token)
+        page.reload(wait_until="networkidle")
+        page.wait_for_selector('button:has-text("Admin")', timeout=5000)
+
+        page.click('button:has-text("Admin")')
+        page.wait_for_selector("text=Admin Dashboard", timeout=5000)
+        page.wait_for_timeout(800)  # analytics fetch settle
+
+        overview_path = out_dir / "ui-admin-overview.png"
+        page.screenshot(path=str(overview_path), full_page=True)
+        print(f"[ui_shot] admin-overview -> {overview_path} ({overview_path.stat().st_size} bytes)")
+
+        page.click('button:has-text("Usage")')
+        page.wait_for_timeout(700)  # bar chart animation settle
+        usage_path = out_dir / "ui-admin-usage.png"
+        page.screenshot(path=str(usage_path), full_page=True)
+        print(f"[ui_shot] admin-usage -> {usage_path} ({usage_path.stat().st_size} bytes)")
+
+        page.click('button:has-text("Users")')
+        page.wait_for_timeout(600)  # user-list fetch settle
+        users_path = out_dir / "ui-admin-users.png"
+        page.screenshot(path=str(users_path), full_page=True)
+        print(f"[ui_shot] admin-users -> {users_path} ({users_path.stat().st_size} bytes)")
+
+        browser.close()
+
+        for path in (overview_path, usage_path, users_path):
+            if not path.exists() or path.stat().st_size == 0:
+                print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
+                raise SystemExit(1)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Screenshot the app for visual review")
     parser.add_argument("--base-url", required=True)
@@ -246,6 +319,7 @@ def main() -> int:
                 return 1
 
     shoot_community(args.base_url, out_dir, errors)
+    shoot_admin(args.base_url, out_dir, errors)
 
     if errors:
         print("[ui_shot] console/page errors detected during capture:", file=sys.stderr)
