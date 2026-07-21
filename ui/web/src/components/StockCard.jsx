@@ -9,6 +9,7 @@ import CardSkeleton from './CardSkeleton'
 import KeyFactorTiles from './KeyFactorTiles'
 import MetricTiles from './MetricTiles'
 import MLSignalPanel from './MLSignalPanel'
+import OutcomePanel from './OutcomePanel'
 import PriceChart from './PriceChart'
 import RiskChart from './RiskChart'
 import RiskExplainer from './RiskExplainer'
@@ -174,10 +175,10 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
             <div className="relative px-6 pb-6 pt-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate font-display text-3xl font-bold tracking-tight text-slate-100">
+                  <h2 className="font-display text-3xl font-bold tracking-tight text-slate-100 max-sm:text-2xl sm:truncate">
                     {heroTitle}
                   </h2>
-                  <div className="mt-1 text-sm uppercase tracking-widest text-muted">{heroSub}</div>
+                  <div className="mt-1 text-sm uppercase tracking-widest text-muted max-sm:text-[0.8rem] max-sm:tracking-wide">{heroSub}</div>
                 </div>
                 {headerButtons}
               </div>
@@ -235,13 +236,17 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           </Panel>
 
           <Panel delay={4} hover className="[&>div]:border-b-0">
+            <OutcomePanel ticker={ticker} />
+          </Panel>
+
+          <Panel delay={5} hover className="[&>div]:border-b-0">
             <MLSignalPanel
               probability={score.ml_drawdown_probability}
               explanation={score.ml_drawdown_explanation}
             />
           </Panel>
 
-          <Panel delay={5} hover>
+          <Panel delay={6} hover>
             <div className="[&>div]:border-b-0">
               <TopAnalysisWidget ticker={ticker} />
             </div>

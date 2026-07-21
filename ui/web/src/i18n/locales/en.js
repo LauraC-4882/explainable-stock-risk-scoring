@@ -202,15 +202,31 @@ export default {
   stressTest: {
     toggle: 'Historical stress test',
     intro:
-      'How this stock’s risk score would move if conditions like these past crises recurred, based only on this stock’s own volatility/tail/drawdown/sensitivity/liquidity profile — not a forecast that any of these events will happen again.',
+      'A “what if” exercise: if a crash like one of these happened again, where would this stock’s score likely end up? We take how this particular stock behaves today and replay those past conditions against it. Nobody is predicting these events will repeat — it’s a way to see how much room there is to get worse.',
     baseline: 'baseline',
   },
   mlSignal: {
     toggle: 'ML downside-risk signal (secondary)',
     intro:
-      'A machine-learning estimate of the probability of a 10%+ drawdown in the next 20 trading days. Since validation (mean ROC-AUC 0.67, 56 stocks x 5 years) it contributes 15% of the headline risk score — the percentile composite carries the rest. Recall is low, so it misses more real drawdowns than it flags (see the README for the full writeup).',
+      'A computer model’s rough guess at the odds of a 10%-or-worse fall within the next month of trading. It’s one small input (15%) to the headline score, not the whole thing. Be aware of its weak spot: it misses more real falls than it catches, so treat a low number as “no signal here”, not as “this is safe”.',
     probability: 'Estimated 20-day drawdown probability:',
     topFeatures: 'Top contributing factors',
+  },
+  outcomes: {
+    toggle: 'What happened at this risk level before',
+    intro:
+      'Looking back over the last two years: on days when this stock sat in each risk band, what actually happened over the following 20 trading days? These are historical frequencies for this stock — how often it ended higher or lower, the typical range of outcomes, and how often a 10%+ drop or 10%+ jump occurred along the way.',
+    samples: 'past occurrences',
+    currentBand: 'current level',
+    insufficient: 'small sample — read loosely',
+    noData: 'This stock hasn’t traded at this risk level in the lookback window.',
+    range: 'Typical outcome range',
+    drawdown10: '10%+ drop occurred',
+    rally10: '10%+ jump occurred',
+    takeaway:
+      'Note what the score actually shifts: higher risk bands widen the range of outcomes in BOTH directions — bigger drops and bigger jumps become more common — rather than simply making a fall more likely. That is what the risk score measures: turbulence, not direction.',
+    disclaimer:
+      'Historical frequencies for this stock only — past patterns, not probabilities of what happens next, and not investment advice.',
   },
   auth: {
     signIn: 'Sign in',

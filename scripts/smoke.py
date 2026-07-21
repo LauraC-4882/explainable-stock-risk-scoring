@@ -293,6 +293,17 @@ def main() -> int:
             )
         _step(f"GET /api/score/AAPL/timeseries -> 200, {len(timeseries)} points")
 
+        outcomes = check_json_endpoint(base_url, "/api/score/AAPL/outcomes")
+        assert isinstance(outcomes.get("bands"), list) and len(outcomes["bands"]) == 4, (
+            f"/api/score/AAPL/outcomes expected 4 bands, got: {outcomes.get('bands')!r}"
+        )
+        for key in ("horizon_days", "current_label", "sample_days"):
+            assert key in outcomes, f"outcomes missing key {key!r}: {list(outcomes.keys())}"
+        _step(
+            f"GET /api/score/AAPL/outcomes -> 200, "
+            f"{outcomes['sample_days']} samples, current={outcomes['current_label']}"
+        )
+
         # Community platform: register a throwaway user, post, and check the
         # leaderboard's accuracy values are native float|None through a real
         # JSON round trip — the same numpy-scalar-leak regression class as

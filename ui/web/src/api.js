@@ -18,6 +18,12 @@ export async function apiTimeseries(ticker, period) {
   return res.json()
 }
 
+export async function apiOutcomes(ticker) {
+  const res = await fetch(`/api/score/${ticker}/outcomes`)
+  if (!res.ok) throw new Error('Failed to fetch outcome distribution')
+  return res.json()
+}
+
 // ── Auth / watchlist ─────────────────────────────────────────────────────────
 
 async function parseErrorOr(res, fallback) {

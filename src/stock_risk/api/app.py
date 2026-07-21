@@ -40,6 +40,7 @@ from ..config import settings
 from ..db import engine, get_session, init_db
 from ..moderation import check_post_body
 from ..monitoring.metrics import ModelMonitor
+from ..outcomes import compute_outcome_distribution
 from ..scoring.scorer import RiskScorer, market_for_ticker
 from .schemas import ScoreResponse
 
@@ -129,6 +130,7 @@ MOCK_MODE = os.environ.get("STOCK_RISK_MOCK") == "1"
 _MOCK_FIXTURES_DIR = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures" / "mock_api"
 _mock_score: Optional[dict] = None
 _mock_timeseries: Optional[list] = None
+_mock_outcomes: Optional[dict] = None
 if MOCK_MODE:
     # encoding="utf-8" is not optional here: Path.read_text() defaults to
     # locale.getpreferredencoding() when unspecified, which is cp1252 on
@@ -139,6 +141,12 @@ if MOCK_MODE:
     _mock_score = json.loads((_MOCK_FIXTURES_DIR / "score_tsla.json").read_text(encoding="utf-8"))
     _mock_timeseries = json.loads(
         (_MOCK_FIXTURES_DIR / "timeseries_tsla.json").read_text(encoding="utf-8")
+    )
+    # Hand-built representative payload rather than computed from the
+    # timeseries fixture: that fixture holds only 21 rows, fewer than the
+    # 20-day forward horizon, so computing from it would yield ~1 sample.
+    _mock_outcomes = json.loads(
+        (_MOCK_FIXTURES_DIR / "outcomes_tsla.json").read_text(encoding="utf-8")
     )
     logger.warning("STOCK_RISK_MOCK=1 — serving fixture data, not calling yfinance")
 
@@ -308,6 +316,26 @@ def api_timeseries(ticker: str, period: str = "6mo"):
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
         logger.exception(f"Timeseries error for {ticker}: {exc}")
+        raise HTTPException(status_code=500, detail="Internal error")
+
+
+@app.get("/api/score/{ticker}/outcomes")
+def api_outcomes(ticker: str):
+    """Historical conditional outcome distribution: what happened over the
+    following 20 trading days when this stock previously sat in each risk
+    band. Descriptive statistics about the past — explicitly NOT a
+    forecast or a directional signal (see outcomes.py); always computed
+    over the full 2y lookback regardless of the display timeframe so band
+    sample sizes are as large as the data allows."""
+    if MOCK_MODE:
+        return _mock_outcomes
+    try:
+        rows = scorer.score_timeseries(ticker.upper(), period="2y")
+        return compute_outcome_distribution(rows)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception(f"Outcomes error for {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal error")
 
 
