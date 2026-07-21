@@ -9,6 +9,7 @@ from .base import (
     resolve_weights,
     run_producer,
 )
+from .regime_technicals import RegimeTechnicalsProducer
 from .signals import (
     AltDataProducer,
     GarchVolProducer,
@@ -45,6 +46,10 @@ def build_producers(dr_model) -> list[RiskProducer]:
         OptionsImpliedProducer(),
         NewsRiskProducer(),
         AltDataProducer(),
+        # [G6] display-only (weight 0, validation None — see its docstring).
+        # Last in the list so response-assembly order puts the newest,
+        # lowest-authority block after the established signals.
+        RegimeTechnicalsProducer(),
     ]
 
 
@@ -57,6 +62,7 @@ __all__ = [
     "OptionsImpliedProducer",
     "PercentileCompositeProducer",
     "ProducerOutput",
+    "RegimeTechnicalsProducer",
     "RiskProducer",
     "ScoringContext",
     "build_producers",

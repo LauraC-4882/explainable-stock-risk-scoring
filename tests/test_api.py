@@ -60,6 +60,11 @@ def _fake_scorecard(ticker: str = "AAPL") -> dict:
             "insider_activity": {"sale_count": 0, "purchase_count": 0, "net_transaction_count": 0},
         },
         "stress_test": None,
+        # [G6] listed explicitly (as None) like every other Optional field
+        # above: this test asserts the response body is byte-identical to the
+        # scorer's dict, so a field the schema defaults would show up as an
+        # unexplained extra key.
+        "regime_technicals": None,
         "volatility_30d": 0.3,
         "var_95": -0.02,
         "cvar_95": -0.03,

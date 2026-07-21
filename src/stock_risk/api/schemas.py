@@ -126,6 +126,64 @@ class Indicators(BaseModel):
     atr_14: Optional[float] = None
 
 
+# ── [G6] regime / technical structure (display-only, weight 0) ───────────────
+# Every sub-block is independently Optional: the VIX and sector legs need extra
+# symbol fetches and are US-only, while the pattern and trend blocks are pure
+# OHLC arithmetic and are present whenever a card renders at all.
+
+
+class VolRegime(BaseModel):
+    state: str  # "risk_on" | "risk_off"
+    realized_vol_pct: float
+    implied_vol_lagged_pct: float
+    vol_risk_premium: float
+    persistence_21d: Optional[float] = None
+
+
+class SectorTilt(BaseModel):
+    beta_risk_on: Optional[float] = None
+    beta_risk_off: Optional[float] = None
+    tilt: float
+    reading: str  # "cyclical" | "defensive" | "balanced"
+
+
+class TrendState(BaseModel):
+    sma_window: int
+    distance_pct: float
+    state: str  # "above" | "below"
+
+
+class CandlePattern(BaseModel):
+    name: str
+    date: str
+
+
+class PatternSummary(BaseModel):
+    recent: list[CandlePattern]
+    bullish_count: int
+    bearish_count: int
+    net_pressure_20d: Optional[int] = None
+    lookback_days: int
+
+
+class MomentumRisk(BaseModel):
+    momentum_1m_pct: Optional[float] = None
+    momentum_3m_pct: Optional[float] = None
+    momentum_12m_pct: Optional[float] = None
+    crash_risk: Optional[float] = None  # 0-1 momentum x volatility percentile product
+    crash_risk_band: Optional[str] = None  # "low" | "moderate" | "elevated"
+    vs_52w_high_pct: Optional[float] = None
+    pct_of_52w_range: Optional[float] = None
+
+
+class RegimeTechnicals(BaseModel):
+    regime: Optional[VolRegime] = None
+    sector_tilt: Optional[SectorTilt] = None
+    trend: Optional[TrendState] = None
+    patterns: Optional[PatternSummary] = None
+    momentum: Optional[MomentumRisk] = None
+
+
 class Fundamentals(BaseModel):
     sector: Optional[str] = None
     market_cap: Optional[float] = None
@@ -149,6 +207,7 @@ class ScoreResponse(BaseModel):
     news_risk: NewsRisk
     alt_data: AltData
     stress_test: Optional[StressTest] = None
+    regime_technicals: Optional[RegimeTechnicals] = None
     volatility_30d: Optional[float] = None
     var_95: Optional[float] = None
     cvar_95: Optional[float] = None

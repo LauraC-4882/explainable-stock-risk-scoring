@@ -11,7 +11,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from stock_risk.scoring.scorer import RiskScorer
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Score a stock ticker")
     parser.add_argument("--ticker", required=True)

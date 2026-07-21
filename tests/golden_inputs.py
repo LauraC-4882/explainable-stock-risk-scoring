@@ -69,12 +69,58 @@ GOLDEN_OPTIONS_SIGNALS = {
 }
 
 
+def golden_vix_history(n: int = 600, seed: int = 7) -> pd.DataFrame:
+    """[G6] A frozen ^VIX series for the realised-vs-implied regime leg.
+
+    Needed because that leg reads VIX *history* via fetch_history, not the
+    single current level GOLDEN_VIX provides. Without a symbol-aware mock the
+    scorer would receive the equity frame for ^VIX and compare an equity price
+    level (~100) against an annualised volatility in percentage points — a
+    deterministic fixture, but one that exercises the arithmetic on nonsense
+    and would mask a units bug. Range 12-30 keeps it in real VIX territory,
+    straddling the calm/elevated boundary.
+    """
+    rng = np.random.default_rng(seed)
+    level = 12 + 18 * rng.beta(2, 3, n)
+    return pd.DataFrame(
+        {"open": level, "high": level * 1.05, "low": level * 0.95,
+         "close": level, "volume": np.zeros(n)},
+        index=pd.bdate_range("2023-06-01", periods=n),
+    )
+
+
+def golden_sector_ohlcv(ticker: str, n: int = 600) -> pd.DataFrame:
+    """[G6] Distinct frozen frames for the XLY/XLP sector-tilt proxies.
+
+    Seeded per ticker so the two sides are genuinely different series — a
+    shared frame would make both betas identical and the tilt exactly 0,
+    silently passing whatever the tilt arithmetic does.
+    """
+    seed = {"XLY": 101, "XLP": 202}.get(ticker.upper(), 303)
+    return golden_ohlcv(n=n, seed=seed)
+
+
+# Symbols the [G6] legs fetch beyond the equity/benchmark pair. Everything not
+# listed here (AAPL and the SPY benchmark) still gets the same golden_ohlcv
+# frame the pre-[G6] fixture was generated from, so the scored metrics — and
+# therefore risk_score — are unchanged by this routing.
+_SPECIAL_HISTORY = {"^VIX": golden_vix_history}
+
+
+def _golden_history(ticker: str, *_args, **_kwargs) -> pd.DataFrame:
+    symbol = ticker.upper()
+    if symbol in _SPECIAL_HISTORY:
+        return _SPECIAL_HISTORY[symbol]()
+    if symbol in {"XLY", "XLP"}:
+        return golden_sector_ohlcv(symbol)
+    return golden_ohlcv()
+
+
 @contextmanager
 def golden_environment():
     """Patch every network-touching fetcher call with the frozen inputs."""
-    df = golden_ohlcv()
     with (
-        patch(f"{_FETCH}.fetch_history", return_value=df),
+        patch(f"{_FETCH}.fetch_history", side_effect=_golden_history),
         patch(f"{_FETCH}.fetch_info", return_value=dict(GOLDEN_INFO)),
         patch(f"{_FETCH}.fetch_options_signals",
               return_value=dict(GOLDEN_OPTIONS_SIGNALS)),

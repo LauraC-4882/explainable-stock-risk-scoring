@@ -49,7 +49,7 @@ the file in the same PR that breaks it.
 
 | Command | Status | What it checks |
 |---|---|---|
-| `.venv/bin/python -m pytest tests/ -q` | **live** — 104 passed, 0 failed as of 2026-07-17 | Full test suite |
+| `.venv/bin/python -m pytest tests/ -q` | **live** — 365 passed, 0 failed as of 2026-07-20 ([G6] added 76: candlestick, backtest, regime/sector features, regime-technicals producer) | Full test suite |
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
 | `make smoke` (→ `python scripts/smoke.py`) | **live** — [D1] landed 2026-07-17; ~11s locally, exit 0 | End-to-end: train a real tiny model, serve it, hit `/health` + `/api/score/AAPL` + `/api/score/AAPL/timeseries` over real HTTP, assert 200 + valid JSON + expected keys |
 | `bash scripts/ui_shot.sh` | **live** — [D2] landed 2026-07-17; ~15-20s locally, exit 0 | Frontend screenshot round-trip: build, serve (mock data, no network — see below), Playwright-screenshot a real card at 1280px + 375px to `$UI_SHOT_OUT_DIR` (default `/tmp`) |

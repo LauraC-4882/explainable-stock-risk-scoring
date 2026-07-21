@@ -13,7 +13,12 @@ from loguru import logger
 from ..config import settings
 from ..data.fetcher import MarketDataFetcher
 from ..data.preprocessor import DataPreprocessor
+from ..features.candlestick import CandlestickFeatures
+from ..features.momentum_risk import MomentumRiskFeatures
+from ..features.regime import RegimeFeatures
 from ..features.risk_metrics import RiskMetrics
+from ..features.sector_rotation import SectorRotationFeatures
+from ..features.sma_search import OptimizedSMAFeatures
 from ..features.technical import TechnicalFeatures
 from . import risk_categories
 from .producers import (
@@ -41,6 +46,19 @@ if TYPE_CHECKING:
 # continuous daily bars, so it's the more reliable proxy despite being one
 # step removed from the index itself.
 MARKET_BENCHMARKS = {"us": "SPY", "hk": "^HSI", "cn": "510300.SS"}
+
+# [G6] Cyclical/defensive proxies for the sector-tilt block. The research layer
+# (features/sector_rotation.py, scripts/risk_on_off_report.py) uses the full
+# four-name cyclical and three-name defensive baskets; the *live scoring* path
+# deliberately uses one proxy per side instead. Seven extra history fetches on
+# a cold cache would add seconds to a user-facing request for a display-only
+# signal, and XLY-vs-XLP (consumer discretionary vs consumer staples) is the
+# standard single-pair risk-appetite gauge precisely because it captures the
+# same cyclical/defensive axis — the same purchase decision, split by whether
+# it is discretionary. Both are cached like every other fetch, so the cost is
+# paid once per TTL across all tickers, not per request.
+SECTOR_PROXY_RISK_ON = "XLY"
+SECTOR_PROXY_RISK_OFF = "XLP"
 
 
 def market_for_ticker(ticker: str) -> str:
@@ -136,6 +154,12 @@ class RiskScorer:
         self.preprocessor = DataPreprocessor()
         self.tech = TechnicalFeatures()
         self.risk = RiskMetrics()
+        # [G6] feature layers behind the display-only regime_technicals block
+        self.candles = CandlestickFeatures()
+        self.momentum = MomentumRiskFeatures()
+        self.opt_sma = OptimizedSMAFeatures()
+        self.regime_features = RegimeFeatures()
+        self.sector = SectorRotationFeatures()
         self._dr_model = self._try_load_downside_model()
         # [G1] producer layer: the five risk signals as uniform RiskProducer
         # instances. resolve_weights applies the validation guard at startup
@@ -160,6 +184,50 @@ class RiskScorer:
             logger.debug(f"No pretrained DownsideRiskModel artefact found: {exc}")
             return None
 
+    def _try_series(self, ticker: str, period: str, column: str) -> Optional[pd.Series]:
+        """One column of another symbol's history, or None if it can't be had.
+
+        Every caller is a display-only [G6] leg, so a failure here must never
+        reach the user as an error — it degrades that block to "unavailable"
+        exactly like the benchmark/info fetches above already do.
+        """
+        try:
+            raw = self.fetcher.fetch_history(ticker, period=period)
+            processed = self.preprocessor.process(raw)
+            return processed[column]
+        except Exception as exc:
+            logger.warning(f"[G6] Could not fetch {ticker} for regime signals: {exc}")
+            return None
+
+    def _add_regime_technicals(
+        self, df: pd.DataFrame, market: str, period: str
+    ) -> pd.DataFrame:
+        """[G6] Append the columns the display-only regime_technicals producer
+        reads. Split by cost: the candlestick and optimised-SMA layers are pure
+        OHLC arithmetic on data already in hand and always run; the VIX and
+        sector legs need extra symbols and are best-effort.
+
+        US-only for the fetched legs, matching the existing VIX-regime policy
+        in score(): the VIX is a US fear gauge and XLY/XLP are US sector ETFs,
+        so applying them to an HK or A-share name would be reusing an
+        instrument as a proxy for something it does not represent. Non-US
+        tickers get the columns as all-NaN and the producer reports those
+        blocks as unavailable rather than as a misleading reading.
+        """
+        df = self.candles.compute(df)
+        df = self.momentum.compute(df)
+        df = self.opt_sma.compute(df)
+
+        vix_close = on_returns = off_returns = None
+        if market == "us":
+            vix_close = self._try_series("^VIX", period, "close")
+            on_returns = self._try_series(SECTOR_PROXY_RISK_ON, period, "pct_return")
+            off_returns = self._try_series(SECTOR_PROXY_RISK_OFF, period, "pct_return")
+
+        df = self.regime_features.compute(df, vix_close)
+        df = self.sector.compute(df, on_returns, off_returns)
+        return df
+
     def score(self, ticker: str, period: str = "2y") -> dict:
         """Return a complete risk scorecard dict for *ticker*."""
         logger.info(f"Scoring {ticker}")
@@ -180,6 +248,10 @@ class RiskScorer:
                 logger.warning(f"Could not fetch benchmark {benchmark_ticker}: {exc}")
 
         df = self.risk.compute(df, benchmark_returns=benchmark_log_return)
+        # [G6] display-only columns. Appended AFTER risk.compute so nothing in
+        # the scored metric set can shift: composite_score reads a fixed
+        # _METRIC_SPECS list and ignores every column added here.
+        df = self._add_regime_technicals(df, market, period)
         # fetch_info is still yfinance-only (unlike fetch_history — see
         # data/fetcher.py's migration) and every downstream use is
         # info.get(...)-safe, so a failure here degrades to an empty dict
@@ -256,6 +328,7 @@ class RiskScorer:
         opts = outputs["options_implied"]
         news = outputs["news_risk"]
         alt = outputs["alt_data"]
+        regime_tech = outputs["regime_technicals"]
 
         # Historical-scenario stress test on the explainable percentile score
         # only (not the XGBoost leg) — see stress_test.py's module docstring
@@ -300,6 +373,13 @@ class RiskScorer:
             "alt_data": alt.raw if alt else {
                 "analyst_activity": ctx.analyst_activity,
                 "insider_activity": ctx.insider_activity,
+            },
+            # [G6] display-only block (weight 0 — see RegimeTechnicalsProducer).
+            # Emitted with every sub-block None rather than omitted when the
+            # producer degrades, so the response shape never varies.
+            "regime_technicals": regime_tech.raw if regime_tech else {
+                "regime": None, "sector_tilt": None, "trend": None,
+                "patterns": None, "momentum": None,
             },
             "stress_test": stress_test,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),

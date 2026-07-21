@@ -11,6 +11,7 @@ import MetricTiles from './MetricTiles'
 import MLSignalPanel from './MLSignalPanel'
 import OutcomePanel from './OutcomePanel'
 import PriceChart from './PriceChart'
+import RegimeSignalsPanel from './RegimeSignalsPanel'
 import RiskChart from './RiskChart'
 import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
@@ -244,6 +245,15 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
               probability={score.ml_drawdown_probability}
               explanation={score.ml_drawdown_explanation}
             />
+          </Panel>
+
+          {/* [G6] Regime/technical context. Sits directly after the ML signal
+              because both are secondary, weight-0 reads — everything above
+              this point feeds the headline score, nothing from here down
+              does. Shares delay 5 so the two secondary panels animate in
+              together rather than stretching the stagger by another beat. */}
+          <Panel delay={5} hover className="[&>div]:border-b-0">
+            <RegimeSignalsPanel regimeTechnicals={score.regime_technicals} />
           </Panel>
 
           <Panel delay={6} hover>

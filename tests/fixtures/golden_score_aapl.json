@@ -41,7 +41,7 @@
   "ml_drawdown_explanation": {
     "base_probability": 0.5968810684830773,
     "calibrated_probability": 0.07599999755620956,
-    "note": "shap_contribution is in log-odds units (additive: base_probability's log-odds plus every feature's shap_contribution equals predicted_probability's log-odds). Positive values push the 20-day severe-drawdown probability up; negative values push it down. Only the top_n largest-magnitude features are listed. predicted_probability is the raw (pre-calibration) model's output that this SHAP breakdown explains — calibrated_probability is what model.predict() actually serves; isotonic calibration has no per-feature attribution of its own.",
+    "note": "shap_contribution is in log-odds units (additive: base_probability's log-odds plus every feature's shap_contribution equals predicted_probability's log-odds). Positive values push the 20-day severe-drawdown probability up; negative values push it down. Only the top_n largest-magnitude features are listed. predicted_probability is the raw (pre-calibration) model's output that this SHAP breakdown explains \u2014 calibrated_probability is what model.predict() actually serves; isotonic calibration has no per-feature attribution of its own.",
     "predicted_probability": 0.0061212909002562816,
     "top_features": [
       {
@@ -161,7 +161,7 @@
     }
   },
   "risk_label": "HIGH",
-  "risk_note": "Score blends this stock's risk percentile relative to its own history (85%) with a walk-forward-validated ML estimate of its 20-day severe-drawdown probability (15%), plus market sensitivity vs. SPY — it is not a probability of loss, default probability, or investment recommendation.",
+  "risk_note": "Score blends this stock's risk percentile relative to its own history (85%) with a walk-forward-validated ML estimate of its 20-day severe-drawdown probability (15%), plus market sensitivity vs. SPY \u2014 it is not a probability of loss, default probability, or investment recommendation.",
   "risk_score": 66.0,
   "risk_score_composition": [
     {
@@ -337,6 +337,51 @@
         },
         "stressed_score": 90.0
       }
+    }
+  },
+  "regime_technicals": {
+    "regime": {
+      "state": "risk_on",
+      "realized_vol_pct": 23.22,
+      "implied_vol_lagged_pct": 21.67,
+      "vol_risk_premium": 0.44,
+      "persistence_21d": 0.476
+    },
+    "sector_tilt": {
+      "beta_risk_on": 0.022,
+      "beta_risk_off": 0.139,
+      "tilt": -0.117,
+      "reading": "balanced"
+    },
+    "trend": {
+      "sma_window": 11,
+      "distance_pct": -2.55,
+      "state": "below"
+    },
+    "patterns": {
+      "recent": [
+        {
+          "name": "bullish_engulfing",
+          "date": "2025-09-16"
+        },
+        {
+          "name": "bullish_engulfing",
+          "date": "2025-09-05"
+        }
+      ],
+      "bullish_count": 2,
+      "bearish_count": 0,
+      "net_pressure_20d": 4,
+      "lookback_days": 10
+    },
+    "momentum": {
+      "momentum_1m_pct": -6.69,
+      "momentum_3m_pct": -12.49,
+      "momentum_12m_pct": -11.55,
+      "crash_risk": 0.038,
+      "crash_risk_band": "low",
+      "vs_52w_high_pct": -21.02,
+      "pct_of_52w_range": 0.0
     }
   },
   "ticker": "AAPL",

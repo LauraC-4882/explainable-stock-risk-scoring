@@ -50,6 +50,37 @@ QUALITY_COLS = ["sharpe_63d", "sortino_63d"]
 
 ALL_FEATURE_COLS = MOMENTUM_COLS + VOLATILITY_COLS + QUALITY_COLS
 
+# [G6] Opt-in extension groups. Deliberately NOT folded into ALL_FEATURE_COLS:
+# that list defines the schema of the committed model artefact, and the [G1]
+# golden test asserts the artefact still scores the pinned inputs to the pinned
+# output. Appending columns to the production default silently invalidates both
+# and would fail the golden test with a feature-count mismatch. These follow the
+# [G3] alpha-grid precedent instead — available to `build_dataset(feature_cols=...)`
+# and `build_preprocessor(extra_cols=...)` for experiments, promoted into
+# ALL_FEATURE_COLS only alongside a retrained artefact and a refreshed golden.
+#
+# Each group requires its own feature class to have run over the frame first:
+#   PATTERN_COLS   -> features.candlestick.CandlestickFeatures
+#   TREND_OPT_COLS -> features.sma_search.OptimizedSMAFeatures
+#   REGIME_COLS    -> features.regime.RegimeFeatures  (needs VIX history)
+#   SECTOR_COLS    -> features.sector_rotation.SectorRotationFeatures (needs baskets)
+PATTERN_COLS = [
+    "cdl_body_pct", "cdl_upper_wick_pct", "cdl_lower_wick_pct",
+    "cdl_bull_minus_bear_20d",
+]
+
+TREND_OPT_COLS = ["sma_opt_window", "dist_sma_opt"]
+
+REGIME_COLS = ["vol_risk_premium", "risk_on_persistence_21d"]
+
+SECTOR_COLS = ["beta_risk_on_63d", "beta_risk_off_63d", "risk_on_tilt", "rotation_spread_63d"]
+
+# The extension set as a whole — what an [G6] experiment run passes as
+# `feature_cols=ALL_FEATURE_COLS + EXTENDED_FEATURE_COLS`.
+EXTENDED_FEATURE_COLS = (
+    ["dist_sma_25", "momentum_10"] + PATTERN_COLS + TREND_OPT_COLS + REGIME_COLS + SECTOR_COLS
+)
+
 
 def _scaled_branch() -> Pipeline:
     return Pipeline([

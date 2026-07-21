@@ -87,4 +87,15 @@ class TechnicalFeatures:
         df["dist_ema_20"] = (close - df["ema_20"]) / df["ema_20"]
         df["dist_ema_50"] = (close - df["ema_50"]) / df["ema_50"]
 
+        # [G6] Short-horizon trend/momentum pair. The existing EMA distances are
+        # 20/50-day — both slower than the ~1-month horizon the drawdown labels
+        # are built on, so a fast leg was missing rather than redundant.
+        df["sma_25"] = _safe(lambda: ta.trend.SMAIndicator(close, window=25).sma_indicator(), idx)
+        df["dist_sma_25"] = (close - df["sma_25"]) / df["sma_25"]
+        # 10-day rate of change, in percent. Unlike dist_sma_25 (position
+        # relative to a smoothed level) this is raw displacement over a fixed
+        # lookback — the two disagree exactly when a trend is decelerating,
+        # which is the regime that matters for downside risk.
+        df["momentum_10"] = close.pct_change(periods=10) * 100
+
         return df
