@@ -17,6 +17,7 @@ from ..features.risk_metrics import RiskMetrics
 from ..features.technical import TechnicalFeatures
 from . import risk_categories
 from .producers import (
+    ProducerOutput,
     ScoringContext,
     build_producers,
     fuse_with_composition,
@@ -406,12 +407,50 @@ class RiskScorer:
         start_pos = len(df) - len(display)
         last_pos = len(df) - 1
 
+        # [E1 regression fix] The gauge (score()) reports the *fused* headline —
+        # percentile composite blended with the ML drawdown leg (0.85/0.15 by
+        # default). This chart historically plotted the *pure* composite, so
+        # once the ML fusion gate opened ([A1]/[A2]) the chart's right edge and
+        # the gauge diverged by the ML contribution (~7 points for AAPL), even
+        # though both compute the identical composite — which read as a bug on
+        # the same card. The fix ties the final point to the gauge by applying
+        # the same fusion score() applies, and *only* to the final point:
+        #   - the last row is "today", the exact day the gauge represents;
+        #   - the ML drawdown probability is a current-conditions estimate with
+        #     no cheap, non-lookahead historical series, so earlier days stay
+        #     pure composite (a documented approximation, like the regime
+        #     weights above) rather than being back-filled with today's number.
+        # When the ML leg is unavailable (ENABLE_ML=0 — the Render default),
+        # fusion renormalises to the composite alone and this is a no-op, so the
+        # two already matched there and still do.
+        ml_producer = next((p for p in self.producers if p.name == "ml_drawdown"), None)
+        ml_last_score = None
+        try:
+            ml_output = run_producer(ml_producer, df, None) if ml_producer else None
+            if ml_output is not None and ml_output.score is not None:
+                ml_last_score = ml_output.score
+        except Exception as exc:
+            logger.warning(f"Timeseries ML fusion skipped for {ticker}: {exc}")
+
         results = []
         for i in range(start_pos, len(df)):
             row = df.iloc[i]
             weights = last_day_weights if i == last_pos else risk_categories.CATEGORY_WEIGHTS
             scorecard = risk_categories.composite_score(df.iloc[: i + 1], weights=weights)
             score = scorecard["composite_score"]
+            if i == last_pos and ml_last_score is not None:
+                # Same fusion as score(): reuse the composite producer's output
+                # so the weights and renormalisation are identical, never a
+                # hand-rolled average that could drift from the gauge.
+                fused, _ = fuse_with_composition(
+                    {
+                        "percentile_composite": ProducerOutput(score=score),
+                        "ml_drawdown": ProducerOutput(score=ml_last_score),
+                    },
+                    self.producer_weights,
+                )
+                if fused is not None:
+                    score = round(fused, 1)
             vol = row.get("vol_21d")
             results.append({
                 "date": df.index[i].strftime("%Y-%m-%d"),

@@ -164,37 +164,92 @@ def test_score_timeseries_1mo_returns_nonempty_results():
         assert 0 <= row["risk_score"] <= 100
 
 
-def test_score_timeseries_last_day_matches_composite_score_with_card_weights():
+def test_score_timeseries_last_day_matches_composite_score_when_ml_disabled():
     """[E1]: score_timeseries used to compute its own separate heuristic
     (_heuristic_score_row), which visibly disagreed with the card's
     risk_categories.composite_score() on the same data. Now both paths go
     through composite_score, and the last day specifically must use the same
-    (VIX-regime-adjusted) weights the card uses — this is what makes the
-    gauge and the chart's last point agree instead of just coincidentally
-    being close."""
+    (VIX-regime-adjusted) weights the card uses.
+
+    ML is disabled here so this isolates the *composite* half of the guarantee
+    — with no ML leg, the last point is the pure regime-weighted composite. The
+    fused case (ML on) is covered by
+    test_score_timeseries_last_point_matches_the_gauge below."""
     full_history = _synthetic_ohlcv(300)
+    original = settings.enable_ml
+    settings.enable_ml = False
+    try:
+        with (
+            patch(
+                "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
+                return_value=full_history,
+            ),
+            patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=35.0),
+        ):
+            results = RiskScorer().score_timeseries("AAPL", period="1mo")
 
-    with (
-        patch(
-            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
-            return_value=full_history,
-        ),
-        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=35.0),
-    ):
-        results = RiskScorer().score_timeseries("AAPL", period="1mo")
-
-        preprocessor = RiskScorer().preprocessor
-        tech = RiskScorer().tech
-        risk = RiskScorer().risk
-        # fetch_history is mocked to return the same series for both AAPL and
-        # its SPY benchmark — mirrors what score_timeseries actually does
-        # (ticker != benchmark_ticker triggers a second fetch_history call
-        # for benchmark_returns), not a simplification of it.
-        benchmark_log_return = preprocessor.process(full_history)["log_return"]
-        df = risk.compute(
-            tech.compute(preprocessor.process(full_history)), benchmark_returns=benchmark_log_return
-        )
-        expected_weights = risk_categories.regime_adjusted_weights(35.0)  # panic regime
-        expected_last = risk_categories.composite_score(df, weights=expected_weights)
+            scorer = RiskScorer()
+            # fetch_history is mocked to return the same series for both AAPL
+            # and its SPY benchmark — mirrors what score_timeseries actually
+            # does (ticker != benchmark_ticker triggers a second fetch_history
+            # call for benchmark_returns), not a simplification of it.
+            benchmark_log_return = scorer.preprocessor.process(full_history)["log_return"]
+            df = scorer.risk.compute(
+                scorer.tech.compute(scorer.preprocessor.process(full_history)),
+                benchmark_returns=benchmark_log_return,
+            )
+            expected_weights = risk_categories.regime_adjusted_weights(35.0)  # panic regime
+            expected_last = risk_categories.composite_score(df, weights=expected_weights)
+    finally:
+        settings.enable_ml = original
 
     assert results[-1]["risk_score"] == expected_last["composite_score"]
+
+
+@pytest.mark.parametrize("enable_ml", [True, False])
+def test_score_timeseries_last_point_matches_the_gauge(enable_ml):
+    """[E1 regression] The chart's right edge must equal the gauge.
+
+    The gauge (score()) reports the ML-*fused* headline; this chart plotted the
+    pure composite. Once the ML fusion gate opened ([A1]/[A2]) the two diverged
+    by the ML contribution (~7 points) even though both compute the identical
+    composite — which read as a bug on the same card. The fix fuses the current
+    ML signal into the final timeseries point exactly as score() does.
+
+    Parametrised on enable_ml because the two cases fail differently: with ML
+    off, fusion renormalises to the composite alone and the two already agreed
+    (this guards against the fix breaking that); with ML on, this is the case
+    that was actually broken. A live model AUC of ~0.5 on synthetic data is
+    irrelevant here — the invariant is that whatever number the gauge shows,
+    the chart's last point shows the same one.
+    """
+    full_history = _synthetic_ohlcv(300)
+    original = settings.enable_ml
+    settings.enable_ml = enable_ml
+    try:
+        with (
+            patch(
+                "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
+                return_value=full_history,
+            ),
+            patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=15.0),
+            patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix3m", return_value=None),
+            patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_info", return_value={}),
+            patch(
+                "stock_risk.scoring.scorer.MarketDataFetcher.fetch_options_signals",
+                return_value={
+                    "atm_iv": None, "put_skew": None, "iv_hv_ratio": None,
+                    "vix_term_structure": None,
+                },
+            ),
+        ):
+            scorer = RiskScorer()
+            gauge = scorer.score("AAPL", period="2y")["risk_score"]
+            timeseries = scorer.score_timeseries("AAPL", period="1mo")
+    finally:
+        settings.enable_ml = original
+
+    assert timeseries[-1]["risk_score"] == pytest.approx(gauge, abs=0.05), (
+        f"chart right edge {timeseries[-1]['risk_score']} != gauge {gauge} "
+        f"(enable_ml={enable_ml})"
+    )

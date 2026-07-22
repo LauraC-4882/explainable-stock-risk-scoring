@@ -156,13 +156,15 @@ see `shoot_admin` in `scripts/ui_shot.py`)
 - [ ] The gauge/large-number score at the top of the card and the
       right-hand edge of the "Daily Risk Score" line chart at the bottom
       of the *same* card are showing numbers in the same ballpark (within
-      a few points). **Fixed by [E1]**: `score_timeseries()` now computes
-      every day (including the last one) via the same
-      `risk_categories.composite_score()` the gauge uses, with the same
-      benchmark passthrough and the same VIX-regime weights applied to the
-      last day — not the old separate `_heuristic_score_row` heuristic
-      (deleted). Verified live: `curl .../api/score/TSLA` and
-      `curl .../api/score/TSLA/timeseries?period=6mo`'s last point now
-      return the *exact same* risk_score (diff 0, both TSLA and AAPL) —
-      not just "within a few points." If this item ever starts failing
+      a few points). Two fixes stack here. **[E1]** routed both paths through
+      the same `risk_categories.composite_score()` (deleting the old
+      `_heuristic_score_row` heuristic) with the same benchmark passthrough
+      and VIX-regime weights on the last day. **[E1-regression]** then closed
+      the gap the ML fusion gate ([A1]/[A2]) had reopened: the gauge reports
+      the ML-*fused* headline, so `score_timeseries()` now fuses the current ML
+      drawdown leg into its *final* point exactly as `score()` does (earlier
+      points stay pure composite — there is no cheap non-lookahead historical
+      ML series). Verified: `curl .../api/score/TSLA` and
+      `.../timeseries?period=6mo`'s last point return the *exact same*
+      risk_score (diff 0) with ML on or off. If this ever starts failing
       again, that's a real regression, not a known/expected gap.

@@ -118,10 +118,14 @@ Every rule here is a **must**, each with the command that proves you did it.
    # the pixels — a blank/broken/503 render, or a checklist item you can't
    # point at specific pixels to justify, is a fail, not a pass.
    ```
-   One checklist item (the gauge vs. daily-risk-score-chart consistency
-   check) is *expected* to currently fail — that's [E1]'s bug, not a
-   regression in whatever you just changed; don't "fix" the checklist by
-   deleting the item.
+   The gauge vs. daily-risk-score-chart consistency check now *passes*: the
+   chart's final point is fused with the ML drawdown leg the same way score()
+   fuses the gauge, so the right edge equals the gauge exactly (diff 0), with
+   ML on or off. This note previously said the check was expected to fail —
+   that was true after the [A1]/[A2] ML fusion gate opened and before the
+   [E1-regression] fix in score_timeseries (see the comment there and
+   tests/test_scorer.py::test_score_timeseries_last_point_matches_the_gauge).
+   If it starts disagreeing again, that's a real regression.
 
 3. **Every new `except Exception` must either log or explain the silence.**
    No bare `except Exception: pass`-style swallowing.
