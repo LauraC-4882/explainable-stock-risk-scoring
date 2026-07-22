@@ -24,6 +24,16 @@ export async function apiOutcomes(ticker) {
   return res.json()
 }
 
+// [G8] Historical bull/bear/expansion/recession/crisis timeline with this
+// stock's realised numbers inside each window. Fetched lazily on panel expand
+// — the endpoint pulls the ticker's full price history (period="max"), which
+// is heavier than the card's 2y.
+export async function apiHistoryEvents(ticker) {
+  const res = await fetch(`/api/score/${ticker}/history-events`)
+  if (!res.ok) throw new Error('Failed to fetch historical events')
+  return res.json()
+}
+
 // ── Auth / watchlist ─────────────────────────────────────────────────────────
 
 async function parseErrorOr(res, fallback) {

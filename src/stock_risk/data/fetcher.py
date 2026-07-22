@@ -55,12 +55,22 @@ _SLOW_TTL_SECONDS = 24 * 60 * 60
 
 # period string -> calendar days of history to request/keep. Padded above the
 # trading-day equivalent (roughly 0.69x calendar days) so weekends/holidays
-# never leave a request short; only "2y" and "5y" are actually reached by the
-# app today (see scorer.py's _fetch_period_for_display), the rest are kept
-# for completeness/robustness against future callers.
+# never leave a request short; only "2y", "5y" and "max" are actually reached
+# by the app today (see scorer.py's _fetch_period_for_display and
+# market_history's overlay), the rest are kept for completeness/robustness
+# against future callers.
+#
+# "max" is the [G8] historical-events overlay's period: it wants every bar the
+# ticker has, so a 2008 or 2000 event window can be measured against real
+# prices instead of reported as "outside available history". The 20000-day
+# entry is not a literal request — it exists so the two windowed sources map
+# "max" to "keep everything" rather than silently falling back to the 740-day
+# default: yfinance takes period="max" natively, akshare's normaliser trims to
+# a window this can never bind on, and Twelve Data's outputsize is separately
+# capped at its API maximum of 5000 bars (~20 years of daily data).
 _PERIOD_TO_DAYS = {
     "5d": 7, "1mo": 31, "3mo": 93, "6mo": 186,
-    "1y": 370, "2y": 740, "5y": 1830, "10y": 3660,
+    "1y": 370, "2y": 740, "5y": 1830, "10y": 3660, "max": 20000,
 }
 
 

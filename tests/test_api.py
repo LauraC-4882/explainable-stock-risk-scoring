@@ -197,6 +197,62 @@ def test_score_endpoint_with_real_trained_model_returns_valid_json(monkeypatch, 
     assert logged["ticker"] == "AAPL"
 
 
+def test_history_events_endpoint_returns_overlaid_timeline(monkeypatch):
+    """[G8] /api/score/{ticker}/history-events wiring: the endpoint fetches the
+    ticker's full history, runs it through the real overlay, and serves a
+    payload that is JSON-clean (CLAUDE.md rule 4) and states plainly that it
+    does not feed the risk score.
+
+    The synthetic series spans 2005-2023, so the GFC window is inside it and
+    the 1929 crash is not — the two branches (`coverage: "full"` vs `"none"`)
+    that the panel renders completely differently.
+    """
+    n = 4600
+    raw_df = _synthetic_raw_ohlcv(n=n)
+    raw_df.index = pd.bdate_range("2005-01-03", periods=n)
+    raw_df.index.name = "date"
+    monkeypatch.setattr(MarketDataFetcher, "fetch_history", lambda self, ticker, **kw: raw_df)
+
+    response = client.get("/api/score/AAPL/history-events")
+
+    assert response.status_code == 200
+    body = response.json()
+    json.dumps(body)  # a stray numpy scalar would have raised before this
+
+    assert body["contributes_to_risk_score"] is False
+    # Second bar, not the first: the preprocessor drops row 0, which has no
+    # prior close to compute a return against.
+    assert body["price_history_start"] == "2005-01-04"
+    assert body["events_total"] > 0
+
+    by_id = {e["id"]: e for e in body["events"]}
+    assert by_id["cri_gfc"]["coverage"] == "full"
+    assert by_id["cri_gfc"]["return_pct"] is not None
+    assert by_id["cri_1929"]["coverage"] == "none"
+    assert by_id["cri_1929"]["return_pct"] is None
+    # Every cited source key the events reference must resolve in the payload,
+    # or the UI renders a citation list with holes in it.
+    for event in body["events"]:
+        for key in event["sources"]:
+            assert key in body["sources"]
+
+
+def test_history_events_endpoint_maps_no_data_to_404_and_logs_real_errors():
+    with patch.object(MarketDataFetcher, "fetch_history", side_effect=ValueError("No data")):
+        assert client.get("/api/score/NOPE/history-events").status_code == 404
+
+    log_sink = []
+    handler_id = logger.add(lambda msg: log_sink.append(str(msg)), level="ERROR")
+    try:
+        with patch.object(MarketDataFetcher, "fetch_history", side_effect=RuntimeError("boom")):
+            response = client.get("/api/score/AAPL/history-events")
+    finally:
+        logger.remove(handler_id)
+
+    assert response.status_code == 500
+    assert any("boom" in m for m in log_sink), "a 500 here must be logged, not silent"
+
+
 def test_monitor_failure_does_not_fail_the_request(monkeypatch):
     """A monitoring failure (disk full, bad data, whatever) must never turn a
     successful score into a 500 — see ModelMonitor.record's own try/except

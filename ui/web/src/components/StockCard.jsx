@@ -6,6 +6,7 @@ import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
 import { inferMarket, riskColor } from '../utils'
 import CardSkeleton from './CardSkeleton'
+import HistoricalEventsPanel from './HistoricalEventsPanel'
 import KeyFactorTiles from './KeyFactorTiles'
 import MetricTiles from './MetricTiles'
 import MLSignalPanel from './MLSignalPanel'
@@ -260,6 +261,14 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
               together rather than stretching the stagger by another beat. */}
           <Panel delay={5} hover className="[&>div]:border-b-0">
             <RegimeSignalsPanel regimeTechnicals={score.regime_technicals} />
+          </Panel>
+
+          {/* [G8] Historical bull/bear/crisis timeline. Last of the
+              non-scoring block for the same reason RegimeSignalsPanel is in
+              it — and further down still, because it is the only panel here
+              that isn't about the stock's *present* state at all. */}
+          <Panel delay={5} hover className="[&>div]:border-b-0">
+            <HistoricalEventsPanel ticker={ticker} />
           </Panel>
 
           <Panel delay={6} hover>

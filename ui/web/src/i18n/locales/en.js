@@ -312,6 +312,37 @@ export default {
     disclaimer:
       'Historical frequencies for this stock only — past patterns, not probabilities of what happens next, and not investment advice.',
   },
+  history: {
+    toggle: 'Bull, bear and crisis history',
+    intro:
+      'The named bull markets, bear markets, economic expansions, recessions and financial crises of the past century — and what this stock actually did inside each window it was trading through. The descriptions are historical context; every number is measured from this stock’s own price series, not quoted from anywhere.',
+    noScoreImpact:
+      'None of this feeds the risk score. Nothing on this panel is an input to the number at the top of the card — it is background you read alongside it. Two reasons: no backtest shows that a stock’s 2008 drawdown predicts its risk today, and only stocks that survived a crisis have a drawdown to show, so scoring on it would rank survivors against survivors.',
+    coverage:
+      '{ticker} price history begins {start} · {covered} of {total} listed events overlap it',
+    ongoing: 'now',
+    partial: 'listed mid-event',
+    noneCovered: 'No events of the selected types overlap this stock’s price history.',
+    priorToggle: '{count} events before {ticker} began trading',
+    kind: {
+      bull: 'Bull market',
+      bear: 'Bear market',
+      expansion: 'Expansion',
+      recession: 'Recession',
+      crisis: 'Crisis',
+    },
+    stat: {
+      return: 'Return in window',
+      drawdown: 'Worst drawdown',
+      vol: 'Realised volatility',
+      days: 'Trading days',
+    },
+    takeaway:
+      'What to read here: the same event moves different stocks by wildly different amounts, and the drawdown column is usually the more revealing one — a stock can finish a crisis window roughly flat having fallen by half in the middle of it.',
+    sources: 'Sources:',
+    disclaimer:
+      'Historical record and this stock’s realised past behaviour — not a forecast, not a claim that any of these events will recur, and not investment advice.',
+  },
   auth: {
     signIn: 'Sign in',
     signUp: 'Create account',
