@@ -43,7 +43,18 @@ def _fake_scorecard(ticker: str = "AAPL") -> dict:
         "risk_label": "MODERATE",
         "risk_note": "test note",
         "risk_breakdown": {
-            "volatility": {"score": 50.0, "weight": 0.25, "metrics": {"vol_21d": 50.0}},
+            # two_sided/contribution are defaulted on RiskCategoryMetric, so
+            # omitting them here would make the response come back with the
+            # defaults filled in and no longer compare equal to this dict —
+            # spelled out so the byte-for-byte assertion below stays exact
+            # rather than being loosened to a subset check.
+            "volatility": {
+                "score": 50.0,
+                "weight": 0.25,
+                "metrics": {"vol_21d": 50.0},
+                "two_sided": False,
+                "contribution": 50.0,
+            },
         },
         "market_regime": {"vix": 15.0, "regime": "calm", "market": "us", "benchmark": "SPY"},
         "ml_drawdown_probability": None,

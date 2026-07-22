@@ -160,12 +160,31 @@ class RiskScorer:
             logger.debug(f"No pretrained DownsideRiskModel artefact found: {exc}")
             return None
 
+    # Periods long enough to serve as a percentile-ranking baseline on their
+    # own; anything shorter is floored to "2y" in score() below.
+    _BASELINE_PERIODS = frozenset({"2y", "5y", "10y", "max"})
+
     def score(self, ticker: str, period: str = "2y") -> dict:
-        """Return a complete risk scorecard dict for *ticker*."""
+        """Return a complete risk scorecard dict for *ticker*.
+
+        *period* is the percentile-ranking baseline, not a display window, and
+        is floored at "2y" — see the comment on the fetch below.
+        """
         logger.info(f"Scoring {ticker}")
 
         market = market_for_ticker(ticker)
         benchmark_ticker = MARKET_BENCHMARKS.get(market, "SPY")
+
+        # The composite ranks today's metrics within this stock's OWN history,
+        # so the fetch length is the ranking baseline itself. The UI's
+        # timeframe selector goes down to "5d"; ranking one observation
+        # against five falls below risk_categories._MIN_HISTORY, which drops
+        # every metric and silently returns the neutral 50 fallback for every
+        # stock — a plausible-looking number with no information in it. The
+        # baseline is therefore floored at 2y independently of any display
+        # period the caller passes, matching the identical floor
+        # score_timeseries applies and keeping the two paths comparable.
+        period = period if period in self._BASELINE_PERIODS else "2y"
 
         raw = self.fetcher.fetch_history(ticker, period=period)
         df = self.preprocessor.process(raw)

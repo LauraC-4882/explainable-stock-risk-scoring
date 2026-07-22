@@ -34,6 +34,40 @@ def test_resolve_beta_none_when_both_missing():
     assert _resolve_beta(None, float("nan")) is None
 
 
+@pytest.mark.parametrize("requested", ["5d", "1mo", "3mo", "6mo", "1y", "bogus"])
+def test_score_floors_ranking_baseline_at_two_years(requested):
+    """score()'s `period` IS the percentile-ranking baseline (it's the fetch
+    length, and the composite ranks today's metrics within whatever history
+    it gets back). The UI's timeframe selector goes down to "5d"; without the
+    floor, ranking one observation against five falls below
+    risk_categories._MIN_HISTORY, every metric gets dropped, and the scorer
+    returns the neutral 50 fallback for every stock — a plausible-looking
+    number carrying no information. Assert on the fetch itself rather than
+    the resulting score, since that's the mechanism that would silently
+    regress if the floor were removed.
+    """
+    with patch("stock_risk.scoring.scorer.RiskScorer.__init__", return_value=None):
+        scorer = RiskScorer()
+    with patch.object(scorer, "fetcher", create=True) as mock_fetcher:
+        mock_fetcher.fetch_history.side_effect = ValueError("stop after the fetch")
+        with pytest.raises(ValueError):
+            scorer.score("AAPL", period=requested)
+
+    assert mock_fetcher.fetch_history.call_args.kwargs["period"] == "2y"
+
+
+@pytest.mark.parametrize("requested", ["2y", "5y", "10y", "max"])
+def test_score_passes_through_periods_long_enough_to_rank_against(requested):
+    with patch("stock_risk.scoring.scorer.RiskScorer.__init__", return_value=None):
+        scorer = RiskScorer()
+    with patch.object(scorer, "fetcher", create=True) as mock_fetcher:
+        mock_fetcher.fetch_history.side_effect = ValueError("stop after the fetch")
+        with pytest.raises(ValueError):
+            scorer.score("AAPL", period=requested)
+
+    assert mock_fetcher.fetch_history.call_args.kwargs["period"] == requested
+
+
 def test_enable_ml_false_skips_model_load_without_importing_downside_risk():
     """[F2]: the sys.modules isolation itself can only be proven in a fresh
     subprocess (see the issue's own verification command) since other tests

@@ -116,31 +116,38 @@
   },
   "risk_breakdown": {
     "drawdown": {
+      "contribution": 94.6,
       "metrics": {
         "drawdown": 99.7,
         "drawdown_duration": 99.9,
         "max_drawdown_63d": 88.2
       },
       "score": 94.6,
+      "two_sided": false,
       "weight": 0.2
     },
     "liquidity": {
+      "contribution": 83.2,
       "metrics": {
         "amihud_illiq_21d": 94.7,
         "dollar_volume_21d": 93.2,
         "volume_vol_21d": 57.3
       },
       "score": 83.2,
+      "two_sided": true,
       "weight": 0.15
     },
     "sensitivity": {
+      "contribution": 50.0,
       "metrics": {
         "beta_63d": 50.0
       },
       "score": 50.0,
+      "two_sided": true,
       "weight": 0.1
     },
     "tail": {
+      "contribution": 67.3,
       "metrics": {
         "cvar_95_21d": 84.9,
         "kurt_63d": 35.5,
@@ -148,15 +155,18 @@
         "var_95_21d": 88.5
       },
       "score": 67.3,
+      "two_sided": false,
       "weight": 0.3
     },
     "volatility": {
+      "contribution": 79.0,
       "metrics": {
         "downside_dev_63d": 93.6,
         "vol_21d": 91.6,
         "vol_63d": 54.1
       },
       "score": 79.0,
+      "two_sided": false,
       "weight": 0.25
     }
   },
@@ -185,31 +195,38 @@
         "narrative": "If 2008 Global Financial Crisis conditions recurred, this stock's risk score would move from 74.4 to 86.8 (+12.4).",
         "stressed_categories": {
           "drawdown": {
+            "contribution": 100.0,
             "metrics": {
               "drawdown": 100.0,
               "drawdown_duration": 99.9,
               "max_drawdown_63d": 100.0
             },
             "score": 100.0,
+            "two_sided": false,
             "weight": 0.15
           },
           "liquidity": {
+            "contribution": 98.6,
             "metrics": {
               "amihud_illiq_21d": 100.0,
               "dollar_volume_21d": 93.2,
               "volume_vol_21d": 100.0
             },
             "score": 98.6,
+            "two_sided": true,
             "weight": 0.15
           },
           "sensitivity": {
+            "contribution": 50.0,
             "metrics": {
               "beta_63d": 50.0
             },
             "score": 50.0,
+            "two_sided": true,
             "weight": 0.1
           },
           "tail": {
+            "contribution": 80.0,
             "metrics": {
               "cvar_95_21d": 100.0,
               "kurt_63d": 0.0,
@@ -217,15 +234,18 @@
               "var_95_21d": 100.0
             },
             "score": 80.0,
+            "two_sided": false,
             "weight": 0.4
           },
           "volatility": {
+            "contribution": 100.0,
             "metrics": {
               "downside_dev_63d": 100.0,
               "vol_21d": 100.0,
               "vol_63d": 100.0
             },
             "score": 100.0,
+            "two_sided": false,
             "weight": 0.2
           }
         },
@@ -238,31 +258,38 @@
         "narrative": "If 2020 COVID-19 Crash conditions recurred, this stock's risk score would move from 74.4 to 86.8 (+12.4).",
         "stressed_categories": {
           "drawdown": {
+            "contribution": 100.0,
             "metrics": {
               "drawdown": 100.0,
               "drawdown_duration": 99.9,
               "max_drawdown_63d": 100.0
             },
             "score": 100.0,
+            "two_sided": false,
             "weight": 0.15
           },
           "liquidity": {
+            "contribution": 98.6,
             "metrics": {
               "amihud_illiq_21d": 100.0,
               "dollar_volume_21d": 93.2,
               "volume_vol_21d": 100.0
             },
             "score": 98.6,
+            "two_sided": true,
             "weight": 0.15
           },
           "sensitivity": {
+            "contribution": 50.0,
             "metrics": {
               "beta_63d": 50.0
             },
             "score": 50.0,
+            "two_sided": true,
             "weight": 0.1
           },
           "tail": {
+            "contribution": 80.0,
             "metrics": {
               "cvar_95_21d": 100.0,
               "kurt_63d": 0.0,
@@ -270,15 +297,18 @@
               "var_95_21d": 100.0
             },
             "score": 80.0,
+            "two_sided": false,
             "weight": 0.4
           },
           "volatility": {
+            "contribution": 100.0,
             "metrics": {
               "downside_dev_63d": 100.0,
               "vol_21d": 100.0,
               "vol_63d": 100.0
             },
             "score": 100.0,
+            "two_sided": false,
             "weight": 0.2
           }
         },
@@ -291,31 +321,38 @@
         "narrative": "If 2022 Rate Hike Bear Market conditions recurred, this stock's risk score would move from 76.3 to 90.0 (+13.7).",
         "stressed_categories": {
           "drawdown": {
+            "contribution": 100.0,
             "metrics": {
               "drawdown": 100.0,
               "drawdown_duration": 99.9,
               "max_drawdown_63d": 100.0
             },
             "score": 100.0,
+            "two_sided": false,
             "weight": 0.2
           },
           "liquidity": {
+            "contribution": 98.6,
             "metrics": {
               "amihud_illiq_21d": 100.0,
               "dollar_volume_21d": 93.2,
               "volume_vol_21d": 100.0
             },
             "score": 98.6,
+            "two_sided": true,
             "weight": 0.15
           },
           "sensitivity": {
+            "contribution": 50.0,
             "metrics": {
               "beta_63d": 50.0
             },
             "score": 50.0,
+            "two_sided": true,
             "weight": 0.1
           },
           "tail": {
+            "contribution": 83.9,
             "metrics": {
               "cvar_95_21d": 100.0,
               "kurt_63d": 21.6,
@@ -323,15 +360,18 @@
               "var_95_21d": 100.0
             },
             "score": 83.9,
+            "two_sided": false,
             "weight": 0.3
           },
           "volatility": {
+            "contribution": 100.0,
             "metrics": {
               "downside_dev_63d": 100.0,
               "vol_21d": 100.0,
               "vol_63d": 100.0
             },
             "score": 100.0,
+            "two_sided": false,
             "weight": 0.25
           }
         },

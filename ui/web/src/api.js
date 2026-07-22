@@ -3,6 +3,12 @@ export async function apiSearch(query) {
   return res.ok ? res.json() : []
 }
 
+// Deliberately takes no `period`: the composite is a percentile rank against
+// a fixed ~2y baseline (scoring/scorer.py floors it), so the card's score is
+// the same answer for every timeframe. Passing one would cost a full
+// re-score — yfinance fetch, ML, options chain — to return an identical
+// number on every timeframe click. The window-dependent figures come from
+// apiTimeseries instead (see WindowStats in StockCard.jsx).
 export async function apiScore(ticker) {
   const res = await fetch(`/api/score/${ticker}`)
   if (!res.ok) {

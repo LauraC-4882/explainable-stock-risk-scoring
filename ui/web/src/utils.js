@@ -24,6 +24,44 @@ export function inferMarket(ticker) {
   return 'us'
 }
 
+// Summary of the selected timeframe, derived entirely from the timeseries the
+// card already fetched — no extra request, and it updates the instant the
+// timeframe changes. Every figure here is genuinely window-scoped, unlike the
+// composite score and its 21d/63d metrics, which are ranked against a fixed
+// ~2y baseline and so read the same at every timeframe by design.
+export function windowStats(timeseries) {
+  if (!Array.isArray(timeseries) || timeseries.length === 0) return null
+
+  const first = timeseries[0]
+  const last = timeseries[timeseries.length - 1]
+  const closes = timeseries.map((d) => d.close).filter((c) => c != null)
+  const risks = timeseries.map((d) => d.risk_score).filter((r) => r != null)
+  if (closes.length === 0) return null
+
+  // Max peak-to-trough decline *within the window*, walked in order — not the
+  // backend's rolling 63-day max_drawdown, which ignores the window entirely.
+  let peak = closes[0]
+  let maxDrawdown = 0
+  for (const c of closes) {
+    if (c > peak) peak = c
+    const dd = c / peak - 1
+    if (dd < maxDrawdown) maxDrawdown = dd
+  }
+
+  return {
+    start: first.date,
+    end: last.date,
+    sessions: timeseries.length,
+    priceChange: closes[0] ? closes[closes.length - 1] / closes[0] - 1 : null,
+    high: Math.max(...closes),
+    low: Math.min(...closes),
+    maxDrawdown,
+    riskMin: risks.length ? Math.min(...risks) : null,
+    riskMax: risks.length ? Math.max(...risks) : null,
+    riskAvg: risks.length ? risks.reduce((a, b) => a + b, 0) / risks.length : null,
+  }
+}
+
 export function debounce(fn, ms) {
   let timer
   return (...args) => {

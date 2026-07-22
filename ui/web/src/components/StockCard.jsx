@@ -1,10 +1,10 @@
 import { Star, WarningCircle, X } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { apiScore, apiTimeseries } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
-import { inferMarket, riskColor } from '../utils'
+import { fmt, inferMarket, riskColor, windowStats } from '../utils'
 import CardSkeleton from './CardSkeleton'
 import KeyFactorTiles from './KeyFactorTiles'
 import MetricTiles from './MetricTiles'
@@ -30,6 +30,10 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   const [timeseries, setTimeseries] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Separate from `loading`: a timeframe switch refreshes only the
+  // window-scoped sections, so the card must not fall back to the full
+  // skeleton and throw away the score hero that isn't changing.
+  const [tsLoading, setTsLoading] = useState(false)
 
   // Initial load — fires once per ticker.
   useEffect(() => {
@@ -54,20 +58,31 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticker])
 
-  // Timeframe change — refresh the timeseries only, without a full reload.
+  // Timeframe change — refetch the timeseries only. The score itself is
+  // deliberately NOT refetched: it ranks against a fixed ~2y baseline, so it
+  // would come back identical (see api.js: apiScore). Everything that does
+  // legitimately depend on the window — both charts, the window-summary tiles
+  // and every date-range caption — is derived from this one response, so it
+  // all updates together off this single request.
   useEffect(() => {
     if (!score) return
     let cancelled = false
+    setTsLoading(true)
     apiTimeseries(ticker, period)
       .then((ts) => {
         if (!cancelled) setTimeseries(ts)
       })
       .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setTsLoading(false)
+      })
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period])
+
+  const stats = useMemo(() => windowStats(timeseries), [timeseries])
 
   const color = score ? riskColor(score.risk_label) : '#9d7cb8'
   const subtitle =
@@ -271,16 +286,47 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
         </div>
       </div>
 
-      {/* ── Charts row, full width ──────────────────────────────────── */}
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
-        <Panel delay={6} hover className="px-3 pb-2.5 pt-2.5">
-          <ChartLabel>{t('charts.price')}</ChartLabel>
-          <PriceChart timeseries={timeseries} color={color} />
-        </Panel>
-        <Panel delay={7} hover className="px-3 pb-2.5 pt-2.5">
-          <ChartLabel>{t('charts.riskScore')}</ChartLabel>
-          <RiskChart timeseries={timeseries} />
-        </Panel>
+      {/* ── Selected-timeframe section ──────────────────────────────────
+          Everything from here down is scoped to the timeframe selector, and
+          re-renders as a unit whenever it changes. The heading names the
+          actual first and last session in the data below it — not just the
+          "1M" label — because the real span depends on trading days,
+          holidays and how much history the provider returned, so "1M" alone
+          was never a reliable statement of what the charts covered. */}
+      <div
+        className={`mt-7 transition-opacity duration-200 ${tsLoading ? 'opacity-50' : 'opacity-100'}`}
+      >
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-border pt-4">
+          <div className="heading-flourish text-base">
+            {t('window.title', { ticker, period: t(`timeframe.${period}`) })}
+          </div>
+          <div className="font-mono text-[0.7rem] tabular-nums text-muted max-sm:text-[0.8rem]">
+            {stats
+              ? t('window.range', {
+                  start: stats.start,
+                  end: stats.end,
+                  sessions: stats.sessions,
+                })
+              : t('card.fetching')}
+          </div>
+        </div>
+
+        {stats && (
+          <Panel delay={6} hover className="[&>div]:border-b-0">
+            <WindowStats stats={stats} />
+          </Panel>
+        )}
+
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <Panel delay={6} hover className="px-3 pb-2.5 pt-2.5">
+            <ChartLabel>{t('charts.price')}</ChartLabel>
+            <PriceChart timeseries={timeseries} color={color} />
+          </Panel>
+          <Panel delay={7} hover className="px-3 pb-2.5 pt-2.5">
+            <ChartLabel>{t('charts.riskScore')}</ChartLabel>
+            <RiskChart timeseries={timeseries} />
+          </Panel>
+        </div>
       </div>
     </div>
   )
@@ -299,6 +345,53 @@ function Panel({ children, className = '', delay = 0, hover = false }) {
       style={{ animationDelay: `${delay * 60}ms`, animationFillMode: 'backwards' }}
     >
       {children}
+    </div>
+  )
+}
+
+// The figures that genuinely change with the timeframe. Kept visually and
+// textually distinct from the score hero above: those numbers are ranked
+// against a fixed ~2y baseline and read the same at every timeframe, so
+// putting window-scoped figures beside them without saying so would imply the
+// score itself moved when the user clicked "1M".
+function WindowStats({ stats }) {
+  const { t } = useLanguage()
+  const up = stats.priceChange != null && stats.priceChange >= 0
+
+  const items = [
+    {
+      key: 'priceChange',
+      value: stats.priceChange == null ? '—' : fmt(stats.priceChange, 100, 2, '%'),
+      tone: stats.priceChange == null ? 'text-slate-200' : up ? 'text-up' : 'text-down',
+    },
+    { key: 'high', value: fmt(stats.high, 1, 2) },
+    { key: 'low', value: fmt(stats.low, 1, 2) },
+    { key: 'maxDrawdown', value: fmt(stats.maxDrawdown, 100, 2, '%'), tone: 'text-down' },
+    { key: 'riskRange', value: `${Math.round(stats.riskMin)}–${Math.round(stats.riskMax)}` },
+    { key: 'riskAvg', value: Math.round(stats.riskAvg) },
+  ]
+
+  return (
+    <div className="px-4 py-4 sm:px-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {items.map(({ key, value, tone }) => (
+          <div key={key} className="panel-tile px-2.5 py-2">
+            <div className="text-[0.62rem] uppercase tracking-wide text-muted max-sm:text-[0.74rem]">
+              {t(`window.stat.${key}`)}
+            </div>
+            <div
+              className={`mt-1 font-mono text-sm font-extrabold tabular-nums max-sm:text-base ${
+                tone || 'text-slate-200'
+              }`}
+            >
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2.5 text-[0.68rem] leading-relaxed text-muted max-sm:text-[0.78rem]">
+        {t('window.note')}
+      </p>
     </div>
   )
 }

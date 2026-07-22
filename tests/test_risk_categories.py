@@ -71,6 +71,74 @@ def test_composite_score_accepts_custom_weights():
     assert 0 <= panic["composite_score"] <= 100
 
 
+def test_two_sided_categories_are_floored_at_neutral():
+    """sensitivity/liquidity may raise the composite but never lower it.
+
+    The whole point of the two-sided treatment: a defensive, heavily-traded
+    stock used to bank a discount across 30% of the composite purely for
+    having a low beta and tight spreads, neither of which makes the position
+    safer to hold.
+    """
+    for cat in risk_categories.TWO_SIDED_CATEGORIES:
+        assert risk_categories.composite_contribution(cat, 5.0) == 50.0
+        assert risk_categories.composite_contribution(cat, 49.9) == 50.0
+        assert risk_categories.composite_contribution(cat, 50.0) == 50.0
+        # Above neutral it still contributes at full strength — the high end
+        # of these categories is a real risk and is NOT damped.
+        assert risk_categories.composite_contribution(cat, 88.0) == 88.0
+        assert risk_categories.composite_contribution(cat, None) is None
+
+
+def test_one_sided_categories_are_not_floored():
+    for cat in ("volatility", "tail", "drawdown"):
+        assert cat not in risk_categories.TWO_SIDED_CATEGORIES
+        assert risk_categories.composite_contribution(cat, 5.0) == 5.0
+
+
+def test_composite_reports_raw_score_and_floored_contribution_separately():
+    """The card shows the raw percentile; the composite uses the floored one.
+    They must both be present and must diverge exactly when a two-sided
+    category reads below neutral — the UI's `two_sided`/`contribution` flags
+    (KeyFactorTiles.jsx) key off precisely this.
+    """
+    df = _stressed_df(seed=3)
+    result = risk_categories.composite_score(df)
+
+    for cat, payload in result["categories"].items():
+        assert payload["two_sided"] == (cat in risk_categories.TWO_SIDED_CATEGORIES)
+        if payload["score"] is None:
+            assert payload["contribution"] is None
+            continue
+        if payload["two_sided"]:
+            assert payload["contribution"] == pytest.approx(max(payload["score"], 50.0), abs=0.05)
+        else:
+            assert payload["contribution"] == payload["score"]
+
+
+def test_flooring_cannot_lower_the_composite():
+    """Constructed check that the floor only ever moves the composite up:
+    scoring the same frame with the floor disabled must never come out
+    higher. Guards against a future edit inverting the comparison in
+    composite_contribution — a bug the shape assertions above would miss.
+    """
+    df = _stressed_df(seed=11)
+    result = risk_categories.composite_score(df)
+
+    weighted_raw = 0.0
+    weighted_floored = 0.0
+    weight_total = 0.0
+    for cat, payload in result["categories"].items():
+        if payload["score"] is None:
+            continue
+        weighted_raw += payload["score"] * payload["weight"]
+        weighted_floored += payload["contribution"] * payload["weight"]
+        weight_total += payload["weight"]
+
+    assert weight_total > 0
+    assert weighted_floored >= weighted_raw
+    assert result["composite_score"] == pytest.approx(weighted_floored / weight_total, abs=0.05)
+
+
 def test_composite_score_accepts_latest_override():
     """A modified `latest` row (e.g. a stress-test shock) must be ranked
     against the *same* historical distribution as the real row, via the same

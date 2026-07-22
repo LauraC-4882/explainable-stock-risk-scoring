@@ -14,3 +14,16 @@ export const CATEGORY_ICONS = {
   sensitivity: LinkSimple,
   liquidity: Drop,
 }
+
+// Two-sided categories (backend flags them via `two_sided` — see
+// scoring/risk_categories.TWO_SIDED_CATEGORIES) reading below neutral were
+// floored out of the composite: they contributed nothing rather than earning
+// the stock a discount. Both the tiles and the explainer bars have to agree
+// on that, so the rule and its colour live here instead of being reimplemented
+// in each — they disagreed on the first pass, with the tile showing "no
+// effect" in grey right beside a reassuring green bar for the same category.
+export const NEUTRAL_COLOR = '#8fa8c4'
+
+export function isFlooredOut(cat) {
+  return Boolean(cat?.two_sided) && cat?.score != null && cat.score < 50
+}

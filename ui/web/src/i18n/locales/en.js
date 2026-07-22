@@ -59,7 +59,11 @@ export default {
       elevated: 'Elevated',
       moderate: 'Moderate',
       low: 'Low',
+      // Two-sided factors reading below neutral: they added nothing to the
+      // score, which is not the same as having lowered it.
+      none: 'No effect',
     },
+    flooredNote: 'Left the score unchanged — a low reading here isn’t a safety margin.',
   },
   explainer: {
     toggle: 'What does this score mean?',
@@ -67,6 +71,9 @@ export default {
       'We compare this stock only with its own past two years — never with other stocks. 0 means “about as calm as this stock ever gets”, 100 means “about as wild as it ever gets”. A high score doesn’t mean it’s a bad stock, and it doesn’t mean it’s about to fall — it means it’s moving around more than this particular stock usually does.',
     makeup: 'What makes up the score',
     weight: 'weight',
+    // Shown when a two-sided factor read below neutral and was floored: the
+    // bar and the composite used {value}, not the raw percentile beside it.
+    counted: 'counted as {value}',
   },
   // Each category carries `plainShort` — the everyday question it answers, in
   // a handful of words. It renders directly on the tile so the meaning is
@@ -176,6 +183,40 @@ export default {
       elevated: 'Higher than this stock’s own normal — one of the main things pushing the score up.',
       high: 'Near the highest this stock has ever been — a main reason the score sits where it does.',
     },
+    // Two-sided factors (see risk_categories.TWO_SIDED_CATEGORIES): their high
+    // end is a genuine risk, their low end is a trade-off, not a win. The
+    // generic `factor.*` copy above frames low as "quieter, keeping the score
+    // down", which for these two is simply the wrong reading — hence a
+    // separate set that states both sides at every level.
+    twoSided: {
+      sensitivity: {
+        low: 'Barely follows the market right now. That cushions market-wide selloffs — and it also means this one tends to sit out market-wide rallies.',
+        moderate: 'Follows the market about as closely as it usually does — it will feel broad moves in both directions.',
+        elevated: 'Tracking the market more tightly than usual, so a market-wide drop lands harder here than it normally would.',
+        high: 'About as tied to the market as it ever gets — broad selloffs hit this near their full force.',
+      },
+      liquidity: {
+        low: 'Trades very easily at the moment — cheap to get in and out of. That’s a convenience, not a reason the position is any safer to hold.',
+        moderate: 'Trades about as easily as it usually does.',
+        elevated: 'Harder to trade than usual — moving a position costs more in price impact than it normally would.',
+        high: 'About as hard to trade as it ever gets: thin volume, so exiting can move the price against you.',
+      },
+    },
+  },
+  // The selected-timeframe section (StockCard.jsx). Deliberately worded to
+  // keep the window-scoped figures separate from the score above them.
+  window: {
+    title: '{ticker} · {period} window',
+    range: '{start} → {end} · {sessions} sessions',
+    stat: {
+      priceChange: 'Change',
+      high: 'High',
+      low: 'Low',
+      maxDrawdown: 'Max drop',
+      riskRange: 'Risk range',
+      riskAvg: 'Avg risk',
+    },
+    note: 'These figures cover the selected window only. The risk score above is ranked against roughly two years of history no matter which timeframe is selected, so it stays comparable when you switch — it isn’t stale.',
   },
   // Signed-in watchlist board (WatchlistBoard.jsx). "Up = warning" wording is
   // market-independent on purpose — see the component's colour-semantics note.

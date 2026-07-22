@@ -7,6 +7,10 @@ hand-picked threshold (e.g. "vol > 40% => high risk"). Category scores are a
 weighted blend of their component percentiles, and the composite score is a
 weighted blend of the five categories. Weights follow a standard market /
 tail / drawdown / sensitivity / liquidity risk decomposition.
+
+Two of the five categories are asymmetric in what a *low* reading means to an
+investor and so enter the composite floored at neutral — see
+TWO_SIDED_CATEGORIES for the full rationale.
 """
 
 from __future__ import annotations
@@ -71,7 +75,44 @@ REGIME_WEIGHTS: dict[str, dict[str, float]] = {
     },
 }
 
+# Not every category is "lower percentile = safer" from an investor's point of
+# view, and treating all five symmetrically was flattering the headline score.
+#
+# volatility / tail / drawdown are ONE-SIDED: a low percentile genuinely means
+# the stock is calmer than its own normal, and that is unambiguously the safer
+# state. Rewarding it in the composite is correct.
+#
+# sensitivity (beta) and liquidity are TWO-SIDED: their *high* end is a real
+# risk — a high-beta name amplifies market-wide drawdowns, an illiquid one is
+# expensive to exit — but their *low* end is not a virtue. A near-zero beta
+# also means the stock sits out market rallies, and an unusually low Amihud
+# ratio just means "cheap to trade", which is a desirable property, not a
+# safer position. Scored symmetrically, a boring, heavily-traded stock banked
+# a large discount across 30% of the composite purely for being boring.
+#
+# So a two-sided category contributes only its EXCESS over neutral: it can
+# push the composite up when genuinely elevated, and never pull it down.
+# `categories[cat]["score"]` still reports the raw percentile (the UI shows
+# and explains it in both directions) — only the composite *contribution* is
+# floored, which is why both numbers are returned separately.
+TWO_SIDED_CATEGORIES: frozenset[str] = frozenset({"sensitivity", "liquidity"})
+
+NEUTRAL_PERCENTILE = 50.0
+
 _MIN_HISTORY = 20  # minimum non-NaN observations before a percentile is trusted
+
+
+def composite_contribution(category: str, score: Optional[float]) -> Optional[float]:
+    """The value *category* actually contributes to the composite.
+
+    Identical to *score* for one-sided categories; floored at
+    NEUTRAL_PERCENTILE for two-sided ones (see TWO_SIDED_CATEGORIES).
+    """
+    if score is None:
+        return None
+    if category in TWO_SIDED_CATEGORIES:
+        return max(score, NEUTRAL_PERCENTILE)
+    return score
 
 
 def regime_for_vix(vix: Optional[float]) -> str:
@@ -161,13 +202,20 @@ def composite_score(
     weight_total = 0.0
     for cat, weight in weights.items():
         score, percentiles = category_score(df, cat, latest=latest)
+        contribution = composite_contribution(cat, score)
         categories[cat] = {
             "score": round(score, 1) if score is not None else None,
             "weight": weight,
+            # Two-sided categories can raise the composite but never lower it;
+            # `contribution` is what the composite actually used, `score` is
+            # the raw percentile the card displays. They differ exactly when a
+            # two-sided category reads below neutral.
+            "two_sided": cat in TWO_SIDED_CATEGORIES,
+            "contribution": round(contribution, 1) if contribution is not None else None,
             "metrics": percentiles,
         }
-        if score is not None:
-            weighted_sum += score * weight
+        if contribution is not None:
+            weighted_sum += contribution * weight
             weight_total += weight
 
     composite = (weighted_sum / weight_total) if weight_total > 0 else 50.0

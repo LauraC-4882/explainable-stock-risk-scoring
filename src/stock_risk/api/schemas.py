@@ -34,6 +34,11 @@ class RiskCategoryMetric(BaseModel):
     score: Optional[float] = None
     weight: float
     metrics: dict[str, float]
+    # Defaulted rather than required: stress_test.py and any stored/older
+    # breakdown built before scoring/risk_categories.py grew the two-sided
+    # treatment still validate against this model.
+    two_sided: bool = False
+    contribution: Optional[float] = None
 
 
 class FusionComponent(BaseModel):

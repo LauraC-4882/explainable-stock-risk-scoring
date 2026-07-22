@@ -32,7 +32,11 @@ export default function App() {
   function addStock(rawTicker) {
     const ticker = rawTicker.toUpperCase().trim()
     if (!ticker) return
-    setTickers((prev) => (prev.includes(ticker) ? prev : [...prev, ticker]))
+    // Newest first: a freshly searched stock lands at the top of the stack
+    // rather than below however many dashboards are already open, which on a
+    // full-height bento card meant scrolling past everything to reach the one
+    // you just asked for.
+    setTickers((prev) => (prev.includes(ticker) ? prev : [ticker, ...prev]))
   }
 
   function removeStock(ticker) {

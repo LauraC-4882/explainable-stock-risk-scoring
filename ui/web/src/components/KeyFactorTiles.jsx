@@ -1,4 +1,4 @@
-import { CATEGORY_ICONS, CATEGORY_ORDER } from '../data/categoryMeta'
+import { CATEGORY_ICONS, CATEGORY_ORDER, NEUTRAL_COLOR, isFlooredOut } from '../data/categoryMeta'
 import { factorReading } from '../explain/readings'
 import { useLanguage } from '../i18n/LanguageContext'
 import InfoTooltip from './InfoTooltip'
@@ -9,6 +9,14 @@ const SEVERITY_COLOR = (score) => {
   if (score >= 25) return '#fbbf24'
   return '#34d399'
 }
+
+// A floored-out two-sided category never renders green. Green is this card's
+// "reassuringly safe" colour, and a low reading here is not that: a near-zero
+// beta means the stock sits out rallies as well as selloffs, and very low
+// illiquidity just means it trades cheaply. Grey-blue reads as "nothing to
+// flag" rather than "good", and the tile says so in words too rather than
+// leaving the colour to carry it.
+const tileColor = (cat) => (isFlooredOut(cat) ? NEUTRAL_COLOR : SEVERITY_COLOR(cat.score))
 
 const SEVERITY_KEY = (score) => {
   if (score >= 75) return 'high'
@@ -35,7 +43,12 @@ export default function KeyFactorTiles({ breakdown }) {
       <div className="heading-flourish mb-2.5 text-base">{t('keyFactors.title')}</div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {categories.map(([key, cat]) => {
-          const color = SEVERITY_COLOR(cat.score)
+          const twoSided = Boolean(cat.two_sided)
+          // Below-neutral two-sided readings are floored out of the composite
+          // by the backend, so the tile says the score was left unchanged
+          // instead of letting a low number look like it earned a discount.
+          const flooredOut = isFlooredOut(cat)
+          const color = tileColor(cat)
           const Icon = CATEGORY_ICONS[key]
           return (
             <div
@@ -74,13 +87,27 @@ export default function KeyFactorTiles({ breakdown }) {
                 className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[0.58rem] font-bold uppercase tracking-wide"
                 style={{ color, backgroundColor: `${color}22` }}
               >
-                {t(`keyFactors.impact.${SEVERITY_KEY(cat.score)}`)}
+                {flooredOut
+                  ? t('keyFactors.impact.none')
+                  : t(`keyFactors.impact.${SEVERITY_KEY(cat.score)}`)}
               </div>
               {/* Deterministic one-line reading of where this percentile sits
-                  in the stock's own history — see explain/readings.js. */}
+                  in the stock's own history — see explain/readings.js.
+                  Two-sided categories get their own wording: the generic
+                  "quieter than normal, one of the things keeping the score
+                  down" copy is actively wrong for them. */}
               <p className="mt-2 text-[0.68rem] leading-relaxed text-muted max-sm:text-[0.78rem]">
-                {t(`readings.factor.${factorReading(cat.score)}`)}
+                {t(
+                  twoSided
+                    ? `readings.twoSided.${key}.${factorReading(cat.score)}`
+                    : `readings.factor.${factorReading(cat.score)}`
+                )}
               </p>
+              {flooredOut && (
+                <p className="mt-1.5 text-[0.62rem] leading-relaxed text-accent2/80 max-sm:text-[0.74rem]">
+                  {t('keyFactors.flooredNote')}
+                </p>
+              )}
             </div>
           )
         })}

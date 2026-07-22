@@ -1,6 +1,6 @@
 import { GraduationCap } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { CATEGORY_ORDER } from '../data/categoryMeta'
+import { CATEGORY_ORDER, NEUTRAL_COLOR, isFlooredOut } from '../data/categoryMeta'
 import { useLanguage } from '../i18n/LanguageContext'
 import InfoTooltip from './InfoTooltip'
 
@@ -69,6 +69,8 @@ export default function RiskExplainer({ riskLabel, breakdown, defaultOpen = fals
                     key={key}
                     catKey={key}
                     score={cat.score}
+                    contribution={cat.contribution}
+                    flooredOut={isFlooredOut(cat)}
                     weight={cat.weight}
                     open={open}
                     t={t}
@@ -83,7 +85,14 @@ export default function RiskExplainer({ riskLabel, breakdown, defaultOpen = fals
   )
 }
 
-function CategoryRow({ catKey, score, weight, open, t }) {
+function CategoryRow({ catKey, score, contribution, flooredOut, weight, open, t }) {
+  // This list is headed "what makes up the score", so the bar has to show what
+  // the composite actually used — the floored contribution — not the raw
+  // percentile. Both numbers are printed in the label so nothing is hidden:
+  // showing only the raw 12/100 here drew a reassuring green bar for a
+  // category that in fact contributed a neutral 50.
+  const barValue = flooredOut && contribution != null ? contribution : score
+  const barColor = flooredOut ? NEUTRAL_COLOR : BAR_COLOR(score)
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2 text-xs">
@@ -99,13 +108,17 @@ function CategoryRow({ catKey, score, weight, open, t }) {
           <InfoTooltip text={t(`categories.${catKey}.plain`)} align="left" />
         </span>
         <span className="flex-shrink-0 font-mono text-[0.7rem] text-muted">
-          {Math.round(score)}/100 · {Math.round(weight * 100)}% {t('explainer.weight')}
+          {Math.round(score)}/100
+          {flooredOut && (
+            <span className="text-accent2/80"> → {t('explainer.counted', { value: 50 })}</span>
+          )}{' '}
+          · {Math.round(weight * 100)}% {t('explainer.weight')}
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface2">
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{ width: open ? `${score}%` : '0%', backgroundColor: BAR_COLOR(score) }}
+          style={{ width: open ? `${barValue}%` : '0%', backgroundColor: barColor }}
         />
       </div>
     </div>
