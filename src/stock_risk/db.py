@@ -13,14 +13,17 @@ byte-identical to before.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator, Type
+from typing import TYPE_CHECKING, Iterator
 
 from loguru import logger
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
 from .config import settings
+
+if TYPE_CHECKING:
+    from alembic.config import Config
 
 
 def resolve_db_url(database_url: str | None, db_path: Path) -> str:
@@ -37,54 +40,113 @@ _url = resolve_db_url(settings.database_url, settings.db_path)
 engine = create_engine(_url, connect_args=connect_args_for(_url))
 
 
-def ensure_columns(engine: Engine, table: Type[SQLModel], column_ddl: dict[str, str]) -> None:
-    """Idempotently add columns to an already-existing table that
-    create_all() can't retrofit (it only creates missing tables, never
-    alters an existing one). Needed the first time in this app for
-    User.is_admin/is_banned: unlike Phase 1's AnalystPost/PostVote (brand
-    new tables, free) or handle_for()'s display-name trick (dodged a
-    migration by not adding a column at all), these are functional
-    auth-gate flags checked in Python logic — they can't be computed on
-    the fly, so they have to be real persisted columns on a pre-existing
-    table.
+ALEMBIC_ROOT = Path(__file__).resolve().parents[2]
 
-    column_ddl maps column name -> the SQL fragment after the name (type +
-    constraints), e.g. {"is_admin": "BOOLEAN NOT NULL DEFAULT FALSE"}.
-    DEFAULT FALSE (not DEFAULT 0) is what makes this dialect-agnostic:
-    SQLite has accepted the TRUE/FALSE keyword since 3.23 (2018), and
-    Postgres (the DATABASE_URL escape hatch above) rejects an
-    integer-literal default on a native BOOLEAN column outright.
+# Every table Alembic's baseline revision owns. Used only to tell an empty
+# database apart from a populated pre-Alembic one (see run_migrations).
+_BASELINE_TABLES = frozenset(
+    {"user", "watchlistitem", "analystpost", "postvote", "postreport", "pageview", "scoresnapshot"}
+)
+
+
+def alembic_config(url: str | None = None) -> "Config":
+    """Alembic config pointed at this repo's alembic/ directory.
+
+    Resolved from `__file__`, not the process working directory: the app is
+    started from varying cwds (uvicorn from the repo root, Docker from /app,
+    pytest from anywhere) and a relative script_location silently resolves to
+    "no migrations found" — which would look like a database already at head.
     """
-    inspector = inspect(engine)
-    table_name = table.__tablename__
-    existing = {c["name"] for c in inspector.get_columns(table_name)}
-    quoted_table = engine.dialect.identifier_preparer.quote(table_name)
-    with engine.begin() as conn:
-        for col_name, ddl in column_ddl.items():
-            if col_name in existing:
-                continue
-            conn.execute(text(f"ALTER TABLE {quoted_table} ADD COLUMN {col_name} {ddl}"))
-            logger.warning(f"[migration] added column {table_name}.{col_name}")
+    from alembic.config import Config
+
+    cfg = Config(str(ALEMBIC_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(ALEMBIC_ROOT / "alembic"))
+    if url:
+        cfg.set_main_option("sqlalchemy.url", url)
+    return cfg
+
+
+def _has_application_tables(conn) -> bool:
+    """Whether any of the baseline's application tables already exist."""
+    return bool(set(inspect(conn).get_table_names()) & _BASELINE_TABLES)
+
+
+def run_migrations(target_engine: Engine | None = None) -> None:
+    """Bring the database schema to head, adopting pre-Alembic databases.
+
+    Three cases, and the middle one is the reason this isn't just
+    `alembic upgrade head`:
+
+    * **Already versioned** (a revision is recorded) — upgrade to head. The
+      normal path.
+    * **Populated but at no revision** — a database created by the retired
+      `SQLModel.metadata.create_all()` + `ensure_columns()` path, which is
+      exactly what the live deployment is running. Its tables already exist,
+      so replaying the baseline revision would fail on "table already
+      exists". It is *stamped* at baseline instead — recording that it is
+      already at that revision — and then upgraded through anything newer.
+    * **Empty** — upgrade from scratch; the baseline creates every table.
+
+    The "at no revision" test is deliberately `get_current_revision() is None`
+    rather than "the alembic_version table is missing". Those look equivalent
+    and aren't: an interrupted downgrade leaves the table in place but *empty*,
+    which the table-presence check reads as "already versioned" and sends down
+    the upgrade path, straight into "table pageview already exists". Keying on
+    the recorded revision covers both shapes of unversioned.
+
+    Stamping is safe here specifically because the baseline revision was
+    autogenerated from the same models `create_all()` was building from, so a
+    pre-Alembic database and a freshly-migrated one have the same schema. That
+    equivalence is not assumed — tests/test_migrations.py asserts it by
+    building a database both ways and diffing the two schemas.
+    """
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    from alembic import command
+
+    from .auth import models  # noqa: F401  (registers tables on SQLModel.metadata)
+
+    target = target_engine or engine
+    cfg = alembic_config()
+
+    with target.connect() as conn:
+        at_revision = MigrationContext.configure(conn).get_current_revision()
+
+        if at_revision is None and _has_application_tables(conn):
+            base_rev = ScriptDirectory.from_config(cfg).get_base()
+            logger.warning(
+                f"[migration] unversioned database with existing tables — stamping at {base_rev} "
+                "(pre-Alembic schema adopted, no DDL replayed)"
+            )
+            cfg.attributes["connection"] = conn
+            command.stamp(cfg, base_rev)
+            conn.commit()
+
+        cfg.attributes["connection"] = conn
+        current = MigrationContext.configure(conn).get_current_revision()
+        head = ScriptDirectory.from_config(cfg).get_current_head()
+
+        if current == head:
+            logger.info(f"[migration] schema at head ({head})")
+            return
+
+        logger.warning(f"[migration] upgrading schema {current} -> {head}")
+        command.upgrade(cfg, "head")
+        conn.commit()
+        logger.info("[migration] upgrade complete")
 
 
 def init_db() -> None:
-    from .auth import models  # noqa: F401  (registers tables on SQLModel.metadata)
+    """Schema management entry point, called once at API startup.
 
-    SQLModel.metadata.create_all(engine)
-    ensure_columns(
-        engine,
-        models.User,
-        {
-            "is_admin": "BOOLEAN NOT NULL DEFAULT FALSE",
-            "is_banned": "BOOLEAN NOT NULL DEFAULT FALSE",
-            # Nullable (no NOT NULL): existing rows can't be back-filled with a
-            # nickname, so they keep NULL and fall back to handle_for(email).
-            "nickname": "VARCHAR",
-            # Nullable on purpose — NULL means "never opened the alerts
-            # bell", which correctly marks every qualifying move unread.
-            "alerts_seen_at": "TIMESTAMP",
-        },
-    )
+    Migration-driven since [R1]: the previous `create_all()` +
+    `ensure_columns()` pair could add tables and bolt on columns, but had no
+    version record, no downgrade path, and no way to express anything else —
+    a type change, a rename, a backfill, a dropped column. Any of those meant
+    hand-written SQL against a live database holding real accounts and posts.
+    """
+    run_migrations()
 
 
 def get_session() -> Iterator[Session]:

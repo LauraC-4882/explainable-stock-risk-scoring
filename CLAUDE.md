@@ -53,6 +53,7 @@ the file in the same PR that breaks it.
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
 | `make smoke` (→ `python scripts/smoke.py`) | **live** — [D1] landed 2026-07-17; ~11s locally, exit 0 | End-to-end: train a real tiny model, serve it, hit `/health` + `/api/score/AAPL` + `/api/score/AAPL/timeseries` over real HTTP, assert 200 + valid JSON + expected keys |
 | `bash scripts/ui_shot.sh` | **live** — [D2] landed 2026-07-17; ~15-20s locally, exit 0 | Frontend screenshot round-trip: build, serve (mock data, no network — see below), Playwright-screenshot a real card at 1280px + 375px to `$UI_SHOT_OUT_DIR` (default `/tmp`) |
+| `make restore-drill` | **live** — [R1] landed 2026-07-22; ~2s locally, exit 0 | Restores the newest backup into a scratch database and asserts tables/row counts/revision. Caught a real ordering bug in `latest_backup()` on its first run |
 
 `make smoke` red/green-tested against the exact bug in rule 4 below: run
 against the pre-fix `explain.py` and it fails in ~10s with the real
@@ -134,7 +135,22 @@ Every rule here is a **must**, each with the command that proves you did it.
    (`api/app.py`'s legacy `/score/{ticker}` — silently swallowed, no log)
    was found and fixed in this same session by adding `logger.exception`.
 
-4. **Any numeric value must be a native Python type (`float()`/`int()`)
+4. **Any change to a `SQLModel` table needs a migration in the same commit.**
+   Never `ALTER TABLE` by hand, and never reach for `create_all()` — the
+   schema is versioned as of [R1].
+   ```bash
+   make migration m="describe the change"   # generate it
+   # READ the generated file: autogenerate renders a rename as drop+add
+   # (which loses the column's data) and cannot infer a backfill at all.
+   .venv/bin/python -m pytest tests/test_migrations.py -q   # drift guard
+   make migrate-dry-run                      # rehearse against real data
+   ```
+   `tests/test_migrations.py::test_models_match_migration_head_with_no_pending_changes`
+   fails if you skip this, so the suite already enforces it — but it fails
+   *after* you've written the code, and the point of this rule is to generate
+   the migration while you still remember what the change was for.
+
+5. **Any numeric value must be a native Python type (`float()`/`int()`)
    before it reaches an API response — never a bare `numpy` scalar.**
    `numpy.float64` happens to subclass `float` so it slips past `json.dumps`
    undetected, but `numpy.float32` (XGBoost's and SHAP's native dtype) does

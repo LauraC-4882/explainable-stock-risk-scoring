@@ -30,3 +30,4 @@ htmlcov/
 .coverage
 mlruns/
 mlflow.db
+backups/

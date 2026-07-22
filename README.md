@@ -570,6 +570,104 @@ Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no e
 
 Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.
 
+## Schema Migrations & Backup/Restore ([R1])
+
+The database holds the only data in this system that cannot be recomputed:
+accounts, watchlists, community posts, votes, moderation reports and the
+score-snapshot history. Everything else — prices, features, model artefacts —
+can be refetched or retrained.
+
+Until [R1] that data was managed by `SQLModel.metadata.create_all()` plus a
+hand-rolled `db.ensure_columns()` helper that bolted on missing columns with
+raw `ALTER TABLE ADD COLUMN` at boot. That could add a table and append a
+column, and nothing else: no version record, no downgrade path, and no way to
+express a type change, a rename, a backfill or a dropped column. Any of those
+meant hand-written SQL against a live database with real accounts in it.
+
+### Versioned migrations (Alembic)
+
+```bash
+make migration m="add user timezone"   # autogenerate a revision from the models
+make migrate-dry-run                   # rehearse on a copy — touches nothing
+make migrate                           # the guarded path (see below)
+make migrate-sql                       # print the SQL, execute nothing
+```
+
+`make migrate` (`scripts/migrate.py`) is not a wrapper around
+`alembic upgrade head` — it is that command plus the three things that make it
+recoverable:
+
+1. **Staging rehearsal.** The migration runs first against a throwaway copy of
+   the real database. Data-dependent failures — a `NOT NULL` added to a column
+   containing NULLs, a unique constraint added to data that already violates
+   it — fail *there*, on the copy, while production is untouched. Testing a
+   migration only against an empty schema cannot catch any of them.
+2. **Verified pre-migration backup**, taken before the real upgrade and checked
+   with `PRAGMA integrity_check` before being trusted.
+3. **Automatic restore on failure.** If the real upgrade fails anyway, the
+   backup is restored before the process exits non-zero, so the database is
+   left at its pre-migration state rather than half-migrated.
+
+Exit codes: `0` migrated (or already at head), `1` failed and rolled back,
+`2` failed *and* the restore failed — manual recovery, backup path printed.
+
+**Adopting the already-deployed database.** The live deployment predates
+Alembic: it has all seven tables and no version record. Replaying the baseline
+against it would fail on "table already exists", so `db.run_migrations()`
+*stamps* it at the baseline instead. That is only safe if a `create_all()`
+database and a migrated one really are identical, which
+`tests/test_migrations.py::test_stamped_legacy_schema_matches_freshly_migrated_schema`
+asserts by building one of each and diffing them, rather than assuming it.
+
+### Backup and restore
+
+```bash
+make backup           # verified backup + prune to backup_retention (default 10)
+make backup-list
+make restore-drill    # prove the newest backup actually restores
+python scripts/backup_db.py restore <path>
+```
+
+SQLite backups use `sqlite3`'s **online backup API**, not a file copy — a copy
+taken mid-write, or with un-checkpointed WAL content, can land a torn database
+that only fails later at read time. Postgres uses `pg_dump -Fc`. Restores move
+the existing database aside to `<name>.pre-restore-<timestamp>` first, so
+restoring the *wrong* backup is itself recoverable.
+
+`make restore-drill` is the one worth running on a schedule, and
+`.github/workflows/backup.yml` does exactly that daily. A backup that has never
+been restored is an assumption, not a recovery plan: the drill restores the
+newest backup into a scratch database, checks its tables, row counts and
+Alembic revision, and throws it away. It found a real bug the first time it ran
+— `latest_backup()` sorted backups by filename, and since names are
+`{label}_{timestamp}`, the *label* dominated the ordering: `manual_…T193206Z`
+sorted before `pre-migration_…T193157Z` despite being 49 seconds newer. The
+drill restored a stale backup and correctly reported it unusable. Pinned by
+`test_latest_backup_orders_by_time_not_label_across_mixed_labels`.
+
+### What's covered by tests
+
+`tests/test_migrations.py` (19 tests) covers what `ensure_columns` had no way
+to express:
+
+| Guarantee | Test |
+|---|---|
+| Models and migration head cannot drift | `test_models_match_migration_head_with_no_pending_changes` |
+| Every migration is reversible | `test_downgrade_upgrade_roundtrip_is_reversible` |
+| Rows survive an upgrade | `test_migration_preserves_rows_when_upgrading_in_place` |
+| Pre-Alembic databases adopt correctly | `test_preexisting_unversioned_database_is_stamped_not_recreated` |
+| Stamping is schema-equivalent | `test_stamped_legacy_schema_matches_freshly_migrated_schema` |
+| An interrupted downgrade still adopts | `test_populated_database_with_empty_alembic_version_is_stamped` |
+| Backups restore lost data | `test_restore_recovers_data_deleted_after_the_backup` |
+| A corrupt backup is detected | `test_corrupt_backup_fails_verification` |
+
+The drift guard is the highest-value one: edit a SQLModel table without
+generating a migration and it fails immediately, naming the drift — instead of
+the mismatch surfacing in production as an `OperationalError` on a column that
+exists in Python but not in the database. CI additionally runs the real
+`alembic` CLI through upgrade → downgrade → upgrade, plus a backup and restore
+drill, on every push.
+
 ## Deployment
 
 ### Render ([F2]) — live at https://explainable-stock-risk-scoring.onrender.com

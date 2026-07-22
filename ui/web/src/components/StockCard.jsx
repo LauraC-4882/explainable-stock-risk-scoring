@@ -35,16 +35,16 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   // skeleton and throw away the score hero that isn't changing.
   const [tsLoading, setTsLoading] = useState(false)
 
-  // Initial load — fires once per ticker.
+  // Score — fires once per ticker. Deliberately NOT keyed on `period`: it
+  // ranks against a fixed ~2y baseline, so it would come back identical for
+  // every timeframe (see api.js: apiScore) at the cost of a full re-score.
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    Promise.all([apiScore(ticker), apiTimeseries(ticker, period)])
-      .then(([sc, ts]) => {
-        if (cancelled) return
-        setScore(sc)
-        setTimeseries(ts)
+    apiScore(ticker)
+      .then((sc) => {
+        if (!cancelled) setScore(sc)
       })
       .catch((err) => {
         if (!cancelled) setError(err.message)
@@ -55,32 +55,36 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticker])
 
-  // Timeframe change — refetch the timeseries only. The score itself is
-  // deliberately NOT refetched: it ranks against a fixed ~2y baseline, so it
-  // would come back identical (see api.js: apiScore). Everything that does
-  // legitimately depend on the window — both charts, the window-summary tiles
-  // and every date-range caption — is derived from this one response, so it
-  // all updates together off this single request.
+  // Timeseries — keyed on BOTH ticker and period, and with no early-out. An
+  // earlier version fetched it alongside the score on mount and then bailed
+  // (`if (!score) return`) on the period effect, which meant switching
+  // timeframe while the first load was still in flight left the card showing
+  // the mount-time window forever: the in-flight request had already closed
+  // over the old period, and the period effect had declined to run. Harmless
+  // when only the charts depended on the window; now that the section header
+  // states the actual date range, it rendered a header that disagreed with
+  // the data underneath it. One effect, both deps, no early-out.
   useEffect(() => {
-    if (!score) return
     let cancelled = false
     setTsLoading(true)
     apiTimeseries(ticker, period)
       .then((ts) => {
         if (!cancelled) setTimeseries(ts)
       })
-      .catch(() => {})
+      .catch(() => {
+        // Leave the previous window's data on screen rather than blanking the
+        // section: the score hero above is still valid, and the header keeps
+        // naming the range that's actually displayed.
+      })
       .finally(() => {
         if (!cancelled) setTsLoading(false)
       })
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period])
+  }, [ticker, period])
 
   const stats = useMemo(() => windowStats(timeseries), [timeseries])
 
@@ -366,9 +370,25 @@ function WindowStats({ stats }) {
     },
     { key: 'high', value: fmt(stats.high, 1, 2) },
     { key: 'low', value: fmt(stats.low, 1, 2) },
-    { key: 'maxDrawdown', value: fmt(stats.maxDrawdown, 100, 2, '%'), tone: 'text-down' },
-    { key: 'riskRange', value: `${Math.round(stats.riskMin)}–${Math.round(stats.riskMax)}` },
-    { key: 'riskAvg', value: Math.round(stats.riskAvg) },
+    {
+      key: 'maxDrawdown',
+      value: fmt(stats.maxDrawdown, 100, 2, '%'),
+      // Only tone it as a loss when there actually was one — a flat window
+      // reads 0.00%, which isn't a decline and shouldn't render in red.
+      tone: stats.maxDrawdown < 0 ? 'text-down' : undefined,
+    },
+    // riskMin/riskMax/riskAvg are null when no row in the window carried a
+    // score (all-warmup rows, or a degraded response). Math.round(null) is 0,
+    // so rendering these unguarded showed a confident "0–0" — the lowest
+    // possible risk — for what is actually missing data.
+    {
+      key: 'riskRange',
+      value:
+        stats.riskMin == null || stats.riskMax == null
+          ? '—'
+          : `${Math.round(stats.riskMin)}–${Math.round(stats.riskMax)}`,
+    },
+    { key: 'riskAvg', value: stats.riskAvg == null ? '—' : Math.round(stats.riskAvg) },
   ]
 
   return (

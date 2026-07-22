@@ -32,11 +32,17 @@ export function inferMarket(ticker) {
 export function windowStats(timeseries) {
   if (!Array.isArray(timeseries) || timeseries.length === 0) return null
 
-  const first = timeseries[0]
-  const last = timeseries[timeseries.length - 1]
-  const closes = timeseries.map((d) => d.close).filter((c) => c != null)
+  // Filter to priced rows FIRST, then take the endpoints from that same set.
+  // Reading the dates off the raw array while computing the change off a
+  // separately-filtered close array would caption the window with a date whose
+  // price wasn't one of the two the change was measured between.
+  const priced = timeseries.filter((d) => d.close != null)
+  if (priced.length === 0) return null
+
+  const first = priced[0]
+  const last = priced[priced.length - 1]
+  const closes = priced.map((d) => d.close)
   const risks = timeseries.map((d) => d.risk_score).filter((r) => r != null)
-  if (closes.length === 0) return null
 
   // Max peak-to-trough decline *within the window*, walked in order — not the
   // backend's rolling 63-day max_drawdown, which ignores the window entirely.
@@ -51,7 +57,7 @@ export function windowStats(timeseries) {
   return {
     start: first.date,
     end: last.date,
-    sessions: timeseries.length,
+    sessions: priced.length,
     priceChange: closes[0] ? closes[closes.length - 1] / closes[0] - 1 : null,
     high: Math.max(...closes),
     low: Math.min(...closes),

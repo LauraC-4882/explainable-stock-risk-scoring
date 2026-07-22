@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     # silently wipes every registered account. See db.py.
     db_path: Path = Path("data/app.db")
     database_url: str | None = None
+    # Verified pre-migration and scheduled backups land here (see backup.py).
+    # Kept outside db_path's directory so a "wipe the data dir" recovery step
+    # doesn't take the backups with it.
+    backup_dir: Path = Path("backups")
+    # How many backups to keep when pruning. 10 covers the daily schedule plus
+    # several pre-migration snapshots without unbounded growth on a small disk.
+    backup_retention: int = 10
     jwt_secret_key: str = "dev-insecure-secret-change-me-before-deploying"
 
     # Site-owner admin account, re-created/promoted idempotently on every
@@ -68,6 +75,7 @@ class Settings(BaseSettings):
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.monitoring_log_dir.mkdir(parents=True, exist_ok=True)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()

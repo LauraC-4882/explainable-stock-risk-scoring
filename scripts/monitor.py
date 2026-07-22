@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import argparse
-import time
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from loguru import logger
-from stock_risk.scoring.scorer import RiskScorer
-from stock_risk.monitoring.metrics import ModelMonitor
+
 from stock_risk.config import settings
+from stock_risk.monitoring.metrics import ModelMonitor
+from stock_risk.scoring.scorer import RiskScorer
 
 DEFAULT_TICKERS = ["AAPL", "MSFT", "GOOGL", "TSLA", "AMZN"]
 

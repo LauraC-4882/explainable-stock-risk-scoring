@@ -24,10 +24,37 @@ jobs:
 
       - name: Lint
         run: |
-          ruff check src/ tests/
+          ruff check src/ tests/ alembic/
 
       - name: Test
         run: pytest tests/ -v --tb=short
+
+      # [R1] Migration gate. tests/test_migrations.py already asserts the
+      # models and the migration head can't drift, but it does so through the
+      # app's own helper. This runs the real `alembic` CLI end to end against a
+      # scratch database — catching anything that breaks the command-line path
+      # specifically (a bad script_location, an env.py import error, a
+      # revision file that imports something not installed in a clean env),
+      # which is the path a deploy actually uses.
+      - name: Migration round trip (upgrade -> downgrade -> upgrade)
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/ci_migrations.db
+        run: |
+          python -m alembic upgrade head
+          python -m alembic current
+          python -m alembic downgrade base
+          python -m alembic upgrade head
+
+      # A migration is only half the story — the rollback plan is the backup.
+      # This proves the backup/restore path works on every push, not just that
+      # the code for it exists.
+      - name: Backup + restore drill
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/ci_migrations.db
+        run: |
+          python scripts/backup_db.py create
+          python scripts/backup_db.py list
+          python scripts/backup_db.py drill
 
       # Exit-code contract (see scripts/smoke.py): 0 = gate ran and passed;
       # 75 = Yahoo rate-limited the data fetch, gate DID NOT run (GitHub

@@ -16,6 +16,13 @@ select = ["E", "F", "I", "N", "W"]
 # X/y is the standard sklearn convention for feature/target matrices throughout
 # this package (fit(X, y), predict(X), ...) — more readable than forcing lowercase.
 "src/stock_risk/models/*.py" = ["N803", "N806"]
+# Migration bodies are machine-written by `alembic revision --autogenerate`,
+# which emits one create_index/create_table call per line regardless of width.
+# Reformatting them by hand on every generation would create diff noise against
+# what the tool actually produced — and a hand-edited migration is harder to
+# trust than one that still matches its generator's output. Import order and
+# unused-import rules still apply; only the line-length rule is relaxed.
+"alembic/versions/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

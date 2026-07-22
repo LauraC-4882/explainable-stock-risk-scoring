@@ -1,0 +1,71 @@
+# [R1] Scheduled database backup + restore drill.
+#
+# Deliberately does BOTH. A backup job that only ever writes files reports
+# success indefinitely while producing unusable output — the drill restores
+# what was just written and inspects it, so a broken backup fails the run on
+# the day it breaks rather than on the day it's needed.
+#
+# Requires DATABASE_URL as a repository secret pointing at the deployed
+# database. Without it the job no-ops with a warning rather than silently
+# backing up an empty local SQLite file and reporting green.
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC daily — off the hour, when runners are less contended
+  workflow_dispatch: # manual trigger, e.g. immediately before a risky deploy
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e "."
+
+      # postgresql-client provides pg_dump/pg_restore, which backup.py shells
+      # out to for a Postgres DATABASE_URL. Harmless when the target is SQLite.
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Check the target is configured
+        id: guard
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning title=backup skipped::DATABASE_URL secret is not set — nothing was backed up."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create verified backup
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/backup_db.py create
+
+      - name: Restore drill
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/backup_db.py drill
+
+      # Retained as a workflow artifact so a backup survives the runner. 30
+      # days matches the retention most incidents are discovered within; the
+      # local prune (backup_retention) governs the app's own disk separately.
+      - name: Upload backup artifact
+        if: steps.guard.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/
+          retention-days: 30
+          if-no-files-found: error

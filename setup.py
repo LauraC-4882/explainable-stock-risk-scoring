@@ -28,6 +28,7 @@ setup(
         "pydantic-settings>=2.2",
         "email-validator>=2.0",
         "sqlmodel>=0.0.16",
+        "alembic>=1.13",  # versioned migrations — replaces db.py's hand-rolled ensure_columns()
         "pyjwt>=2.8",
         "bcrypt>=4.0",
         "prometheus-client>=0.20",

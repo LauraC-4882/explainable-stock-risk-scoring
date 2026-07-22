@@ -11,11 +11,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from stock_risk.scoring.scorer import RiskScorer
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Score a stock ticker")
     parser.add_argument("--ticker", required=True)
-    parser.add_argument("--period", default="2y")
+    # Floored to "2y" by RiskScorer.score() when shorter: the period IS the
+    # percentile-ranking baseline, and a short one degrades every metric.
+    parser.add_argument(
+        "--period",
+        default="2y",
+        help="Ranking-baseline history length. Values shorter than 2y are floored to 2y.",
+    )
     args = parser.parse_args()
 
     scorer = RiskScorer()

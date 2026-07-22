@@ -4,7 +4,6 @@ in-memory-SQLite-per-test isolation as test_auth.py/test_community.py."""
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect, text
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -12,7 +11,7 @@ from stock_risk.api.app import app
 from stock_risk.auth.admin import ensure_admin_user
 from stock_risk.auth.models import User
 from stock_risk.auth.security import verify_password
-from stock_risk.db import ensure_columns, get_session
+from stock_risk.db import get_session
 
 
 @pytest.fixture()
@@ -61,35 +60,12 @@ def _make_admin(engine, email="admin@example.com", password="adminpass1"):
     return {"Authorization": f"Bearer {create_access_token(email)}"}
 
 
-# ── ensure_columns migration helper ─────────────────────────────────────────
-
-
-def test_ensure_columns_adds_missing_columns_idempotently():
-    eng = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    with eng.begin() as conn:
-        conn.execute(text('CREATE TABLE "user" (id INTEGER PRIMARY KEY, email TEXT)'))
-        conn.execute(text('INSERT INTO "user" (id, email) VALUES (1, \'legacy@example.com\')'))
-
-    ensure_columns(
-        eng,
-        User,
-        {
-            "is_admin": "BOOLEAN NOT NULL DEFAULT FALSE",
-            "is_banned": "BOOLEAN NOT NULL DEFAULT FALSE",
-        },
-    )
-    columns = {c["name"] for c in inspect(eng).get_columns("user")}
-    assert {"is_admin", "is_banned"}.issubset(columns)
-
-    with eng.connect() as conn:
-        row = conn.execute(text('SELECT is_admin, is_banned FROM "user" WHERE id=1')).one()
-        assert row.is_admin == 0
-        assert row.is_banned == 0
-
-    # Running again must not error (already-present columns are skipped).
-    ensure_columns(eng, User, {"is_admin": "BOOLEAN NOT NULL DEFAULT FALSE"})
+# The `ensure_columns` helper this file used to test was retired in [R1] —
+# schema changes now go through versioned Alembic migrations. Its replacement
+# is covered by tests/test_migrations.py, which is strictly stronger: it
+# asserts the models and the migration head cannot drift apart, that a
+# downgrade/upgrade round trip is reversible, and that real seeded rows survive
+# an upgrade — none of which ensure_columns could express.
 
 
 # ── ensure_admin_user ────────────────────────────────────────────────────────

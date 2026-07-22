@@ -9,14 +9,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from loguru import logger
+
 from stock_risk.config import settings
 from stock_risk.data.fetcher import MarketDataFetcher
 from stock_risk.data.preprocessor import DataPreprocessor
-from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.features.risk_metrics import RiskMetrics
+from stock_risk.features.technical import TechnicalFeatures
 from stock_risk.models.downside_risk import DownsideRiskModel
-from stock_risk.models.feature_sets import build_dataset
 from stock_risk.models.evaluation import compare_classifiers, walk_forward_evaluate
+from stock_risk.models.feature_sets import build_dataset
 
 
 def train(
