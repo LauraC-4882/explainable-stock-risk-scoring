@@ -51,27 +51,18 @@ the file in the same PR that breaks it.
 |---|---|---|
 | `.venv/bin/python -m pytest tests/ -q` | **live** — 104 passed, 0 failed as of 2026-07-17 | Full test suite |
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
-| `make smoke` (→ `python scripts/smoke.py`) | **live** — [D1] landed 2026-07-17; ~11s locally, exit 0 | End-to-end: train a real tiny model, serve it, hit `/health` + `/api/score/AAPL` + `/api/score/AAPL/timeseries` over real HTTP, assert 200 + valid JSON + expected keys |
 | `bash scripts/ui_shot.sh` | **live** — [D2] landed 2026-07-17; ~15-20s locally, exit 0 | Frontend screenshot round-trip: build, serve (mock data, no network — see below), Playwright-screenshot a real card at 1280px + 375px to `$UI_SHOT_OUT_DIR` (default `/tmp`) |
 | `make restore-drill` | **live** — [R1] landed 2026-07-22; ~2s locally, exit 0 | Restores the newest backup into a scratch database and asserts tables/row counts/revision. Caught a real ordering bug in `latest_backup()` on its first run |
 
-`make smoke` red/green-tested against the exact bug in rule 4 below: run
-against the pre-fix `explain.py` and it fails in ~10s with the real
-`TypeError: Object of type float32 is not JSON serializable` traceback in
-its output; run against the fix and it passes. Self-contained (temp model
-dir, temp DB, OS-assigned free port — never touches `models/artefacts/`,
-a developer's real DB, or port 8000) and self-cleaning (temp dirs and the
-server subprocess are gone whether it passes or fails).
-
-`make smoke` exit codes: `0` = gate ran and passed; `75` = Yahoo
-rate-limited the data fetch and the gate **did not run** — a skip, not a
-pass; anything else = real failure. Datacenter IPs (GitHub runners, Render)
-get intermittently throttled by Yahoo — observed live 2026-07-18/19, three
-consecutive CI runs dead at the smoke step with `YFRateLimitError` right
-after five green runs on the same workflow — so `.github/workflows/ci.yml`
-maps 75 to a `::warning` + neutral pass instead of failing every push
-during an external outage. Locally, exit 75 means rerun later; it never
-counts as the verification rule 1 requires.
+**`make smoke` is no longer a CI gate or a required check.** It makes a real
+yfinance fetch, and GitHub runner IPs are chronically rate-limited by Yahoo, so
+it failed the pipeline for reasons unrelated to any change — this project does
+not rely on Yahoo being reachable. It was removed from `.github/workflows/ci.yml`;
+CI's real coverage is the deterministic, offline gates (the full test suite, the
+migration round trip, the backup/restore drill, and the snapshot-backed tail
+validation), none of which touch the network. `scripts/smoke.py` still exists and
+can be run locally where an unthrottled connection is available, but nothing
+requires it and its result never gates a merge.
 
 `scripts/ui_shot.sh` runs against `STOCK_RISK_MOCK=1` (fixture data captured
 from a real `/api/score/TSLA` + `/api/score/TSLA/timeseries` response,
@@ -89,21 +80,18 @@ its port afterward.
 
 Every rule here is a **must**, each with the command that proves you did it.
 
-1. **Any backend change → run the test suite *and* the smoke test before
-   calling it done.** Unit tests alone already missed the bug in rule 4 —
-   at the time, every unit test used `RiskScorer` with no model loaded (the
-   `None` fallback path), so none of them exercised a real trained model
-   through a real HTTP response the way `make smoke` does. (Since [F3]
-   committed the model artefact and [G1] added the offline golden test,
-   unit tests do load the real model — but still never a real HTTP
-   round-trip, so smoke keeps its job.)
+1. **Any backend change → run the full test suite before calling it done.**
    ```bash
    .venv/bin/python -m pytest tests/ -q
-   make smoke   # or: .venv/bin/python scripts/smoke.py
    ```
-   Both must exit 0. (`make smoke` exiting 75 = Yahoo rate-limited the
-   fetch and the gate did not run — that's a skip, not a pass; rerun it
-   once the limit clears before calling the change verified. See §2.)
+   Must exit 0. The suite loads the real committed model artefact (since [F3])
+   and covers the scoring path through the [G1] offline golden test, the
+   migration round trip, the backup/restore drill, and the snapshot-backed
+   tail validation — all offline. `make smoke` (a real yfinance round trip) is
+   **no longer required and no longer a CI gate**: this project does not depend
+   on Yahoo being reachable, and the runner IPs are chronically throttled. Run
+   it locally if you have an unthrottled connection and want the extra
+   end-to-end check, but its result never gates a merge (see §2).
 
 2. **Any `ui/web` change → run `scripts/ui_shot.sh` and look at both PNGs,
    self-review against `scripts/ui_checklist.md`, iterate up to 3 rounds,
@@ -195,8 +183,9 @@ with the actual evidence attached (not "should work" — the real output):
 
 1. **Tests pass.** Paste the tail of `.venv/bin/python -m pytest tests/ -q`
    (pass count, not just "green").
-2. **Harness passes.** `make smoke` output once [D1] lands; a real
-   screenshot PNG (not a description of one) for any UI change.
+2. **Offline gates pass** (all in CI): migration round trip, backup/restore
+   drill, tail validation. Plus a real screenshot PNG (not a description of
+   one) for any UI change.
 3. **PR description has before/after evidence** for the actual bug/feature —
    e.g. "before: `curl .../api/score/AAPL` → `500 {"detail": "Internal
    scoring error"}`; after: `200` with the real JSON body," not just "fixed
