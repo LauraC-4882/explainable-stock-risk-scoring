@@ -1,6 +1,11 @@
 import { ShieldStar, X } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
-import { apiAdminAnalytics, apiAdminDismissReport, apiAdminListReports, apiDeletePost } from '../api'
+import {
+  apiAdminAnalytics,
+  apiAdminDismissReport,
+  apiAdminListReports,
+  apiDeletePost,
+} from '../api'
 import AdminAnalyticsChart from '../components/AdminAnalyticsChart'
 import AdminUserTable from '../components/AdminUserTable'
 import { useLanguage } from '../i18n/LanguageContext'

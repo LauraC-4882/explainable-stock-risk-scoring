@@ -7,7 +7,8 @@ function bucketColor(v) {
   return '#f43f5e'
 }
 
-export default function RiskChart({ timeseries }) {
+// See PriceChart: missing data must render an empty frame, never throw.
+export default function RiskChart({ timeseries = [] }) {
   const data = {
     labels: timeseries.map((d) => d.date),
     datasets: [

@@ -226,15 +226,34 @@ def test_migration_preserves_rows_when_upgrading_in_place(engine):
 # ── Adopting a pre-Alembic database ──────────────────────────────────────────
 
 
-def test_preexisting_unversioned_database_is_stamped_not_recreated(engine):
+def _make_legacy_database(engine, db_url) -> None:
+    """Build a faithful pre-Alembic database: baseline schema, no version row.
+
+    Deliberately NOT `SQLModel.metadata.create_all()`. That builds *today's*
+    metadata, which grows with every new model — once [R2] added AuditLog, a
+    "legacy" database built that way already contained a table the real legacy
+    database never had, so stamping it at baseline and upgrading tried to
+    create `auditlog` twice. The simulation has to be pinned to the schema as
+    it existed at the baseline revision, which is exactly what upgrading to
+    that revision and then removing the version record produces — and it stays
+    correct as further migrations are added.
+    """
+    cfg = alembic_config(db_url)
+    base_rev = ScriptDirectory.from_config(cfg).get_base()
+    command.upgrade(cfg, base_rev)
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE alembic_version"))
+
+
+def test_preexisting_unversioned_database_is_stamped_not_recreated(engine, db_url):
     """The live-deployment case.
 
-    A database built by the retired create_all() path has all the tables but no
-    alembic_version. Replaying the baseline against it would fail on "table
-    already exists"; run_migrations must stamp it instead — and must not lose
-    the rows already in it.
+    A database built by the retired create_all() path has the baseline tables
+    but no alembic_version. Replaying the baseline against it would fail on
+    "table already exists"; run_migrations must stamp it instead, then apply
+    any *later* migrations normally — and lose none of the rows already in it.
     """
-    SQLModel.metadata.create_all(engine)  # the pre-Alembic world
+    _make_legacy_database(engine, db_url)
     _seed(engine)
     assert "alembic_version" not in set(inspect(engine).get_table_names())
 
@@ -244,6 +263,24 @@ def test_preexisting_unversioned_database_is_stamped_not_recreated(engine):
     with engine.connect() as conn:
         assert conn.execute(text('SELECT count(*) FROM "user"')).scalar_one() == 1
         assert conn.execute(text("SELECT count(*) FROM analystpost")).scalar_one() == 1
+
+
+def test_adopted_legacy_database_still_receives_later_migrations(engine, db_url):
+    """Stamping must not mean "skip everything".
+
+    A database adopted at the baseline still has to pick up every migration
+    written after it — otherwise adoption would silently freeze the live
+    deployment's schema at whatever it looked like when Alembic was introduced.
+    auditlog ([R2]) is the first such migration, so its presence after adoption
+    is the proof.
+    """
+    _make_legacy_database(engine, db_url)
+    assert "auditlog" not in set(inspect(engine).get_table_names())
+
+    run_migrations(engine)
+
+    assert "auditlog" in set(inspect(engine).get_table_names())
+    assert _revision(engine) == _head()
 
 
 def test_stamped_legacy_schema_matches_freshly_migrated_schema(tmp_path):
@@ -265,7 +302,7 @@ def test_stamped_legacy_schema_matches_freshly_migrated_schema(tmp_path):
         migrated.dispose()
 
 
-def test_populated_database_with_empty_alembic_version_is_stamped(engine):
+def test_populated_database_with_empty_alembic_version_is_stamped(engine, db_url):
     """Regression: an *empty* alembic_version table is still unversioned.
 
     An interrupted downgrade leaves the table present with no row in it. Keying
@@ -273,7 +310,7 @@ def test_populated_database_with_empty_alembic_version_is_stamped(engine):
     versioned", took the upgrade path, and died on `table pageview already
     exists`. Hit for real on a dev database mid-development.
     """
-    SQLModel.metadata.create_all(engine)
+    _make_legacy_database(engine, db_url)
     _seed(engine)
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))

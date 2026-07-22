@@ -37,7 +37,12 @@ export default function PostComposer({ initialTicker, onPosted }) {
     setBusy(true)
     setError(null)
     try {
-      const post = await apiCreatePost(token, trimmedTicker, inferMarket(trimmedTicker), trimmedBody)
+      const post = await apiCreatePost(
+        token,
+        trimmedTicker,
+        inferMarket(trimmedTicker),
+        trimmedBody
+      )
       setBody('')
       onPosted(post)
     } catch (err) {

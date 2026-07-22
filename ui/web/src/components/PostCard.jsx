@@ -73,11 +73,10 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
       <div className="flex items-center justify-between gap-2 pt-0.5">
         <span className="text-[0.65rem] text-muted">{timestamp}</span>
         <div className="flex items-center gap-2">
-          {user && !post.is_own_post && (
-            reported ? (
-              <span className="text-[0.65rem] italic text-muted">
-                {t('community.report.done')}
-              </span>
+          {user &&
+            !post.is_own_post &&
+            (reported ? (
+              <span className="text-[0.65rem] italic text-muted">{t('community.report.done')}</span>
             ) : (
               <button
                 onClick={() => setReportOpen((o) => !o)}
@@ -87,8 +86,7 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
               >
                 <Flag aria-hidden="true" size={13} color="currentColor" />
               </button>
-            )
-          )}
+            ))}
           {post.is_own_post ? (
             <span className="text-[0.65rem] italic text-muted">{t('community.ownPost')}</span>
           ) : (

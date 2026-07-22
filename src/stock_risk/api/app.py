@@ -11,7 +11,7 @@ from typing import Literal, Optional
 import yfinance as yf
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -34,6 +34,7 @@ from ..auth.security import (
     decode_access_token,
     display_name_for,
     hash_password,
+    should_refresh,
     verify_password,
 )
 from ..config import settings
@@ -42,6 +43,16 @@ from ..moderation import check_post_body
 from ..monitoring.metrics import ModelMonitor
 from ..outcomes import compute_outcome_distribution
 from ..scoring.scorer import RiskScorer, market_for_ticker
+from ..security import (
+    AuditAction,
+    FailedLoginTracker,
+    RateLimiter,
+    SecurityHeadersMiddleware,
+    SingleFlightCache,
+    client_ip,
+    client_key,
+    record_audit,
+)
 from .schemas import ScoreResponse
 
 app = FastAPI(
@@ -50,12 +61,147 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# [R2] Strict origin allowlist, replacing `allow_origins=["*"]`.
+#
+# The wildcard was actively unsafe next to this app's JWT auth: with `*`, any
+# website a signed-in user happened to visit could issue requests to this API
+# from their browser. (The browser blocks credentialed wildcard CORS, but this
+# API takes its token from an Authorization header a malicious script can set
+# itself once it has the token — and `*` also let any origin read every
+# unauthenticated response, including the full scoring output.)
+#
+# allow_credentials stays False: tokens travel in the Authorization header, not
+# cookies, so nothing needs it, and `allow_credentials=True` with a broad
+# allowlist is the classic CORS misconfiguration.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+    # Lets the frontend read the silently-refreshed token (see refresh_token
+    # middleware below) — a response header is invisible to JS unless exposed.
+    expose_headers=["X-Refreshed-Token", "X-RateLimit-Remaining", "Retry-After"],
 )
+
+app.add_middleware(SecurityHeadersMiddleware, enable_hsts=settings.enable_hsts)
+
+# ── [R2] Rate limiting ───────────────────────────────────────────────────────
+# Two buckets, because anonymous and authenticated callers deserve different
+# allowances: an authenticated caller is attributable (and bannable), an
+# anonymous one is just an IP. See security/ratelimit.py for why a token
+# bucket rather than a fixed window, and why this is per-process.
+_anon_limiter = RateLimiter(rate=settings.rate_limit_per_second, burst=settings.rate_limit_burst)
+_user_limiter = RateLimiter(
+    rate=settings.rate_limit_user_per_second, burst=settings.rate_limit_user_burst
+)
+_login_tracker = FailedLoginTracker(
+    threshold=settings.login_failure_threshold,
+    lockout_seconds=settings.login_lockout_seconds,
+)
+
+# Per-endpoint cost in tokens. Charging every route 1 would either throttle
+# trivial requests pointlessly or let the expensive ones through freely.
+#
+# The score endpoint is only 2, not the 5 first used here, because _score_cache
+# now absorbs the expensive part: the great majority of score requests are
+# cache hits costing a dict lookup, and the single-flight guard means even a
+# concurrent stampede produces exactly one upstream call. Pricing every score
+# request as if it were a cold 2.7s fetch throttled the common cheap case to
+# protect against an expensive one the cache had already handled.
+#
+# Auth stays expensive on purpose: bcrypt burns CPU by design, so an unthrottled
+# login endpoint is a cheap way to exhaust a small instance, and it's the
+# endpoint worth making brute-force costly at.
+_DEFAULT_COST = 1.0
+_ENDPOINT_COSTS: tuple[tuple[str, float], ...] = (
+    ("/api/score/", 2.0),
+    ("/api/community/posts", 3.0),  # writes, and moderation runs on the body
+    ("/api/auth/register", 8.0),
+    ("/api/auth/login", 8.0),
+    ("/api/search", 2.0),
+    ("/health", 0.0),
+    ("/metrics", 0.0),
+)
+
+_RATE_LIMIT_EXEMPT_PREFIXES = ("/assets", "/static")
+
+
+def _endpoint_cost(path: str) -> float:
+    for prefix, cost in _ENDPOINT_COSTS:
+        if path.startswith(prefix):
+            return cost
+    return _DEFAULT_COST
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if not settings.rate_limit_enabled or request.method == "OPTIONS":
+        return await call_next(request)
+
+    path = request.url.path
+    if path.startswith(_RATE_LIMIT_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    cost = _endpoint_cost(path)
+    if cost <= 0:
+        return await call_next(request)
+
+    key = client_key(request)
+    limiter = _user_limiter if key.startswith("user:") else _anon_limiter
+    allowed, retry_after = limiter.check(key, cost=cost)
+
+    if not allowed:
+        # Logged as an audit event, not just a metric: a client sustaining a
+        # rate limit is the signal worth reviewing later, and the audit table
+        # is the durable place for it.
+        try:
+            with Session(engine) as session:
+                record_audit(
+                    session,
+                    AuditAction.RATE_LIMITED,
+                    actor_email=key.removeprefix("user:") if key.startswith("user:") else None,
+                    target=path,
+                    detail=f"cost={cost} retry_after={retry_after:.1f}s",
+                    ip_address=client_ip(request),
+                    success=False,
+                )
+        except Exception as exc:
+            logger.warning(f"[ratelimit] audit write failed: {exc}")
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Please slow down."},
+            headers={"Retry-After": str(max(1, int(retry_after + 0.999)))},
+        )
+
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def refresh_token(request: Request, call_next):
+    """Silently re-issue a token that's nearing expiry.
+
+    [R2] cut the JWT lifetime from 7 days to 12 hours, which would otherwise
+    log active users out mid-session. Instead, any authenticated request made
+    within the refresh window comes back with a fresh token in
+    `X-Refreshed-Token`, which the frontend swaps in (see ui/web/src/auth/
+    AuthContext.jsx). An idle user still expires on schedule — that's the
+    security property being bought.
+    """
+    response = await call_next(request)
+    authorization = request.headers.get("authorization", "")
+    if authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ")
+        try:
+            if should_refresh(token):
+                subject = decode_access_token(token)
+                if subject:
+                    response.headers["X-Refreshed-Token"] = create_access_token(subject)
+        except Exception as exc:
+            # A refresh failure must never break an otherwise-successful
+            # request — the caller's existing token is still valid.
+            logger.warning(f"Token refresh failed (request still served): {exc}")
+    return response
 
 # ── Usage-analytics middleware ──────────────────────────────────────────────
 # Logs one PageView row per non-static request — the admin dashboard's data
@@ -103,6 +249,13 @@ async def track_page_views(request: Request, call_next):
 
 scorer = RiskScorer()
 monitor = ModelMonitor(settings.monitoring_log_dir)
+
+# [R2] See _score_ticker for why the score path is cached rather than recomputed
+# per request, and security/cache.py for the single-flight/SWR mechanics.
+_score_cache: SingleFlightCache = SingleFlightCache(
+    fresh_ttl=settings.score_cache_fresh_seconds,
+    stale_ttl=settings.score_cache_stale_seconds,
+)
 
 init_db()
 if settings.jwt_secret_key == "dev-insecure-secret-change-me-before-deploying":
@@ -224,7 +377,18 @@ def _score_ticker(ticker: str, period: str) -> dict:
         return _mock_score
 
     try:
-        result = scorer.score(ticker.upper(), period=period)
+        # [R2] Cache-first with single-flight. A cold score is a ~2.7s upstream
+        # round trip, so twenty concurrent requests for a popular ticker used
+        # to launch twenty identical fetches — the classic stampede, and one
+        # that hits an upstream which throttles by IP. _score_cache collapses
+        # them into one computation whose result everyone shares, serves a
+        # slightly-stale value rather than making anyone wait at the expiry
+        # boundary, and keeps serving stale on upstream failure instead of
+        # 500ing. See security/cache.py.
+        result = _score_cache.get_or_compute(
+            f"{ticker.upper()}:{period}",
+            lambda: scorer.score(ticker.upper(), period=period),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
@@ -374,7 +538,7 @@ class UserResponse(BaseModel):
 
 
 @app.post("/api/auth/register", response_model=TokenResponse)
-def register(payload: RegisterRequest, session: Session = Depends(get_session)):
+def register(payload: RegisterRequest, request: Request, session: Session = Depends(get_session)):
     if not payload.consent:
         raise HTTPException(
             status_code=422, detail="You must agree to the privacy notice to register"
@@ -403,20 +567,74 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)):
     )
     session.add(user)
     session.commit()
+    record_audit(
+        session,
+        AuditAction.REGISTER,
+        actor_email=user.email,
+        ip_address=client_ip(request),
+    )
     return TokenResponse(access_token=create_access_token(user.email))
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
-def login(payload: LoginRequest, session: Session = Depends(get_session)):
-    user = session.exec(select(User).where(User.email == payload.email)).first()
+def login(payload: LoginRequest, request: Request, session: Session = Depends(get_session)):
+    """[R2] Credential check with per-account lockout and an audit trail.
+
+    The rate limiter alone doesn't cover this: it keys on IP (or user), so an
+    attacker rotating IPs against ONE account stays under it indefinitely.
+    FailedLoginTracker keys on the email instead, so the two together cover
+    both spray-from-one-IP and one-account-from-many-IPs.
+
+    The lockout is time-limited rather than permanent on purpose — a permanent
+    lock triggered by failed passwords is a denial-of-service anyone can aim at
+    any known email address.
+    """
+    email = payload.email
+    ip = client_ip(request)
+
+    locked, remaining = _login_tracker.is_locked(email)
+    if locked:
+        record_audit(
+            session,
+            AuditAction.LOGIN_LOCKED,
+            actor_email=email,
+            detail=f"locked for another {remaining:.0f}s",
+            ip_address=ip,
+            success=False,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed sign-in attempts. Please try again later.",
+            headers={"Retry-After": str(max(1, int(remaining)))},
+        )
+
+    user = session.exec(select(User).where(User.email == email)).first()
     if not user or not verify_password(payload.password, user.hashed_password):
+        attempts = _login_tracker.record_failure(email)
+        record_audit(
+            session,
+            AuditAction.LOGIN_FAILURE,
+            actor_email=email,
+            detail=f"attempt {attempts}/{_login_tracker.threshold}",
+            ip_address=ip,
+            success=False,
+        )
+        # Deliberately the same message and status for "no such user" and
+        # "wrong password": distinguishing them turns this endpoint into an
+        # account-enumeration oracle.
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
     if user.is_banned:
         # Checked before issuing a token: without this, a banned user could
         # still log in successfully and get a fresh token that immediately
         # 403s on their next call (get_current_user) — a confusing loop
         # instead of a clear message at the one place they'd try next.
         raise HTTPException(status_code=403, detail="This account has been suspended")
+
+    # A correct password ends the streak — otherwise a user who mistyped four
+    # times then succeeded would stay one failure away from a lockout.
+    _login_tracker.clear(email)
+    record_audit(session, AuditAction.LOGIN_SUCCESS, actor_email=email, ip_address=ip)
     return TokenResponse(access_token=create_access_token(user.email))
 
 
@@ -1268,7 +1486,10 @@ def admin_list_users(
 
 @app.post("/api/admin/users/{user_id}/ban", response_model=AdminUserResponse)
 def admin_ban_user(
-    user_id: int, admin: User = Depends(require_admin), session: Session = Depends(get_session)
+    user_id: int,
+    request: Request,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
 ):
     target = session.get(User, user_id)
     if not target:
@@ -1283,12 +1504,25 @@ def admin_ban_user(
         session.commit()
         session.refresh(target)
         logger.warning(f"Admin {admin.email} banned {target.email}")
+        # [R2] Durable record of who did this. The loguru line above is gone on
+        # the next redeploy; "who banned this account, and when?" needs to be
+        # answerable months later.
+        record_audit(
+            session,
+            AuditAction.USER_BANNED,
+            actor_email=admin.email,
+            target=target.email,
+            ip_address=client_ip(request),
+        )
     return _admin_user_response(target)
 
 
 @app.post("/api/admin/users/{user_id}/unban", response_model=AdminUserResponse)
 def admin_unban_user(
-    user_id: int, admin: User = Depends(require_admin), session: Session = Depends(get_session)
+    user_id: int,
+    request: Request,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
 ):
     target = session.get(User, user_id)
     if not target:
@@ -1299,6 +1533,13 @@ def admin_unban_user(
         session.commit()
         session.refresh(target)
         logger.warning(f"Admin {admin.email} unbanned {target.email}")
+        record_audit(
+            session,
+            AuditAction.USER_UNBANNED,
+            actor_email=admin.email,
+            target=target.email,
+            ip_address=client_ip(request),
+        )
     return _admin_user_response(target)
 
 

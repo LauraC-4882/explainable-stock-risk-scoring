@@ -42,7 +42,6 @@ export default function CommunityPanel() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityPanelOpen, tickerFilter, sort, token])
 
   if (!communityPanelOpen) return null

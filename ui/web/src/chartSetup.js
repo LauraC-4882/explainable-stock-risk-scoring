@@ -23,5 +23,5 @@ ChartJS.register(
   BarElement,
   BarController,
   Filler,
-  Tooltip,
+  Tooltip
 )

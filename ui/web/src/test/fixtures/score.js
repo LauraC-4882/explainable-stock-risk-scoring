@@ -1,0 +1,331 @@
+// Trimmed copies of the real API responses in tests/fixtures/mock_api/ — the
+// shapes components destructure (risk_breakdown, stress_test, fundamentals…)
+// are exactly what the backend serves, so a response-shape change breaks the
+// tests instead of only breaking production.
+export const scoreTsla = {
+  "ticker": "TSLA",
+  "timestamp": "2026-07-17T17:47:57.454324Z",
+  "risk_score": 66.5,
+  "risk_label": "HIGH",
+  "risk_note": "Score reflects this stock's risk relative to its own historical distribution (and market sensitivity vs. SPY) — it is not a probability of loss, default probability, or investment recommendation.",
+  "risk_breakdown": {
+    "volatility": {
+      "score": 54.7,
+      "weight": 0.25,
+      "metrics": {
+        "vol_21d": 69,
+        "vol_63d": 40.8,
+        "downside_dev_63d": 51.2
+      },
+      "two_sided": false,
+      "contribution": 54.7
+    },
+    "tail": {
+      "score": 71.1,
+      "weight": 0.25,
+      "metrics": {
+        "cvar_95_21d": 78.1,
+        "var_95_21d": 85.4,
+        "skew_63d": 64.5,
+        "kurt_63d": 47.9
+      },
+      "two_sided": false,
+      "contribution": 71.1
+    },
+    "drawdown": {
+      "score": 54.2,
+      "weight": 0.2,
+      "metrics": {
+        "max_drawdown_63d": 35,
+        "drawdown": 64.5,
+        "drawdown_duration": 79.5
+      },
+      "two_sided": false,
+      "contribution": 54.2
+    },
+    "sensitivity": {
+      "score": 69.7,
+      "weight": 0.15,
+      "metrics": {
+        "beta_63d": 69.7
+      },
+      "two_sided": true,
+      "contribution": 69.7
+    },
+    "liquidity": {
+      "score": 12.4,
+      "weight": 0.15,
+      "metrics": {
+        "amihud_illiq_21d": 8.1,
+        "volume_vol_21d": 22,
+        "dollar_volume_21d": 4.3
+      },
+      "two_sided": true,
+      "contribution": 50
+    }
+  },
+  "market_regime": {
+    "vix": 17.760000228881836,
+    "regime": "calm",
+    "market": "us",
+    "benchmark": "SPY"
+  },
+  "ml_drawdown_probability": 14.3,
+  "ml_drawdown_explanation": {
+    "base_probability": 0.5969,
+    "predicted_probability": 0.7509,
+    "calibrated_probability": 0.1429,
+    "top_features": [
+      {
+        "feature": "volatility__max_drawdown_63d",
+        "raw_value": -0.2389973379661643,
+        "shap_contribution": 0.7127764821052551
+      },
+      {
+        "feature": "volatility__vol_63d",
+        "raw_value": 0.47586890540011956,
+        "shap_contribution": 0.6524171829223633
+      },
+      {
+        "feature": "momentum__volume_ratio",
+        "raw_value": 0.509037214795727,
+        "shap_contribution": -0.37501081824302673
+      },
+      {
+        "feature": "volatility__vol_regime_change",
+        "raw_value": 0.9976552268360884,
+        "shap_contribution": -0.37022775411605835
+      },
+      {
+        "feature": "volatility__skew_momentum",
+        "raw_value": 0.37953448739070034,
+        "shap_contribution": 0.3690114915370941
+      }
+    ]
+  },
+  "garch_volatility_forecast": {
+    "vol_1d": 0.031,
+    "vol_30d": 0.1695
+  },
+  "news_risk": {
+    "llm_configured": false,
+    "max_severity": 0,
+    "negative_count": 0,
+    "articles": [
+      {
+        "event_type": "none",
+        "risk_category": "none",
+        "sentiment": "neutral",
+        "severity": 0,
+        "time_horizon": "unknown",
+        "confidence": 0,
+        "evidence": [],
+        "title": "Mission aborted: Why Elon Musk canceled SpaceX's Starship launch",
+        "source": "mock"
+      },
+      {
+        "event_type": "none",
+        "risk_category": "none",
+        "sentiment": "neutral",
+        "severity": 0,
+        "time_horizon": "unknown",
+        "confidence": 0,
+        "evidence": [],
+        "title": "Tesla (TSLA) Price Prediction: How Much a $10,000 Investment Could Be Worth by 2027",
+        "source": "mock"
+      }
+    ]
+  },
+  "alt_data": {
+    "analyst_activity": {
+      "downgrade_count": 0,
+      "upgrade_count": 0
+    },
+    "insider_activity": {
+      "sale_count": 0,
+      "purchase_count": 0,
+      "net_transaction_count": 0
+    }
+  },
+  "stress_test": {
+    "live_score": 66.5,
+    "scenarios": {
+      "2008_financial_crisis": {
+        "label": "2008 Global Financial Crisis",
+        "baseline_score": 68.2,
+        "stressed_score": 93,
+        "delta": 24.8,
+        "narrative": "If 2008 Global Financial Crisis conditions recurred, this stock's risk score would move from 68.2 to 93.0 (+24.8).",
+        "stressed_categories": {
+          "volatility": {
+            "score": 100,
+            "weight": 0.2,
+            "metrics": {
+              "vol_21d": 100,
+              "vol_63d": 100,
+              "downside_dev_63d": 100
+            }
+          },
+          "tail": {
+            "score": 92,
+            "weight": 0.4,
+            "metrics": {
+              "cvar_95_21d": 100,
+              "var_95_21d": 100,
+              "skew_63d": 99.8,
+              "kurt_63d": 60.2
+            }
+          },
+          "drawdown": {
+            "score": 95.9,
+            "weight": 0.15,
+            "metrics": {
+              "max_drawdown_63d": 100,
+              "drawdown": 100,
+              "drawdown_duration": 79.5
+            }
+          },
+          "sensitivity": {
+            "score": 69.7,
+            "weight": 0.1,
+            "metrics": {
+              "beta_63d": 69.7
+            }
+          },
+          "liquidity": {
+            "score": 99.2,
+            "weight": 0.15,
+            "metrics": {
+              "amihud_illiq_21d": 100,
+              "volume_vol_21d": 100,
+              "dollar_volume_21d": 95.9
+            }
+          }
+        }
+      },
+      "2020_covid_crash": {
+        "label": "2020 COVID-19 Crash",
+        "baseline_score": 68.2,
+        "stressed_score": 93,
+        "delta": 24.8,
+        "narrative": "If 2020 COVID-19 Crash conditions recurred, this stock's risk score would move from 68.2 to 93.0 (+24.8).",
+        "stressed_categories": {
+          "volatility": {
+            "score": 100,
+            "weight": 0.2,
+            "metrics": {
+              "vol_21d": 100,
+              "vol_63d": 100,
+              "downside_dev_63d": 100
+            }
+          },
+          "tail": {
+            "score": 91.8,
+            "weight": 0.4,
+            "metrics": {
+              "cvar_95_21d": 100,
+              "var_95_21d": 100,
+              "skew_63d": 96.1,
+              "kurt_63d": 63
+            }
+          },
+          "drawdown": {
+            "score": 95.9,
+            "weight": 0.15,
+            "metrics": {
+              "max_drawdown_63d": 100,
+              "drawdown": 100,
+              "drawdown_duration": 79.5
+            }
+          },
+          "sensitivity": {
+            "score": 69.7,
+            "weight": 0.1,
+            "metrics": {
+              "beta_63d": 69.7
+            }
+          },
+          "liquidity": {
+            "score": 99.2,
+            "weight": 0.15,
+            "metrics": {
+              "amihud_illiq_21d": 100,
+              "volume_vol_21d": 100,
+              "dollar_volume_21d": 95.9
+            }
+          }
+        }
+      },
+      "2022_rate_hike_selloff": {
+        "label": "2022 Rate Hike Bear Market",
+        "baseline_score": 66.6,
+        "stressed_score": 88.4,
+        "delta": 21.8,
+        "narrative": "If 2022 Rate Hike Bear Market conditions recurred, this stock's risk score would move from 66.6 to 88.4 (+21.8).",
+        "stressed_categories": {
+          "volatility": {
+            "score": 95.4,
+            "weight": 0.25,
+            "metrics": {
+              "vol_21d": 96.8,
+              "vol_63d": 93.5,
+              "downside_dev_63d": 95.9
+            }
+          },
+          "tail": {
+            "score": 87.6,
+            "weight": 0.3,
+            "metrics": {
+              "cvar_95_21d": 97.2,
+              "var_95_21d": 99.6,
+              "skew_63d": 90,
+              "kurt_63d": 53.5
+            }
+          },
+          "drawdown": {
+            "score": 84.4,
+            "weight": 0.2,
+            "metrics": {
+              "max_drawdown_63d": 78.7,
+              "drawdown": 94.6,
+              "drawdown_duration": 79.5
+            }
+          },
+          "sensitivity": {
+            "score": 69.7,
+            "weight": 0.1,
+            "metrics": {
+              "beta_63d": 69.7
+            }
+          },
+          "liquidity": {
+            "score": 96.2,
+            "weight": 0.15,
+            "metrics": {
+              "amihud_illiq_21d": 97.4,
+              "volume_vol_21d": 94.4,
+              "dollar_volume_21d": 95.9
+            }
+          }
+        }
+      }
+    }
+  },
+  "volatility_30d": 0.4759,
+  "var_95": -0.0596,
+  "cvar_95": -0.0687,
+  "max_drawdown_90d": -0.239,
+  "beta": 1.802,
+  "implied_volatility": 0.345,
+  "name": "Tesla, Inc.",
+  "indicators": {
+    "rsi_14": 42.87,
+    "bb_pct": 0.2389,
+    "atr_14": 17.6738
+  },
+  "fundamentals": {
+    "sector": "Consumer Cyclical",
+    "market_cap": 1436751757312,
+    "trailing_pe": 350.9632
+  }
+}

@@ -46,7 +46,9 @@ export default function Leaderboard() {
       {loading ? (
         <div className="skeleton-shimmer animate-shimmer h-40 w-full rounded-lg" />
       ) : entries.length === 0 ? (
-        <p className="px-2 py-8 text-center text-sm text-muted">{t('community.leaderboardEmpty')}</p>
+        <p className="px-2 py-8 text-center text-sm text-muted">
+          {t('community.leaderboardEmpty')}
+        </p>
       ) : (
         <div className="space-y-1.5">
           {entries.map((entry, i) => (

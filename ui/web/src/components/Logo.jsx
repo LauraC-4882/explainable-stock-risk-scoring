@@ -23,13 +23,21 @@ export function RiscoreIcon({ size = 110, idPrefix = 'ri' }) {
 
       <circle cx="55" cy="55" r="50" fill="none" stroke="rgba(125,211,252,0.16)" strokeWidth="1" />
       <circle
-        cx="55" cy="55" r="44" fill="none" stroke="rgba(79,216,235,0.22)"
-        strokeWidth="0.8" strokeDasharray="5 7" className="logo-ring-spin"
+        cx="55"
+        cy="55"
+        r="44"
+        fill="none"
+        stroke="rgba(79,216,235,0.22)"
+        strokeWidth="0.8"
+        strokeDasharray="5 7"
+        className="logo-ring-spin"
       />
 
       <path
         d="M55,18 L82,30 L82,58 Q82,76 55,88 Q28,76 28,58 L28,30 Z"
-        fill="rgba(30,90,200,0.2)" stroke={`url(#${grad})`} strokeWidth="1.5"
+        fill="rgba(30,90,200,0.2)"
+        stroke={`url(#${grad})`}
+        strokeWidth="1.5"
       />
 
       <rect x="38" y="64" width="5" height="10" rx="1" fill="#f43f5e" opacity="0.9" />
@@ -42,13 +50,23 @@ export function RiscoreIcon({ size = 110, idPrefix = 'ri' }) {
       <line x1="67.5" y1="42" x2="67.5" y2="65" stroke="#86efac" strokeWidth="1" opacity="0.7" />
 
       <path
-        d="M39,70 L49,62 L58,55 L67,47" fill="none" stroke={`url(#${gold})`}
-        strokeWidth="1.8" strokeLinecap="round" className="logo-chart-line"
+        d="M39,70 L49,62 L58,55 L67,47"
+        fill="none"
+        stroke={`url(#${gold})`}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        className="logo-chart-line"
       />
       <circle cx="67" cy="47" r="4" fill="#f59e0b" className="logo-dot-pulse" />
       <circle
-        cx="67" cy="47" r="7" fill="none" stroke="#f59e0b"
-        strokeWidth="0.8" strokeOpacity="0.4" className="logo-dot-pulse"
+        cx="67"
+        cy="47"
+        r="7"
+        fill="none"
+        stroke="#f59e0b"
+        strokeWidth="0.8"
+        strokeOpacity="0.4"
+        className="logo-dot-pulse"
       />
     </svg>
   )
@@ -56,7 +74,9 @@ export function RiscoreIcon({ size = 110, idPrefix = 'ri' }) {
 
 export function RiscoreWordmark({ className = 'text-2xl' }) {
   return (
-    <span className={`inline-flex items-center gap-[0.18em] font-brand font-bold leading-none tracking-wide ${className}`}>
+    <span
+      className={`inline-flex items-center gap-[0.18em] font-brand font-bold leading-none tracking-wide ${className}`}
+    >
       <span className="text-gradient-purple">Ri</span>
       <span
         aria-hidden="true"
@@ -70,7 +90,12 @@ export function RiscoreWordmark({ className = 'text-2xl' }) {
 export function SloganRing({ size = 160, idPrefix = 'sr' }) {
   const grad = `${idPrefix}-sloganGrad`
   return (
-    <svg width={size} height={size} viewBox="0 0 160 160" aria-label="Know your risk — invest with clarity">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 160 160"
+      aria-label="Know your risk — invest with clarity"
+    >
       <defs>
         <linearGradient id={grad} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#7dd3fc" />
@@ -81,23 +106,88 @@ export function SloganRing({ size = 160, idPrefix = 'sr' }) {
 
       <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(125,211,252,0.16)" strokeWidth="1" />
       <circle
-        cx="80" cy="80" r="64" fill="none" stroke="rgba(79,216,235,0.22)" strokeWidth="0.5"
-        strokeDasharray="4 6" className="slogan-ring-spin-reverse"
+        cx="80"
+        cy="80"
+        r="64"
+        fill="none"
+        stroke="rgba(79,216,235,0.22)"
+        strokeWidth="0.5"
+        strokeDasharray="4 6"
+        className="slogan-ring-spin-reverse"
       />
       <circle
-        cx="80" cy="80" r="72" fill="none" stroke={`url(#${grad})`} strokeWidth="2"
-        strokeLinecap="round" className="slogan-arc-draw" transform="rotate(-90 80 80)"
+        cx="80"
+        cy="80"
+        r="72"
+        fill="none"
+        stroke={`url(#${grad})`}
+        strokeWidth="2"
+        strokeLinecap="round"
+        className="slogan-arc-draw"
+        transform="rotate(-90 80 80)"
       />
 
-      <rect x="77" y="4" width="6" height="6" rx="1" fill="#f59e0b" transform="rotate(45 80 7)" opacity="0.8" />
-      <rect x="77" y="147" width="6" height="6" rx="1" fill="#f59e0b" transform="rotate(45 80 150)" opacity="0.8" />
-      <rect x="4" y="77" width="6" height="6" rx="1" fill="#7dd3fc" transform="rotate(45 7 80)" opacity="0.6" />
-      <rect x="148" y="77" width="6" height="6" rx="1" fill="#38bdf8" transform="rotate(45 151 80)" opacity="0.6" />
+      <rect
+        x="77"
+        y="4"
+        width="6"
+        height="6"
+        rx="1"
+        fill="#f59e0b"
+        transform="rotate(45 80 7)"
+        opacity="0.8"
+      />
+      <rect
+        x="77"
+        y="147"
+        width="6"
+        height="6"
+        rx="1"
+        fill="#f59e0b"
+        transform="rotate(45 80 150)"
+        opacity="0.8"
+      />
+      <rect
+        x="4"
+        y="77"
+        width="6"
+        height="6"
+        rx="1"
+        fill="#7dd3fc"
+        transform="rotate(45 7 80)"
+        opacity="0.6"
+      />
+      <rect
+        x="148"
+        y="77"
+        width="6"
+        height="6"
+        rx="1"
+        fill="#38bdf8"
+        transform="rotate(45 151 80)"
+        opacity="0.6"
+      />
 
-      <text x="80" y="72" textAnchor="middle" fontSize="13" fontWeight="700" fill="#bfe6ff" letterSpacing="0.5">
+      <text
+        x="80"
+        y="72"
+        textAnchor="middle"
+        fontSize="13"
+        fontWeight="700"
+        fill="#bfe6ff"
+        letterSpacing="0.5"
+      >
         Know your
       </text>
-      <text x="80" y="88" textAnchor="middle" fontSize="13" fontWeight="700" fill="#bfe6ff" letterSpacing="0.5">
+      <text
+        x="80"
+        y="88"
+        textAnchor="middle"
+        fontSize="13"
+        fontWeight="700"
+        fill="#bfe6ff"
+        letterSpacing="0.5"
+      >
         risk.
       </text>
       <text x="80" y="106" textAnchor="middle" fontSize="10" fill="#8ba3c9" letterSpacing="1">

@@ -1,3 +1,23 @@
+// [R2] The backend cut JWT lifetime from 7 days to 12 hours. To keep that
+// invisible to an active user, any authenticated request made near expiry comes
+// back with a fresh token in X-Refreshed-Token; whoever holds the token swaps it
+// in. Subscribers rather than a direct localStorage write so AuthContext stays
+// the single owner of auth state — see its useEffect.
+const refreshListeners = new Set()
+
+export function onTokenRefreshed(listener) {
+  refreshListeners.add(listener)
+  return () => refreshListeners.delete(listener)
+}
+
+function captureRefreshedToken(res) {
+  const refreshed = res.headers?.get?.('X-Refreshed-Token')
+  if (refreshed) {
+    for (const listener of refreshListeners) listener(refreshed)
+  }
+  return res
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []
@@ -33,6 +53,10 @@ export async function apiOutcomes(ticker) {
 // ── Auth / watchlist ─────────────────────────────────────────────────────────
 
 async function parseErrorOr(res, fallback) {
+  // Every authenticated call funnels through here, so this is the one place
+  // that has to notice a refreshed token — including on error responses, since
+  // a 4xx still carries the header and still means the session is alive.
+  captureRefreshedToken(res)
   if (res.ok) return res.json()
   const err = await res.json().catch(() => ({}))
   throw new Error(err.detail || fallback)
@@ -115,7 +139,10 @@ function authHeader(token) {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export async function apiListPosts(token, { ticker, sort = 'recent', limit = 20, offset = 0 } = {}) {
+export async function apiListPosts(
+  token,
+  { ticker, sort = 'recent', limit = 20, offset = 0 } = {}
+) {
   const params = new URLSearchParams({ sort, limit: String(limit), offset: String(offset) })
   if (ticker) params.set('ticker', ticker)
   const res = await fetch(`/api/community/posts?${params}`, { headers: authHeader(token) })

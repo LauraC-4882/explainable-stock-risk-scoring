@@ -1,0 +1,150 @@
+// 25 sessions of the real TSLA timeseries response (date/close/risk_score/…).
+export const timeseriesTsla = [
+  {
+    "date": "2026-06-19",
+    "close": 400.49,
+    "risk_score": 67,
+    "risk_label": "HIGH",
+    "volatility": 0.4501
+  },
+  {
+    "date": "2026-06-22",
+    "close": 405.05,
+    "risk_score": 66.8,
+    "risk_label": "HIGH",
+    "volatility": 0.4461
+  },
+  {
+    "date": "2026-06-23",
+    "close": 381.61,
+    "risk_score": 70.1,
+    "risk_label": "HIGH",
+    "volatility": 0.4879
+  },
+  {
+    "date": "2026-06-24",
+    "close": 375.53,
+    "risk_score": 69.8,
+    "risk_label": "HIGH",
+    "volatility": 0.4819
+  },
+  {
+    "date": "2026-06-25",
+    "close": 375.12,
+    "risk_score": 69.5,
+    "risk_label": "HIGH",
+    "volatility": 0.4756
+  },
+  {
+    "date": "2026-06-26",
+    "close": 379.71,
+    "risk_score": 69.7,
+    "risk_label": "HIGH",
+    "volatility": 0.479
+  },
+  {
+    "date": "2026-06-29",
+    "close": 411.84,
+    "risk_score": 74.1,
+    "risk_label": "HIGH",
+    "volatility": 0.5674
+  },
+  {
+    "date": "2026-06-30",
+    "close": 420.6,
+    "risk_score": 73.2,
+    "risk_label": "HIGH",
+    "volatility": 0.5493
+  },
+  {
+    "date": "2026-07-01",
+    "close": 425.3,
+    "risk_score": 73.1,
+    "risk_label": "HIGH",
+    "volatility": 0.5468
+  },
+  {
+    "date": "2026-07-02",
+    "close": 393.45,
+    "risk_score": 76.2,
+    "risk_label": "EXTREME",
+    "volatility": 0.61
+  },
+  {
+    "date": "2026-07-03",
+    "close": 393.45,
+    "risk_score": 76.2,
+    "risk_label": "EXTREME",
+    "volatility": 0.6092
+  },
+  {
+    "date": "2026-07-06",
+    "close": 419.77,
+    "risk_score": 75.6,
+    "risk_label": "EXTREME",
+    "volatility": 0.6043
+  },
+  {
+    "date": "2026-07-07",
+    "close": 402.9,
+    "risk_score": 75.1,
+    "risk_label": "EXTREME",
+    "volatility": 0.6032
+  },
+  {
+    "date": "2026-07-08",
+    "close": 394.06,
+    "risk_score": 74.3,
+    "risk_label": "HIGH",
+    "volatility": 0.5988
+  },
+  {
+    "date": "2026-07-09",
+    "close": 406.55,
+    "risk_score": 72.2,
+    "risk_label": "HIGH",
+    "volatility": 0.5911
+  },
+  {
+    "date": "2026-07-10",
+    "close": 407.76,
+    "risk_score": 69.9,
+    "risk_label": "HIGH",
+    "volatility": 0.5711
+  },
+  {
+    "date": "2026-07-13",
+    "close": 394.76,
+    "risk_score": 70.3,
+    "risk_label": "HIGH",
+    "volatility": 0.5788
+  },
+  {
+    "date": "2026-07-14",
+    "close": 396.18,
+    "risk_score": 70.2,
+    "risk_label": "HIGH",
+    "volatility": 0.5773
+  },
+  {
+    "date": "2026-07-15",
+    "close": 394.46,
+    "risk_score": 70.1,
+    "risk_label": "HIGH",
+    "volatility": 0.5751
+  },
+  {
+    "date": "2026-07-16",
+    "close": 391.06,
+    "risk_score": 69.9,
+    "risk_label": "HIGH",
+    "volatility": 0.5714
+  },
+  {
+    "date": "2026-07-17",
+    "close": 382.78,
+    "risk_score": 70.1,
+    "risk_label": "HIGH",
+    "volatility": 0.5743
+  }
+]

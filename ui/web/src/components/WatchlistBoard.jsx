@@ -114,7 +114,9 @@ export default function WatchlistBoard({ onOpen }) {
                       </span>
                       <span className="text-[0.6rem] text-muted">/100</span>
                     </div>
-                    <div className={`w-20 text-right font-display text-sm font-bold tabular-nums ${tone.cls}`}>
+                    <div
+                      className={`w-20 text-right font-display text-sm font-bold tabular-nums ${tone.cls}`}
+                    >
                       {row.delta == null ? (
                         <span className="text-[0.62rem] font-normal text-muted">
                           {t('board.firstReading')}

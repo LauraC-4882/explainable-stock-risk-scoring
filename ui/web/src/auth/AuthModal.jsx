@@ -135,7 +135,9 @@ export default function AuthModal() {
             className="w-full rounded-xl border border-border bg-surface2 px-3.5 py-2.5 text-sm text-slate-100 outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
           />
         </label>
-        {mode === 'signUp' && <p className="mb-3 text-[0.7rem] text-muted">{t('auth.passwordHint')}</p>}
+        {mode === 'signUp' && (
+          <p className="mb-3 text-[0.7rem] text-muted">{t('auth.passwordHint')}</p>
+        )}
 
         {mode === 'signUp' && (
           <div className="mb-3 space-y-2 rounded-lg border border-border bg-surface2/50 px-3 py-2.5">
@@ -147,7 +149,9 @@ export default function AuthModal() {
                 onChange={(e) => setAgreeAdvice(e.target.checked)}
                 className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-surface2 accent-accent"
               />
-              <span className="text-xs leading-relaxed text-slate-300">{t('auth.agreeNotAdvice')}</span>
+              <span className="text-xs leading-relaxed text-slate-300">
+                {t('auth.agreeNotAdvice')}
+              </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
@@ -157,7 +161,9 @@ export default function AuthModal() {
                 onChange={(e) => setAgreeRules(e.target.checked)}
                 className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-surface2 accent-accent"
               />
-              <span className="text-xs leading-relaxed text-slate-300">{t('auth.agreeCommunityRules')}</span>
+              <span className="text-xs leading-relaxed text-slate-300">
+                {t('auth.agreeCommunityRules')}
+              </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2.5">
               <input

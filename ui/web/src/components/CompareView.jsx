@@ -25,8 +25,8 @@ export default function CompareView({ tickers, onRemove }) {
       tickers.map((tk) =>
         apiScore(tk)
           .then((s) => [tk, s])
-          .catch(() => [tk, null]),
-      ),
+          .catch(() => [tk, null])
+      )
     )
       .then((pairs) => {
         if (!cancelled) setScores(Object.fromEntries(pairs))
@@ -160,7 +160,13 @@ export default function CompareView({ tickers, onRemove }) {
                     )
                   }
                   const color = riskColor(
-                    c.score >= 75 ? 'EXTREME' : c.score >= 50 ? 'HIGH' : c.score >= 25 ? 'MODERATE' : 'LOW',
+                    c.score >= 75
+                      ? 'EXTREME'
+                      : c.score >= 50
+                        ? 'HIGH'
+                        : c.score >= 25
+                          ? 'MODERATE'
+                          : 'LOW'
                   )
                   return (
                     <td key={tk} className="px-4 py-3">

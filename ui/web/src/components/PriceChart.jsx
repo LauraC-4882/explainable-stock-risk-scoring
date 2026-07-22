@@ -1,6 +1,9 @@
 import { Line } from 'react-chartjs-2'
 
-export default function PriceChart({ timeseries, color }) {
+// timeseries defaults to [] so a card that hasn't loaded (or whose timeseries
+// request failed) renders an empty chart frame instead of throwing on .map and
+// taking the whole card down with it — the score hero above is still valid.
+export default function PriceChart({ timeseries = [], color }) {
   const data = {
     labels: timeseries.map((d) => d.date),
     datasets: [

@@ -1,12 +1,4 @@
-import {
-  ChartLineUp,
-  Compass,
-  Cpu,
-  Flask,
-  Gauge,
-  HandWaving,
-  Star,
-} from '@phosphor-icons/react'
+import { ChartLineUp, Compass, Cpu, Flask, Gauge, HandWaving, Star } from '@phosphor-icons/react'
 import { useState } from 'react'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -71,7 +63,11 @@ export default function OnboardingTour() {
           </div>
         </div>
 
-        <div key={current.id} className="animate-fade-in px-6 py-7" style={{ animationDuration: '0.25s' }}>
+        <div
+          key={current.id}
+          className="animate-fade-in px-6 py-7"
+          style={{ animationDuration: '0.25s' }}
+        >
           <div className="icon-badge mb-4 h-12 w-12" aria-hidden="true">
             <current.icon size={28} />
           </div>

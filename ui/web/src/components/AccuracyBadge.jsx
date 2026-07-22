@@ -10,7 +10,9 @@ export default function AccuracyBadge({ accuracy, size = 'sm' }) {
 
   if (accuracy == null) {
     return (
-      <span className={`inline-block rounded-full bg-muted/10 font-bold uppercase tracking-wide text-muted ${sizeClass}`}>
+      <span
+        className={`inline-block rounded-full bg-muted/10 font-bold uppercase tracking-wide text-muted ${sizeClass}`}
+      >
         {t('community.accuracyPending')}
       </span>
     )

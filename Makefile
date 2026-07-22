@@ -1,5 +1,6 @@
 .PHONY: install train score api monitor test lint format smoke validate analyze-categories \
-        migrate migrate-dry-run migrate-sql migration backup backup-list restore-drill
+        migrate migrate-dry-run migrate-sql migration backup backup-list restore-drill \
+        web-install web-test web-lint web-build web-ci
 
 install:
 	pip install -e ".[dev]"
@@ -58,6 +59,22 @@ backup-list:
 # assumption, not a recovery plan.
 restore-drill:
 	python scripts/backup_db.py drill
+
+# ── Frontend ([R3]) ─────────────────────────────────────────────────────────
+web-install:
+	cd ui/web && npm ci
+
+web-test:
+	cd ui/web && npm run test:run
+
+web-lint:
+	cd ui/web && npm run lint
+
+web-build:
+	cd ui/web && npm run build
+
+# Everything CI runs for the frontend, in the same order.
+web-ci: web-lint web-test web-build
 
 lint:
 	ruff check src/ tests/ alembic/

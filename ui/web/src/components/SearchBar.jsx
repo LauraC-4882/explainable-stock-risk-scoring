@@ -44,7 +44,7 @@ export default function SearchBar({ market, onAdd }) {
       if (latestQueryRef.current !== q) return // superseded — drop this response
       setResults(res)
       setOpen(res.length > 0)
-    }, 320),
+    }, 320)
   ).current
 
   useEffect(() => {
@@ -147,10 +147,16 @@ export default function SearchBar({ market, onAdd }) {
               className={`flex animate-fade-in cursor-pointer items-center justify-between rounded-xl px-3.5 py-3 transition-colors duration-150 active:scale-[0.98] ${
                 i === highlight ? 'bg-accent/[0.14]' : ''
               }`}
-              style={{ animationDelay: `${Math.min(i, 6) * 30}ms`, animationFillMode: 'backwards', animationDuration: '0.18s' }}
+              style={{
+                animationDelay: `${Math.min(i, 6) * 30}ms`,
+                animationFillMode: 'backwards',
+                animationDuration: '0.18s',
+              }}
             >
               <div className="flex flex-col gap-0.5">
-                <span className="font-display text-[15px] font-bold text-slate-100">{r.symbol}</span>
+                <span className="font-display text-[15px] font-bold text-slate-100">
+                  {r.symbol}
+                </span>
                 <span className="text-xs text-muted">{r.name}</span>
               </div>
               <span className="text-[11px] tracking-wide text-muted">{r.exchange}</span>

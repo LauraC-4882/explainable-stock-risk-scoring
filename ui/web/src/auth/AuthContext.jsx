@@ -6,6 +6,7 @@ import {
   apiMe,
   apiRegister,
   apiRemoveWatchlist,
+  onTokenRefreshed,
 } from '../api'
 
 const TOKEN_KEY = 'stock-risk-token'
@@ -27,6 +28,25 @@ export function AuthProvider({ children }) {
   const [communityPanelTicker, setCommunityPanelTicker] = useState(null)
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
   const [aboutPanelOpen, setAboutPanelOpen] = useState(false)
+
+  // [R2] Adopt a token the backend silently re-issued. Access tokens now live
+  // 12 hours instead of a week, so an active session would otherwise expire
+  // mid-use; the API returns a fresh one in X-Refreshed-Token as expiry nears
+  // and this swaps it in. Registered once, not per-request, so the listener
+  // set can't grow with every call.
+  //
+  // Guarded on an actual change: setToken with the same string would still
+  // re-run the session-restore effect below (it keys on `token`), refetching
+  // /me and the watchlist on every request once inside the refresh window.
+  useEffect(() => {
+    return onTokenRefreshed((next) => {
+      setToken((current) => {
+        if (current === next) return current
+        localStorage.setItem(TOKEN_KEY, next)
+        return next
+      })
+    })
+  }, [])
 
   // Restore the session on load (and whenever the token changes) by re-fetching
   // the user + watchlist — a stale/expired token is dropped rather than surfaced
@@ -77,7 +97,7 @@ export function AuthProvider({ children }) {
 
   const isFavorited = useCallback(
     (ticker) => watchlist.some((w) => w.ticker === ticker),
-    [watchlist],
+    [watchlist]
   )
 
   async function toggleFavorite(ticker, market) {

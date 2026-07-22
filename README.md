@@ -570,6 +570,90 @@ Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no e
 
 Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.
 
+## API Hardening ([R2])
+
+The scoring API is public, unauthenticated, and on a cache miss makes a live
+upstream call that takes ~2.7s. Before [R2] a single client in a loop could
+saturate the worker pool *and* burn the upstream quota — and since Yahoo
+throttles by egress IP, one abusive caller gets the whole deployment throttled
+for everyone.
+
+| Control | Where | What it stops |
+|---|---|---|
+| Token-bucket rate limiting, per-endpoint cost | `security/ratelimit.py` | Request flooding; a cold score costs 5 tokens, `/health` costs 0 |
+| Per-account login lockout | `FailedLoginTracker` | Credential stuffing that rotates IPs against one account |
+| Single-flight cache | `security/cache.py` | Cache stampede — 20 concurrent misses become 1 upstream call |
+| Stale-while-revalidate | same | The 2.7s latency cliff at every cache expiry |
+| Stale-on-error | same | Upstream outage becoming total outage |
+| Strict CORS allowlist | `api/app.py` | Any site reading this API on a signed-in user's behalf |
+| CSP + security headers | `security/headers.py` | XSS, clickjacking, MIME sniffing, referrer leakage |
+| Audit log | `security/audit.py` | "Who banned this account, and when?" being unanswerable |
+| 12h JWT + silent refresh | `auth/security.py` | A leaked token staying valid for a week |
+
+Three choices worth explaining, since each looks like it could have been done
+more simply:
+
+**Token bucket, not a fixed window.** A fixed window lets a client spend its
+whole allowance in the last instant of one window and again in the first
+instant of the next — a 2x burst at the boundary. A bucket refills
+continuously, so burst is an explicit bounded parameter rather than an artifact
+of where the window edges fall.
+
+**Rate limiting *and* per-account lockout.** They cover different attacks. The
+limiter keys on IP (or user), so an attacker rotating IPs against one account
+stays under it indefinitely; the lockout keys on email, so a spray across many
+accounts from one IP stays under *it*. Either alone leaves an obvious hole. The
+lockout is time-limited, not permanent — a permanent lock triggered by failed
+passwords is a denial-of-service anyone can aim at any known email address.
+
+**CORS was `allow_origins=["*"]` next to JWT auth.** That let any website a
+signed-in user visited read every response from this API, including the full
+scoring output. Now an explicit allowlist via `CORS_ALLOWED_ORIGINS`, with
+`allow_credentials=False` (tokens travel in a header, not cookies).
+
+`X-Forwarded-For` is trusted only when `TRUST_PROXY_HEADERS=1` (true behind
+Render, false for a directly-exposed server). Trusting it unconditionally would
+make IP rate limiting useless — the header is attacker-controlled, so anyone
+could send a fresh value per request and get a fresh bucket every time.
+
+Rate limiting is **per-process**, not shared across replicas: with N workers the
+effective limit is N x the configured rate. A shared Redis counter would be
+exact, but putting a network dependency in the request hot path — one that
+fails either open or closed, both bad — is a worse trade at this scale.
+
+## Frontend Testing & CI ([R3])
+
+6,600 lines of JSX previously had no automated coverage at all; the only gate
+was `ui_shot.sh`'s screenshots, graded by eye. CI didn't run `npm` anything, so
+a syntax error could reach `main`.
+
+```bash
+make web-ci      # lint + test + build, exactly what CI runs
+make web-test    # vitest run
+```
+
+44 tests across 6 files (Vitest + React Testing Library + jsdom), plus ESLint
+(flat config) and Prettier, all gated in CI. The tests target behaviour a user
+can observe rather than implementation details:
+
+| Test area | Why it's the one that matters |
+|---|---|
+| `windowStats` null handling | Regression: null risk fields rendered as a confident `0–0` |
+| en/zh key-tree parity | Catches a translator adding a key to one locale only |
+| `t()` interpolation + fallback | A missing key must fall back to English, not render `window.stat.high` |
+| Floored two-sided tiles | A below-neutral liquidity tile must never render green (see [R4]) |
+| StockCard states | Loading, error, populated, and *period change refetches timeseries but not score* |
+| Charts with missing data | See below — this found a real bug |
+
+**Two real bugs found by writing these tests.** `PriceChart`, `RiskChart` and
+`AdminAnalyticsChart` all called `.map()` on their series prop unguarded. They
+render inside the card with no error boundary, so an absent series would blank
+the entire dashboard — including the still-valid score hero above it. Fixed
+with `= []` defaults. Second: a stale
+`eslint-disable-next-line react-hooks/exhaustive-deps` in `CommunityPanel.jsx`
+whose dep array was actually complete, removed so it can't mask a future real
+warning.
+
 ## Schema Migrations & Backup/Restore ([R1])
 
 The database holds the only data in this system that cannot be recomputed:

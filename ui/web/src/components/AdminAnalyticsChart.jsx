@@ -3,7 +3,7 @@ import { Bar } from 'react-chartjs-2'
 // Hour-of-day request histogram (24 UTC bars). Data comes from
 // /api/admin/analytics/summary's hourly_histogram (always 24 zero-filled
 // entries, so bars render even for quiet hours).
-export default function AdminAnalyticsChart({ hourly }) {
+export default function AdminAnalyticsChart({ hourly = [] }) {
   const data = {
     labels: hourly.map((b) => b.hour),
     datasets: [

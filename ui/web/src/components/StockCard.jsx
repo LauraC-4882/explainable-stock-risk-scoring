@@ -197,7 +197,9 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
                   <h2 className="font-display text-3xl font-bold tracking-tight text-slate-100 max-sm:text-2xl sm:truncate">
                     {heroTitle}
                   </h2>
-                  <div className="mt-1 text-sm uppercase tracking-widest text-muted max-sm:text-[0.8rem] max-sm:tracking-wide">{heroSub}</div>
+                  <div className="mt-1 text-sm uppercase tracking-widest text-muted max-sm:text-[0.8rem] max-sm:tracking-wide">
+                    {heroSub}
+                  </div>
                 </div>
                 {headerButtons}
               </div>

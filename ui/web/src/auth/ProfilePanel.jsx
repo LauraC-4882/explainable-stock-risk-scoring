@@ -8,8 +8,15 @@ import { useAuth } from './AuthContext'
 
 export default function ProfilePanel() {
   const { t, lang } = useLanguage()
-  const { token, profilePanelOpen, closeProfilePanel, user, watchlist, logout, openCommunityPanel } =
-    useAuth()
+  const {
+    token,
+    profilePanelOpen,
+    closeProfilePanel,
+    user,
+    watchlist,
+    logout,
+    openCommunityPanel,
+  } = useAuth()
   const { openTour } = useOnboarding()
   const [postCount, setPostCount] = useState(null)
   const [voteCount, setVoteCount] = useState(null)

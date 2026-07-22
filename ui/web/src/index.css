@@ -36,7 +36,11 @@
       linear-gradient(165deg, #0b1e42, #0b2049 45%, #071228) fixed;
     min-height: 100vh;
     position: relative;
-    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    font-family:
+      'Manrope',
+      system-ui,
+      -apple-system,
+      sans-serif;
     color: #e4edfa;
   }
 }
@@ -103,7 +107,9 @@
     box-shadow: 0 12px 34px rgba(56, 189, 248, 0.42);
   }
   .glow-ring {
-    box-shadow: 0 0 0 1px rgba(125, 190, 250, 0.16), 0 0 24px -6px rgba(56, 150, 240, 0.4);
+    box-shadow:
+      0 0 0 1px rgba(125, 190, 250, 0.16),
+      0 0 24px -6px rgba(56, 150, 240, 0.4);
   }
   .skeleton-shimmer {
     background-image: linear-gradient(
@@ -176,8 +182,12 @@
   animation: logo-spin 20s linear infinite reverse;
 }
 @keyframes logo-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .logo-chart-line {
   stroke-dasharray: 200;
@@ -190,19 +200,31 @@
   animation: logo-draw 1.8s ease 0.8s forwards;
 }
 @keyframes logo-draw {
-  to { stroke-dashoffset: 0; }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 .logo-dot-pulse {
   animation: logo-dot 2s ease-in-out infinite 1.5s;
 }
 @keyframes logo-dot {
-  0%, 100% { r: 4; }
-  50% { r: 6; }
+  0%,
+  100% {
+    r: 4;
+  }
+  50% {
+    r: 6;
+  }
 }
 
 @keyframes flourish-pan {
-  0%, 100% { background-position: 0% 0; }
-  50% { background-position: 100% 0; }
+  0%,
+  100% {
+    background-position: 0% 0;
+  }
+  50% {
+    background-position: 100% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -24,13 +24,15 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from alembic import context
-
-# Importing the models registers every table on SQLModel.metadata. Without
-# this import the metadata is empty and `--autogenerate` cheerfully produces a
-# migration that DROPS every table in the database.
 from stock_risk import db as app_db
-from stock_risk.auth import models as _auth_models  # noqa: F401
 from stock_risk.config import settings
+
+# Registers every table on SQLModel.metadata. Without this the metadata is
+# empty and `--autogenerate` cheerfully produces a migration that DROPS every
+# table in the database. Routed through db._register_all_models() so there is
+# one list of table-declaring modules rather than an import here that silently
+# falls behind when a new model is added elsewhere.
+app_db._register_all_models()
 
 config = context.config
 

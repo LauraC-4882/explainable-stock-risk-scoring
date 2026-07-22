@@ -52,7 +52,9 @@ export default function MLSignalPanel({ probability, explanation }) {
               <p className="text-sm leading-relaxed text-slate-300">{t('mlSignal.intro')}</p>
               <div className="mt-2 text-xs text-slate-200">
                 {t('mlSignal.probability')}{' '}
-                <span className="font-mono font-bold text-accent">{(displayProb * 100).toFixed(1)}%</span>
+                <span className="font-mono font-bold text-accent">
+                  {(displayProb * 100).toFixed(1)}%
+                </span>
               </div>
             </div>
 

@@ -8,7 +8,9 @@ const STORAGE_KEY = 'stock-risk-lang'
 const LanguageContext = createContext(null)
 
 function lookup(dict, path) {
-  return path.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : undefined), dict)
+  return path
+    .split('.')
+    .reduce((acc, key) => (acc && acc[key] != null ? acc[key] : undefined), dict)
 }
 
 export function LanguageProvider({ children }) {
@@ -42,7 +44,9 @@ export function LanguageProvider({ children }) {
     }
   }, [lang])
 
-  return <LanguageContext.Provider value={{ lang, setLang, t }}>{children}</LanguageContext.Provider>
+  return (
+    <LanguageContext.Provider value={{ lang, setLang, t }}>{children}</LanguageContext.Provider>
+  )
 }
 
 export function useLanguage() {

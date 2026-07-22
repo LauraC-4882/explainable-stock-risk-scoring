@@ -49,6 +49,18 @@ _BASELINE_TABLES = frozenset(
 )
 
 
+def _register_all_models() -> None:
+    """Import every module declaring a table so SQLModel.metadata is complete.
+
+    Alembic's autogenerate diffs the database against this metadata — a table
+    whose module was never imported looks like a table that should be DROPPED.
+    Centralised here so adding a new model means editing one list, not
+    remembering which of several import sites needed updating.
+    """
+    from .auth import models  # noqa: F401
+    from .security import audit  # noqa: F401
+
+
 def alembic_config(url: str | None = None) -> "Config":
     """Alembic config pointed at this repo's alembic/ directory.
 
@@ -105,7 +117,7 @@ def run_migrations(target_engine: Engine | None = None) -> None:
 
     from alembic import command
 
-    from .auth import models  # noqa: F401  (registers tables on SQLModel.metadata)
+    _register_all_models()
 
     target = target_engine or engine
     cfg = alembic_config()

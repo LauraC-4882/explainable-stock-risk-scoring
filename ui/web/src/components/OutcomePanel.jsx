@@ -67,9 +67,7 @@ export default function OutcomePanel({ ticker }) {
             {state === 'loading' && (
               <div className="skeleton-shimmer animate-shimmer h-32 w-full rounded-lg" />
             )}
-            {state === 'error' && (
-              <p className="text-xs text-muted">{t('outcomes.error')}</p>
-            )}
+            {state === 'error' && <p className="text-xs text-muted">{t('outcomes.error')}</p>}
 
             {state === 'ready' && data && (
               <>
@@ -118,14 +116,9 @@ export default function OutcomePanel({ ticker }) {
                           <>
                             {/* Up/down frequency split bar */}
                             <div className="mt-2.5 flex items-center gap-2 font-mono text-[0.7rem]">
-                              <span className="w-16 flex-shrink-0 text-up">
-                                ↑ {band.up_pct}%
-                              </span>
+                              <span className="w-16 flex-shrink-0 text-up">↑ {band.up_pct}%</span>
                               <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-surface2">
-                                <div
-                                  className="bg-up/70"
-                                  style={{ width: `${band.up_pct}%` }}
-                                />
+                                <div className="bg-up/70" style={{ width: `${band.up_pct}%` }} />
                                 <div
                                   className="bg-down/70"
                                   style={{ width: `${band.down_pct}%` }}

@@ -43,7 +43,10 @@ export default function RiskGauge({ score, color, size = 184 }) {
           strokeLinecap="round"
           strokeDasharray={dash}
           strokeDashoffset={offset}
-          style={{ filter: `drop-shadow(0 0 10px ${color})`, transition: 'stroke-dashoffset 0.7s ease' }}
+          style={{
+            filter: `drop-shadow(0 0 10px ${color})`,
+            transition: 'stroke-dashoffset 0.7s ease',
+          }}
         />
       </g>
       <text
@@ -58,14 +61,28 @@ export default function RiskGauge({ score, color, size = 184 }) {
         x="115"
         y="132"
         textAnchor="middle"
-        style={{ font: '600 12px Manrope, system-ui, sans-serif', fill: '#8b83a6', letterSpacing: '2px' }}
+        style={{
+          font: '600 12px Manrope, system-ui, sans-serif',
+          fill: '#8b83a6',
+          letterSpacing: '2px',
+        }}
       >
         / 100
       </text>
-      <text x="42" y="188" textAnchor="middle" style={{ font: '600 11px Manrope, system-ui, sans-serif', fill: '#6f6890' }}>
+      <text
+        x="42"
+        y="188"
+        textAnchor="middle"
+        style={{ font: '600 11px Manrope, system-ui, sans-serif', fill: '#6f6890' }}
+      >
         0
       </text>
-      <text x="188" y="188" textAnchor="middle" style={{ font: '600 11px Manrope, system-ui, sans-serif', fill: '#6f6890' }}>
+      <text
+        x="188"
+        y="188"
+        textAnchor="middle"
+        style={{ font: '600 11px Manrope, system-ui, sans-serif', fill: '#6f6890' }}
+      >
         100
       </text>
     </svg>

@@ -56,6 +56,45 @@ jobs:
           python scripts/backup_db.py list
           python scripts/backup_db.py drill
 
+  # [R3] The frontend used to have zero CI coverage: 6,600 lines of JSX where a
+  # syntax error could reach main and only surface when someone built locally.
+  # Separate job so a backend failure and a frontend failure are distinguishable
+  # at a glance, and so they run concurrently.
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/web/package-lock.json
+
+      # `npm ci` not `npm install`: installs exactly the lockfile, and fails if
+      # package.json and the lockfile have drifted — which is the point of
+      # committing a lockfile at all.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit + component tests
+        run: npm run test:run
+
+      # A clean build proves the bundler is happy, which the tests above do not:
+      # they run modules through vite's transform, never through a full
+      # production build with minification and tree-shaking.
+      - name: Build
+        run: npm run build
+
       # Exit-code contract (see scripts/smoke.py): 0 = gate ran and passed;
       # 75 = Yahoo rate-limited the data fetch, gate DID NOT run (GitHub
       # runner IPs get intermittently throttled — observed live 2026-07-18/19

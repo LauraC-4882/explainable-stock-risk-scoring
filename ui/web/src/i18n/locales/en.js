@@ -28,10 +28,22 @@ export default {
     body: 'Type a company name or ticker above. Scores update live using real market data.',
     trustTitle: 'Why trust this score',
     trust: {
-      data: { title: 'Real market data', body: 'Live US / CN / HK prices with daily snapshot fallback.' },
-      explain: { title: 'Explainable by construction', body: 'Five visible lenses; every number carries a plain-language reading.' },
-      validated: { title: 'Walk-forward validated ML', body: '56 stocks × 5 years; accuracy published, weight capped at 15%.' },
-      honest: { title: 'Honest about limits', body: 'Weaknesses documented. Descriptive statistics — never advice.' },
+      data: {
+        title: 'Real market data',
+        body: 'Live US / CN / HK prices with daily snapshot fallback.',
+      },
+      explain: {
+        title: 'Explainable by construction',
+        body: 'Five visible lenses; every number carries a plain-language reading.',
+      },
+      validated: {
+        title: 'Walk-forward validated ML',
+        body: '56 stocks × 5 years; accuracy published, weight capped at 15%.',
+      },
+      honest: {
+        title: 'Honest about limits',
+        body: 'Weaknesses documented. Descriptive statistics — never advice.',
+      },
     },
     learnMore: 'How Riscore works →',
   },
@@ -50,7 +62,8 @@ export default {
     LOW: 'Quieter than this stock’s own normal — smaller day-to-day moves, and it hasn’t fallen as far as it usually does.',
     MODERATE: 'About normal for this stock. Nothing unusual compared with how it usually behaves.',
     HIGH: 'Bumpier than this stock’s own normal — either it’s swinging more each day, or it has fallen further than it typically does.',
-    EXTREME: 'About as wild as this stock gets — it’s moving near the most extreme levels seen in its own recent history.',
+    EXTREME:
+      'About as wild as this stock gets — it’s moving near the most extreme levels seen in its own recent history.',
   },
   keyFactors: {
     title: 'Key Factor Contributions',
@@ -84,31 +97,36 @@ export default {
       label: 'Volatility',
       short: 'Vol',
       plainShort: 'How bumpy the ride is',
-      plain: 'Realised volatility. A percentile blend of 21-day (40%) and 63-day (35%) annualised return standard deviation, plus 63-day downside deviation (25%), which counts only downward moves. Each input is ranked against this stock’s own ~2-year history.',
+      plain:
+        'Realised volatility. A percentile blend of 21-day (40%) and 63-day (35%) annualised return standard deviation, plus 63-day downside deviation (25%), which counts only downward moves. Each input is ranked against this stock’s own ~2-year history.',
     },
     tail: {
       label: 'Tail Risk',
       short: 'Tail Risk',
       plainShort: 'How ugly the rare bad days get',
-      plain: 'Left-tail severity. Blends 21-day 95% Conditional VaR (expected shortfall, 35%) and 95% Value at Risk (25%) with 63-day return skewness (20%) and kurtosis (20%) — the shape of the return distribution, not just its width.',
+      plain:
+        'Left-tail severity. Blends 21-day 95% Conditional VaR (expected shortfall, 35%) and 95% Value at Risk (25%) with 63-day return skewness (20%) and kurtosis (20%) — the shape of the return distribution, not just its width.',
     },
     drawdown: {
       label: 'Drawdown',
       short: 'Drawdown',
       plainShort: 'How far it can fall at worst',
-      plain: 'Peak-to-trough decline. Blends 63-day maximum drawdown (45%), the current drawdown from the running peak (35%), and drawdown duration — sessions spent below that peak (20%).',
+      plain:
+        'Peak-to-trough decline. Blends 63-day maximum drawdown (45%), the current drawdown from the running peak (35%), and drawdown duration — sessions spent below that peak (20%).',
     },
     sensitivity: {
       label: 'Market Sensitivity',
       short: 'Sensitivity',
       plainShort: 'Does it follow the whole market?',
-      plain: 'Beta against the market benchmark (SPY, CSI 300 or HSI, by listing), estimated over a rolling 63-day window as the covariance of returns divided by the benchmark’s variance. 1.0 = moves one-for-one with the benchmark.',
+      plain:
+        'Beta against the market benchmark (SPY, CSI 300 or HSI, by listing), estimated over a rolling 63-day window as the covariance of returns divided by the benchmark’s variance. 1.0 = moves one-for-one with the benchmark.',
     },
     liquidity: {
       label: 'Liquidity',
       short: 'Liquidity',
       plainShort: 'How easy it is to sell',
-      plain: 'Trading frictions. Blends the 21-day Amihud illiquidity ratio — absolute return per unit of dollar volume (50%) — with volume volatility (30%) and the dollar-volume level (20%).',
+      plain:
+        'Trading frictions. Blends the 21-day Amihud illiquidity ratio — absolute return per unit of dollar volume (50%) — with volume volatility (30%) and the dollar-volume level (20%).',
     },
   },
   metrics: {
@@ -125,10 +143,8 @@ export default {
       'Annualised realised volatility: the standard deviation of daily returns over the trailing window, scaled by √252. Direction-agnostic — it measures dispersion, not drift, so a stock trending steadily upward can still read high.',
     var95:
       'Value at Risk (95%), 21-day window: the loss threshold that the worst 5% of daily returns exceed, taken as an empirical quantile rather than assuming a normal distribution. It bounds the typical bad day, not the worst case — Conditional VaR (under Tail Risk) measures what lies beyond it.',
-    beta:
-      'Beta over a rolling 63-day window: the covariance of this stock’s returns with its benchmark, divided by the benchmark’s variance. 1.0 = one-for-one with the benchmark; below 1 damped, above 1 amplified. It captures co-movement, not causation.',
-    rsi:
-      'Relative Strength Index (14) — Wilder’s momentum oscillator: 100 − 100/(1 + average gain ÷ average loss) over 14 sessions. Above 70 is conventionally “overbought”, below 30 “oversold”. A description of momentum, not a forecast.',
+    beta: 'Beta over a rolling 63-day window: the covariance of this stock’s returns with its benchmark, divided by the benchmark’s variance. 1.0 = one-for-one with the benchmark; below 1 damped, above 1 amplified. It captures co-movement, not causation.',
+    rsi: 'Relative Strength Index (14) — Wilder’s momentum oscillator: 100 − 100/(1 + average gain ÷ average loss) over 14 sessions. Above 70 is conventionally “overbought”, below 30 “oversold”. A description of momentum, not a forecast.',
   },
   readings: {
     title: 'What this number actually means',
@@ -164,23 +180,27 @@ export default {
       severe: 'On a bad day it has typically lost about this much — a heavy one-day hit.',
     },
     beta: {
-      negative: 'It’s been going the opposite way to the market — up on days the market fell, and vice versa.',
+      negative:
+        'It’s been going the opposite way to the market — up on days the market fell, and vice versa.',
       defensive: 'It moves less than the market, so market-wide drops land more gently here.',
       inline: 'It moves roughly in step with the market.',
       amplified: 'It exaggerates the market — when the market moves 1%, this tends to move more.',
       high: 'It exaggerates the market strongly, so market-wide swings hit this much harder.',
     },
     rsi: {
-      oversold: 'A lot of selling recently. Below 30 is what people call “oversold” — it describes what just happened, not what comes next.',
+      oversold:
+        'A lot of selling recently. Below 30 is what people call “oversold” — it describes what just happened, not what comes next.',
       weak: 'Sellers have had the upper hand lately, but nothing extreme.',
       neutral: 'Buyers and sellers have been fairly evenly matched.',
       firm: 'Buyers have had the upper hand lately, but nothing extreme.',
-      overbought: 'A lot of buying recently. Above 70 is what people call “overbought” — it describes what just happened, not what comes next.',
+      overbought:
+        'A lot of buying recently. Above 70 is what people call “overbought” — it describes what just happened, not what comes next.',
     },
     factor: {
       low: 'Quieter than this stock’s own normal.',
       moderate: 'About normal for this stock.',
-      elevated: 'Higher than this stock’s own normal — one of the main things pushing the score up.',
+      elevated:
+        'Higher than this stock’s own normal — one of the main things pushing the score up.',
       high: 'Near the highest this stock has ever been — a main reason the score sits where it does.',
     },
     // Two-sided factors (see risk_categories.TWO_SIDED_CATEGORIES): their high
@@ -191,14 +211,17 @@ export default {
     twoSided: {
       sensitivity: {
         low: 'Barely follows the market right now. That cushions market-wide selloffs — and it also means this one tends to sit out market-wide rallies.',
-        moderate: 'Follows the market about as closely as it usually does — it will feel broad moves in both directions.',
-        elevated: 'Tracking the market more tightly than usual, so a market-wide drop lands harder here than it normally would.',
+        moderate:
+          'Follows the market about as closely as it usually does — it will feel broad moves in both directions.',
+        elevated:
+          'Tracking the market more tightly than usual, so a market-wide drop lands harder here than it normally would.',
         high: 'About as tied to the market as it ever gets — broad selloffs hit this near their full force.',
       },
       liquidity: {
         low: 'Trades very easily at the moment — cheap to get in and out of. That’s a convenience, not a reason the position is any safer to hold.',
         moderate: 'Trades about as easily as it usually does.',
-        elevated: 'Harder to trade than usual — moving a position costs more in price impact than it normally would.',
+        elevated:
+          'Harder to trade than usual — moving a position costs more in price impact than it normally would.',
         high: 'About as hard to trade as it ever gets: thin volume, so exiting can move the price against you.',
       },
     },
@@ -375,7 +398,8 @@ export default {
       accuracy: 'Accuracy',
     },
     feedEmpty: 'No analysis posted yet — be the first to share your take.',
-    leaderboardEmpty: 'No ranked analysts yet — accuracy needs a minimum number of votes to appear here.',
+    leaderboardEmpty:
+      'No ranked analysts yet — accuracy needs a minimum number of votes to appear here.',
     posts: 'posts',
     accuracy: 'accuracy',
     accuracyPending: 'new analyst',
@@ -385,7 +409,8 @@ export default {
     ownPost: 'Your post',
     tickerPlaceholder: 'TICKER',
     bodyPlaceholder: 'Share your read on this stock’s risk…',
-    scopeHint: '💡 Risk-analysis observations only — no trading directives, political content, or off-topic posts.',
+    scopeHint:
+      '💡 Risk-analysis observations only — no trading directives, political content, or off-topic posts.',
     postDisclaimer: 'Posting means this is a risk-analysis discussion, not investment advice.',
     posting: 'Posting…',
     post: 'Post',
@@ -575,7 +600,8 @@ export default {
     licenseTitle: 'License & Data Sources',
     licenseBody1:
       'Risk scores are computed from market data provided by Twelve Data (US) and akshare (China/Hong Kong). This tool is for informational and educational purposes only — it is not investment advice, and nothing on this site is a solicitation to buy or sell any security.',
-    licenseBody2: 'Community analysis posts are the personal opinions of individual users, not the platform.',
+    licenseBody2:
+      'Community analysis posts are the personal opinions of individual users, not the platform.',
     contactTitle: 'Contact the Admin',
     contactBody:
       "We don't publish a support email address — the way to reach the site admin is inside the app, through the Community board where the admin account is active.",

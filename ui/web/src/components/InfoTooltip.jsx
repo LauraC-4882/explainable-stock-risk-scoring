@@ -5,7 +5,11 @@ import { useState } from 'react'
 export default function InfoTooltip({ text, align = 'center' }) {
   const [open, setOpen] = useState(false)
   const alignClass =
-    align === 'left' ? 'left-0 translate-x-0' : align === 'right' ? 'right-0 left-auto translate-x-0' : 'left-1/2 -translate-x-1/2'
+    align === 'left'
+      ? 'left-0 translate-x-0'
+      : align === 'right'
+        ? 'right-0 left-auto translate-x-0'
+        : 'left-1/2 -translate-x-1/2'
 
   return (
     <span className="relative inline-flex normal-case">
