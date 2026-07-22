@@ -570,6 +570,155 @@ Auth is self-hosted (FastAPI + SQLite + JWT), not a third-party service — no e
 
 Verified end-to-end with a headless-Chromium (Playwright) smoke test: multi-card grid, live search with debounce, Enter-to-add, timeframe switching, zero console errors, real yfinance data rendering in both the SVG gauge and Chart.js line charts.
 
+## Model Governance ([R4]) & Lineage ([R5])
+
+The project already had the *ingredients* of model governance — walk-forward
+validation, isotonic calibration, drift monitoring, a rule that unvalidated
+signals ship at zero weight. What it lacked was anywhere those were recorded.
+"Is this model approved?" was answered by reading a README section; "which
+version is deployed?" by a file's mtime; "why was the old one retired?" by
+nothing at all.
+
+### Lifecycle
+
+```
+development ──> validated ──> approved ──> shadow ──> active
+                                              │         │
+                                              │         ▼
+                                              └──── degraded ──> (re-validate)
+                     everything ─────────────────────────────> retired
+```
+
+Transitions are declared as data, so an illegal one raises instead of being a
+silently-accepted string assignment. Two absences are deliberate:
+`development -> active` (skipping validation is what this prevents) and
+`degraded -> active` (a model that breached its bar re-validates; it doesn't
+get waved through because the metric recovered on its own).
+
+```bash
+make registry                 # list models and status
+make registry-compare v=2.0.0 # champion vs challenger
+python scripts/registry.py promote downside_risk 2.0.0 --reason "..."
+python scripts/registry.py rollback downside_risk
+```
+
+| Control | Behaviour |
+|---|---|
+| Validation gate | `validate()` **raises** below the recorded thresholds — a gate that can be ignored is documentation, not a control |
+| Missing metrics | Fail, not pass. Absent evidence is how ungated models reach production |
+| One champion | `promote_to_active` demotes the incumbent; two ACTIVE versions means "which model produced this score?" has no answer |
+| Immutable records | Re-registering a version raises rather than overwriting the evidence |
+| Automatic demotion | `check_for_breach` demotes a champion whose live drift/AUC crosses its own bar |
+| Rollback | `previous_champion()` derives the target from history, not a stored pointer |
+| Retirement | Requires a reason. "We turned it off at some point" is not an audit trail |
+
+Promotion is deliberately **not** automated even when a challenger wins.
+Automating it removes the only step where a human asks whether the improvement
+is real.
+
+### Reproducibility manifests ([R5])
+
+Every training run writes a manifest recording the git commit (and whether the
+tree was dirty — a model trained from uncommitted code is *not* reproducible
+from its hash, and the manifest says so rather than implying otherwise), the
+feature schema version, the universe, which tickers were excluded and why, the
+label definition, hyperparameters, a data-quality report, and a **dataset
+hash**.
+
+The dataset hash is the load-bearing piece. `yfinance` returns *today's* view of
+history — prices get restated for splits and dividends, delisted tickers stop
+resolving, vendors backfill gaps — so retraining "the same" window a month later
+can legitimately produce a different model. Hashing the actual feature values
+(not a filename, not a row count, both of which stay identical while the numbers
+move) makes `manifest.differences_from(other)` a triage tool: dataset hash
+differs → the data moved; commit differs → the code moved; neither differs but
+metrics did → the run is nondeterministic, which is itself the finding.
+
+Floats are rounded to 10dp before hashing, so cross-platform BLAS noise doesn't
+flag drift that isn't there.
+
+## Tail-Risk Validation Beyond Coverage ([R6])
+
+`make validate` already ran a Kupiec POF test and found `var_95_21d` breaching
+9.25% against its 5% claim. That is the *unconditional* half of VaR validation,
+and a VaR model can pass it while still being unusable.
+
+`make validate-tail` (`scripts/validate_tail.py`, offline from the committed
+snapshots so the numbers reproduce) adds three tests Kupiec structurally cannot
+perform. Results across 9 tickers, 4,613 ticker-days:
+
+| Test | Result | Reading |
+|---|---|---|
+| Kupiec POF | LR 144.85, p≈0, **reject** | 9.30% breach rate vs 5% claimed — independently reproduces the earlier 36-ticker finding on different data |
+| Christoffersen independence | LR 4.90, p=0.027, **reject** | Breaches **cluster**: 12.4% chance of a breach the day after a breach vs 9.0% otherwise (ratio 1.38) |
+| Conditional coverage | LR 149.76, p≈0, **reject** | Fails jointly, as expected once both components fail |
+| Acerbi–Szekely Z2 (ES) | −1.78, p≈0, **reject** | Breaches averaged −2.79% against a predicted ES of −2.26% — ES **understates** tail severity by ~23% |
+
+The independence result is the one Kupiec was blind to. Counting breaches
+cannot see *when* they arrive, and clustered breaches are exactly when losses
+compound. Longest observed run: 4 consecutive days; 22.6% of all breaches
+occurred inside multi-day runs; worst month February 2025 with 32.
+
+Two honest caveats. Breaches cluster partly because volatility clusters and a
+21-day rolling window adapts slowly — this measures the deployed estimator, not
+a claim that no VaR model could do better. And Z2's p-value is bootstrapped
+over the breach set (seeded, so it's reproducible); the first implementation
+resampled the full return series against the same ES path, which is circular —
+the null inherited the very error under test and reported p≈0.5 for an ES
+understating the tail by 2x.
+
+## Champion–Challenger ([R8])
+
+```bash
+make challenger    # or: python scripts/challenger.py --register
+```
+
+Runs logistic regression, random forest, and a **monotonically-constrained**
+XGBoost through the *identical* walk-forward path as the champion — same folds,
+same embargo gap, same calibration slice. Comparing a single-split baseline
+against a walk-forward champion would flatter whichever got the easier
+evaluation.
+
+Reported alongside mean AUC: fold-to-fold **stability** (`auc_std`, `auc_min`,
+`folds_below_coin_flip`). Two models with identical mean AUC are not equally
+good if one swings 0.36–0.77 across folds and the other holds 0.66–0.69 — this
+project has seen exactly that pattern, and the mean alone hid it.
+
+The monotonic challenger is the interesting one: constraining the model so
+higher volatility can only *raise* estimated risk is what makes it defensible to
+a reviewer, and the question worth answering is how much discriminative power
+that guarantee costs. If the answer is "almost none", the constrained model is
+the better production choice on every axis that isn't AUC.
+
+## Portfolio-Level Risk ([R7])
+
+Single-name scores don't add up: two stocks each scoring 70 make a portfolio
+riskier than either alone if they're the same sector, and materially safer if
+they're uncorrelated. A weighted average of scores says the same thing in both
+cases, so `portfolio/aggregate.py` computes from the underlying return series
+instead.
+
+| Output | What it answers |
+|---|---|
+| Component VaR | Where risk actually comes from. Euler allocation, so components sum **exactly** to portfolio VaR — a decomposition whose parts don't sum to the whole isn't an attribution |
+| Marginal VaR | What one more unit of a position adds |
+| Diversification ratio | How much of the weighted-average standalone risk is actually avoided |
+| Effective N / HHI | "Effectively 2.3 positions" lands where "HHI 0.43" doesn't |
+| Sector exposure | Concentration the position count hides |
+| Stress attribution | Beta-scaled shock propagation, per position — a flat shock reports a loss no plausible scenario produces |
+
+The decomposition exists to surface that **the largest position is frequently
+not the largest risk contributor** — a 20% weight in a high-volatility name can
+carry >80% of portfolio risk, which is pinned by a test.
+
+Concentration alerts are phrased as observations ("X accounts for N% of total
+portfolio risk"), never instructions — the same advice boundary the rest of the
+product holds, enforced by a test that fails on words like "reduce" or "sell".
+The position threshold is relative to fair share (1/N), not a flat percentage:
+a flat 25% bar fired on every equally-weighted four-position book, where each
+holding contributes ~25% *by construction*, and an alert that goes off on a
+textbook-diversified portfolio trains people to ignore alerts.
+
 ## API Hardening ([R2])
 
 The scoring API is public, unauthenticated, and on a cache miss makes a live

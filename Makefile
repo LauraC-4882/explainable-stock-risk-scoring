@@ -1,6 +1,7 @@
 .PHONY: install train score api monitor test lint format smoke validate analyze-categories \
         migrate migrate-dry-run migrate-sql migration backup backup-list restore-drill \
-        web-install web-test web-lint web-build web-ci
+        web-install web-test web-lint web-build web-ci \
+        registry registry-compare validate-tail challenger
 
 install:
 	pip install -e ".[dev]"
@@ -28,6 +29,24 @@ validate:
 
 analyze-categories:
 	python scripts/analyze_categories.py
+
+# ── Model governance & validation ([R4]-[R8]) ───────────────────────────────
+registry:
+	python scripts/registry.py list
+
+registry-compare:
+	@if [ -z "$(v)" ]; then echo "usage: make registry-compare v=<version>"; exit 2; fi
+	python scripts/registry.py compare downside_risk $(v)
+
+# Tail-risk backtests beyond Kupiec: breach independence, conditional coverage,
+# Expected Shortfall. Runs offline from the committed snapshots by default.
+validate-tail:
+	python scripts/validate_tail.py
+
+# Logistic / random forest / monotonic XGBoost through the same walk-forward
+# path as the champion. Needs a live fetch.
+challenger:
+	python scripts/challenger.py --register
 
 # ── Schema migrations & backups ([R1]) ──────────────────────────────────────
 # `migrate` is the guarded path: verified backup -> rehearsal on a copy of the

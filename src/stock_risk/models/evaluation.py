@@ -53,6 +53,40 @@ def _classifiers(scale_pos_weight: float) -> dict:
     }
 
 
+def _build_estimator(name: str, scale_pos_weight: float):
+    """[R8] Challenger estimators, all evaluated through the same walk-forward path.
+
+    `xgboost_monotonic` constrains the model to be monotonically increasing in
+    every feature. That is a meaningful challenger rather than a variant for
+    its own sake: monotonicity is what makes a risk model defensible to a
+    reviewer ("higher volatility can only raise estimated risk, never lower
+    it"), and the interesting question is how much discriminative power that
+    guarantee costs. If the answer is "almost none", the constrained model is
+    the better production choice on every axis that isn't AUC.
+    """
+    if name == "xgboost":
+        return _xgb_classifier(scale_pos_weight)
+    if name == "logistic":
+        # A well-calibrated linear baseline. If gradient boosting can't clearly
+        # beat this, its extra opacity isn't buying anything.
+        return LogisticRegression(max_iter=1000, class_weight="balanced")
+    if name == "random_forest":
+        return RandomForestClassifier(
+            n_estimators=300, max_depth=6, class_weight="balanced", random_state=42, n_jobs=-1
+        )
+    if name == "xgboost_monotonic":
+        from .feature_sets import ALL_FEATURE_COLS
+
+        model = _xgb_classifier(scale_pos_weight)
+        # One constraint per feature, in the order the preprocessor emits them.
+        model.set_params(monotone_constraints="(" + ",".join(["1"] * len(ALL_FEATURE_COLS)) + ")")
+        return model
+    raise ValueError(
+        f"unknown estimator {name!r} — expected one of: xgboost, logistic, "
+        "random_forest, xgboost_monotonic"
+    )
+
+
 def _chronological_split(X: pd.DataFrame, y: pd.Series, test_size: float):
     n_test = max(1, int(len(X) * test_size))
     return X.iloc[:-n_test], X.iloc[-n_test:], y.iloc[:-n_test], y.iloc[-n_test:]
@@ -137,6 +171,7 @@ def walk_forward_evaluate(
     label_mode: str = "fixed",
     k: float = 1.5,
     extra_feature_cols: Optional[list[str]] = None,
+    estimator: str = "xgboost",
 ) -> pd.DataFrame:
     """Walk-forward backtest of the XGBoost classifier via per-ticker
     TimeSeriesSplit, pooled per fold — a single train/test split (as in
@@ -156,6 +191,13 @@ def walk_forward_evaluate(
     Returns one row per fold (indexed by fold number, 1-based) plus a final
     "mean"/"std" summary row, so a caller can see whether e.g. recall holds
     up or degrades in a particular period instead of only the average.
+
+    [R8] `estimator` selects the classifier so a challenger can be run through
+    this exact path — same folds, same embargo gap, same calibration slice.
+    Comparing a challenger evaluated on a single split against a champion
+    evaluated walk-forward would flatter whichever got the easier evaluation,
+    which is the failure mode a champion–challenger comparison exists to avoid.
+    See scripts/challenger.py.
     """
     from .feature_sets import ALL_FEATURE_COLS
 
@@ -208,7 +250,7 @@ def walk_forward_evaluate(
         scale_pos_weight = neg / max(pos, 1)
         pipe = Pipeline([
             ("preprocessor", build_preprocessor(extra_cols=extra_feature_cols)),
-            ("xgb", _xgb_classifier(scale_pos_weight)),
+            ("estimator", _build_estimator(estimator, scale_pos_weight)),
         ])
 
         raw_proba: Optional[pd.Series] = None

@@ -45,6 +45,16 @@ jobs:
           python -m alembic downgrade base
           python -m alembic upgrade head
 
+      # [R6] Tail backtests run offline from the committed snapshots, so they
+      # are deterministic and can gate every push — unlike `make validate`,
+      # which needs a live fetch and would make CI depend on Yahoo being up.
+      # This asserts the suite still executes end to end; the *findings*
+      # (breaches cluster, ES understates severity) are documented in the
+      # README rather than asserted, since they're measurements of the current
+      # estimator and are expected to move as it changes.
+      - name: Tail-risk validation suite
+        run: python scripts/validate_tail.py
+
       # A migration is only half the story — the rollback plan is the backup.
       # This proves the backup/restore path works on every push, not just that
       # the code for it exists.
