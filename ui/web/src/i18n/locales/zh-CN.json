@@ -766,5 +766,13 @@
         "why": "免费层部署；冷启动提示正是因它而生。"
       }
     }
+  },
+  "mobileNav": {
+    "label": "主导航",
+    "home": "首页",
+    "dashboard": "仪表盘",
+    "search": "搜索",
+    "watchlist": "自选股",
+    "profile": "我的"
   }
 }

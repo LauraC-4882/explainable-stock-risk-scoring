@@ -766,5 +766,13 @@
         "why": "Free-tier deploy; the cold-start banner exists because of it."
       }
     }
+  },
+  "mobileNav": {
+    "label": "Primary",
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "search": "Search",
+    "watchlist": "Watchlist",
+    "profile": "Profile"
   }
 }

@@ -4,6 +4,7 @@ import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
 import ColdStartBanner from './components/ColdStartBanner'
 import LearnPanel from './components/LearnPanel'
+import MobileNav from './components/MobileNav'
 import TechStackPanel from './components/TechStackPanel'
 import TickerBar from './components/TickerBar'
 import { fadeUp, stagger, viewSwap } from './motion'
@@ -129,7 +130,7 @@ export default function App() {
                   centered column. Controls sit in a left-aligned stack; the
                   search bar spans the column while the market/timeframe
                   pill-groups size to their content. */}
-                <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-5 pb-16 pt-5 sm:px-8">
+                <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-5 pb-28 pt-5 sm:px-8 md:pb-16">
                   {/* Free-tier boot notice — renders only while a sleeping
                       instance is waking (~60-100s); invisible when warm. */}
                   <ColdStartBanner />
@@ -194,6 +195,7 @@ export default function App() {
                 </main>
 
                 <Footer />
+                <MobileNav onHome={goHome} />
 
                 <AuthModal />
                 <WatchlistPanel onAdd={addStock} />

@@ -766,5 +766,13 @@
         "why": "免費層部署；冷啟動提示正是因它而生。"
       }
     }
+  },
+  "mobileNav": {
+    "label": "主導航",
+    "home": "首頁",
+    "dashboard": "儀表板",
+    "search": "搜尋",
+    "watchlist": "自選股",
+    "profile": "我的"
   }
 }
