@@ -18,14 +18,30 @@ Two things here are load-bearing and easy to get wrong:
 
 from __future__ import annotations
 
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from alembic import context
-from stock_risk import db as app_db
-from stock_risk.config import settings
+
+# The app package can already be loaded under a *different* module path than
+# the plain `stock_risk` this file would import: the deployed start command is
+# `uvicorn src.stock_risk.api.app:app`, so by the time db.run_migrations()
+# executes this file, sys.modules holds `src.stock_risk.*`. A bare
+# `from stock_risk import db` here would then execute the whole package a
+# second time, and the duplicate model classes hit the *shared*
+# SQLModel.metadata with `InvalidRequestError: Table 'user' is already
+# defined`. Reuse whichever spelling is already imported; fall back to a fresh
+# import only when neither is (the standalone `alembic` CLI path).
+app_db = sys.modules.get("stock_risk.db") or sys.modules.get("src.stock_risk.db")
+if app_db is None:
+    from stock_risk import db as app_db  # type: ignore[no-redef]
+
+# db.py does `from .config import settings`, so this is the settings instance
+# belonging to the same package tree as app_db — never a second copy.
+settings = app_db.settings
 
 # Registers every table on SQLModel.metadata. Without this the metadata is
 # empty and `--autogenerate` cheerfully produces a migration that DROPS every
