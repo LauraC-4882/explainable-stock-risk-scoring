@@ -227,7 +227,12 @@
     "measure": "Measure",
     "riskScore": "Risk score",
     "unavailable": "unavailable",
-    "note": "Each score is relative to that stock’s own history, so a higher number means \"more turbulent than usual for itself\" — not \"riskier than the stock next to it\". Descriptive statistics, not a recommendation."
+    "note": "Each score is relative to that stock’s own history, so a higher number means \"more turbulent than usual for itself\" — not \"riskier than the stock next to it\". Descriptive statistics, not a recommendation.",
+    "lowestBadge": "lowest score",
+    "radarTitle": "Factor radar",
+    "radarNote": "Each axis is that stock's percentile against its own history — overlap shows shape, not objective safety.",
+    "priceTitle": "Price history (% change)",
+    "priceNote": "Each line is rebased to 0% at the window start so different price levels share one axis."
   },
   "charts": {
     "price": "Price History",
