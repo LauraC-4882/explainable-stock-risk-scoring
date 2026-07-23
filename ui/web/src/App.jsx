@@ -1,8 +1,10 @@
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
 import ColdStartBanner from './components/ColdStartBanner'
 import LearnPanel from './components/LearnPanel'
+import { fadeUp, stagger, viewSwap } from './motion'
 import ReplayViewer from './replay/ReplayViewer'
 import { AuthProvider } from './auth/AuthContext'
 import AuthModal from './auth/AuthModal'
@@ -24,6 +26,7 @@ import { OnboardingProvider } from './onboarding/OnboardingContext'
 import OnboardingTour from './onboarding/OnboardingTour'
 
 export default function App() {
+  const reduced = useReducedMotion()
   const [tickers, setTickers] = useState([])
   const [period, setPeriod] = useState('1mo')
   const [market, setMarket] = useState('us')
@@ -137,32 +140,52 @@ export default function App() {
                     // Signed-in users land on their watchlist board (renders
                     // nothing when signed out or empty), so returning users see
                     // what moved instead of an empty search box every visit.
-                    <>
+                    <motion.div
+                      variants={reduced ? undefined : fadeUp}
+                      initial={reduced ? false : 'hidden'}
+                      animate="visible"
+                    >
                       <WatchlistBoard onOpen={addStock} />
                       <EmptyState market={market} onAdd={addStock} />
-                    </>
+                    </motion.div>
                   ) : (
                     <>
                       {tickers.length > 1 && <ViewToggle view={view} onChange={setView} />}
-                      {view === 'compare' && tickers.length > 1 ? (
-                        <CompareView tickers={tickers} onRemove={removeStock} />
-                      ) : (
-                        // Every stock gets the full wide bento layout; comparing
-                        // means stacking those full dashboards vertically rather
-                        // than shrinking each into a cramped side-by-side card —
-                        // scroll between them, every section keeps its room.
-                        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7">
-                          {tickers.map((t, i) => (
-                            <StockCard
-                              key={t}
-                              ticker={t}
-                              period={period}
-                              onRemove={removeStock}
-                              index={i}
-                            />
-                          ))}
-                        </div>
-                      )}
+                      {/* mode="wait" + keyed wrappers: the outgoing view fades
+                          out before the incoming one slides up, so the two
+                          full-width layouts never overlap mid-swap. Reduced
+                          motion mounts everything in its final state. */}
+                      <AnimatePresence mode="wait" initial={false}>
+                        {view === 'compare' && tickers.length > 1 ? (
+                          <motion.div key="compare" {...(reduced ? {} : viewSwap)}>
+                            <CompareView tickers={tickers} onRemove={removeStock} />
+                          </motion.div>
+                        ) : (
+                          // Every stock gets the full wide bento layout; comparing
+                          // means stacking those full dashboards vertically rather
+                          // than shrinking each into a cramped side-by-side card —
+                          // scroll between them, every section keeps its room.
+                          <motion.div
+                            key="cards"
+                            className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7"
+                            variants={reduced ? undefined : stagger}
+                            initial={reduced ? false : 'hidden'}
+                            animate="visible"
+                            exit={reduced ? undefined : { opacity: 0, transition: { duration: 0.15 } }}
+                          >
+                            {tickers.map((t, i) => (
+                              <motion.div key={t} variants={reduced ? undefined : fadeUp}>
+                                <StockCard
+                                  ticker={t}
+                                  period={period}
+                                  onRemove={removeStock}
+                                  index={i}
+                                />
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </>
                   )}
                 </main>

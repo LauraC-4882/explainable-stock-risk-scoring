@@ -31,11 +31,13 @@ const localeFiles = import.meta.glob('./i18n/locales/*.json', {
 
 function violations(files, patterns) {
   return Object.entries(files).flatMap(([path, text]) =>
-    text.split('\n').flatMap((line, i) =>
-      patterns
-        .filter((p) => p.test(line))
-        .map((p) => `${path}:${i + 1} matches ${p} → ${line.trim().slice(0, 100)}`)
-    )
+    text
+      .split('\n')
+      .flatMap((line, i) =>
+        patterns
+          .filter((p) => p.test(line))
+          .map((p) => `${path}:${i + 1} matches ${p} → ${line.trim().slice(0, 100)}`)
+      )
   )
 }
 
