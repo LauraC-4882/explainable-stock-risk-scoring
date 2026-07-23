@@ -1,4 +1,4 @@
-import { Cpu } from '@phosphor-icons/react'
+import { Cpu } from 'lucide-react'
 import { useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 

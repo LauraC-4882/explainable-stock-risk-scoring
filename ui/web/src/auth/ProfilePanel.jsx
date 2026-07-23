@@ -1,4 +1,4 @@
-import { GraduationCap, X } from '@phosphor-icons/react'
+import { GraduationCap, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiMyPosts, apiMyVotes } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'

@@ -1,4 +1,4 @@
-import { X } from '@phosphor-icons/react'
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiListPosts } from '../api'
 import CommunityDisclaimer from '../components/CommunityDisclaimer'

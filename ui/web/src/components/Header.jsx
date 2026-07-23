@@ -1,4 +1,4 @@
-import { BookOpen, ChatsCircle, FilmSlate, Info, ShieldStar, Star } from '@phosphor-icons/react'
+import { BookOpen, Clapperboard, Info, MessagesSquare, ShieldCheck, Star } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
@@ -60,17 +60,17 @@ export default function Header({ onHome, onOpenTicker }) {
             <BookOpen aria-hidden="true" size={16} /> {t('learn.nav')}
           </button>
           <button onClick={openReplayPanel} className={pill}>
-            <FilmSlate aria-hidden="true" size={16} /> {t('replay.open')}
+            <Clapperboard aria-hidden="true" size={16} /> {t('replay.open')}
           </button>
           <button onClick={() => openCommunityPanel()} className={pill}>
-            <ChatsCircle aria-hidden="true" size={16} /> {t('community.navButton')}
+            <MessagesSquare aria-hidden="true" size={16} /> {t('community.navButton')}
           </button>
           {user?.is_admin && (
             <button
               onClick={openAdminPanel}
               className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/[0.06] px-3.5 py-2 text-xs font-semibold text-gold transition-all duration-150 hover:bg-gold/15 active:scale-95"
             >
-              <ShieldStar aria-hidden="true" size={16} color="#fbbf24" /> {t('admin.navButton')}
+              <ShieldCheck aria-hidden="true" size={16} color="#fbbf24" /> {t('admin.navButton')}
             </button>
           )}
 

@@ -1,4 +1,4 @@
-import { CloudArrowUp } from '@phosphor-icons/react'
+import { CloudUpload } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 import useColdStart from '../hooks/useColdStart'
 
@@ -22,7 +22,7 @@ export default function ColdStartBanner() {
       className="mx-auto mb-4 flex max-w-3xl items-start gap-3 rounded-xl border border-gold/30 bg-gold/[0.07] px-4 py-3"
     >
       <span className="icon-badge mt-0.5 h-8 w-8 flex-shrink-0">
-        <CloudArrowUp aria-hidden="true" size={16} />
+        <CloudUpload aria-hidden="true" size={16} />
       </span>
       <span className="min-w-0">
         <span className="block text-[0.85rem] font-semibold text-slate-100">

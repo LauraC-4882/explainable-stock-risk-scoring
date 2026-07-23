@@ -1,4 +1,4 @@
-import { GraduationCap } from '@phosphor-icons/react'
+import { GraduationCap } from 'lucide-react'
 import { useState } from 'react'
 import { CATEGORY_ORDER, NEUTRAL_COLOR, isFlooredOut } from '../data/categoryMeta'
 import { useLanguage } from '../i18n/LanguageContext'

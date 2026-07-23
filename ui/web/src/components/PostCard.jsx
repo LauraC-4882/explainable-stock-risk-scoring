@@ -1,4 +1,4 @@
-import { Flag, X } from '@phosphor-icons/react'
+import { Flag, X } from 'lucide-react'
 import { useState } from 'react'
 import { apiDeletePost, apiReportPost } from '../api'
 import { useAuth } from '../auth/AuthContext'

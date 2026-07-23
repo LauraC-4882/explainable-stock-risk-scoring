@@ -1,18 +1,17 @@
 // Icons and display order for the 5 risk categories — language-agnostic, so
 // this stays separate from the translated label/plain-language text in
-// src/i18n/locales/*.js. Icons are Phosphor components (phosphoricons.com,
-// thin weight via the app-level IconContext), not emoji — render as
-// <Icon /> where Icon = CATEGORY_ICONS[key].
-import { ChartLineUp, Drop, LinkSimple, TrendDown, Warning } from '@phosphor-icons/react'
+// src/i18n/locales/*.json. Icons are Lucide components (lucide.dev), not
+// emoji — render as <Icon /> where Icon = CATEGORY_ICONS[key].
+import { Droplet, Link, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react'
 
 export const CATEGORY_ORDER = ['volatility', 'tail', 'drawdown', 'sensitivity', 'liquidity']
 
 export const CATEGORY_ICONS = {
-  volatility: ChartLineUp,
-  tail: Warning,
-  drawdown: TrendDown,
-  sensitivity: LinkSimple,
-  liquidity: Drop,
+  volatility: TrendingUp,
+  tail: TriangleAlert,
+  drawdown: TrendingDown,
+  sensitivity: Link,
+  liquidity: Droplet,
 }
 
 // Two-sided categories (backend flags them via `two_sided` — see

@@ -1,4 +1,4 @@
-import { BookOpen, Warning, X } from '@phosphor-icons/react'
+import { BookOpen, TriangleAlert, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -147,7 +147,7 @@ export default function LearnPanel() {
 
             <div className="mt-3 rounded-xl border border-down/30 bg-down/[0.07] px-4 py-3.5">
               <p className="flex items-start gap-2 text-[0.8rem] font-semibold text-slate-100">
-                <Warning aria-hidden="true" size={16} className="mt-0.5 flex-shrink-0" />
+                <TriangleAlert aria-hidden="true" size={16} className="mt-0.5 flex-shrink-0" />
                 {t('learn.notProbTitle')}
               </p>
               <p className="mt-1 text-[0.78rem] leading-relaxed text-slate-300">

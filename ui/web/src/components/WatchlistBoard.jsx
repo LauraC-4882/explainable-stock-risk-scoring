@@ -1,4 +1,4 @@
-import { Star } from '@phosphor-icons/react'
+import { Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiWatchlistOverview } from '../api'
 import { useAuth } from '../auth/AuthContext'

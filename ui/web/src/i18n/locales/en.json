@@ -236,7 +236,13 @@
   "stressTest": {
     "toggle": "Historical stress test",
     "intro": "A “what if” exercise: if a crash like one of these happened again, where would this stock’s score likely end up? We take how this particular stock behaves today and replay those past conditions against it. Nobody is predicting these events will repeat — it’s a way to see how much room there is to get worse.",
-    "baseline": "baseline"
+    "baseline": "baseline",
+    "narrative": "If {label} conditions recurred, this stock's risk score would move from {baseline} to {stressed} ({delta}).",
+    "scenario": {
+      "2008_financial_crisis": "2008 Global Financial Crisis",
+      "2020_covid_crash": "2020 COVID-19 Crash",
+      "2022_rate_hike_selloff": "2022 Rate Hike Bear Market"
+    }
   },
   "regimeSignals": {
     "toggle": "Market regime & technical structure",

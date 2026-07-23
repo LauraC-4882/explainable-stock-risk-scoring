@@ -1,4 +1,4 @@
-import { ChartLineUp, Compass, Cpu, Flask, Gauge, HandWaving, Star } from '@phosphor-icons/react'
+import { Compass, Cpu, FlaskConical, Gauge, Hand, Star, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -8,12 +8,12 @@ import { useOnboarding } from './OnboardingContext'
 // to use it when deciding what to do about a position — not just what the
 // number is. Content lives in i18n so it's translated, not hardcoded here.
 const STEPS = [
-  { id: 'welcome', icon: HandWaving },
+  { id: 'welcome', icon: Hand },
   { id: 'score', icon: Gauge },
   { id: 'breakdown', icon: Compass },
   { id: 'mlSignal', icon: Cpu },
-  { id: 'stressTest', icon: Flask },
-  { id: 'metrics', icon: ChartLineUp },
+  { id: 'stressTest', icon: FlaskConical },
+  { id: 'metrics', icon: TrendingUp },
   { id: 'watchlist', icon: Star },
 ]
 

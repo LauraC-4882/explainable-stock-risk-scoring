@@ -1,4 +1,4 @@
-import { WarningCircle } from '@phosphor-icons/react'
+import { CircleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { apiCreatePost } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -79,7 +79,7 @@ export default function PostComposer({ initialTicker, onPosted }) {
       />
       {error && (
         <p className="flex items-center gap-1 text-xs text-down">
-          <WarningCircle aria-hidden="true" size={13} color="currentColor" /> {error}
+          <CircleAlert aria-hidden="true" size={13} color="currentColor" /> {error}
         </p>
       )}
       <div className="flex items-center justify-between gap-3">

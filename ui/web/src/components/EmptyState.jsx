@@ -1,13 +1,13 @@
-import { ChartLineUp, Database, Scales, ShieldCheck } from '@phosphor-icons/react'
+import { Database, Scale, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { RiscoreIcon, RiscoreWordmark, SloganRing } from './Logo'
 
 const TRUST_TILES = [
   { key: 'data', icon: Database },
-  { key: 'explain', icon: ChartLineUp },
+  { key: 'explain', icon: TrendingUp },
   { key: 'validated', icon: ShieldCheck },
-  { key: 'honest', icon: Scales },
+  { key: 'honest', icon: Scale },
 ]
 
 const POPULAR = {

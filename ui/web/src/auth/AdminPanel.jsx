@@ -1,4 +1,4 @@
-import { ShieldStar, X } from '@phosphor-icons/react'
+import { ShieldCheck, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   apiAdminAnalytics,
@@ -129,7 +129,7 @@ export default function AdminPanel() {
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="flex items-center gap-2 text-lg font-bold text-slate-100">
-            <ShieldStar aria-hidden="true" size={20} color="#fbbf24" /> {t('admin.title')}
+            <ShieldCheck aria-hidden="true" size={20} color="#fbbf24" /> {t('admin.title')}
           </h2>
           <button
             onClick={closeAdminPanel}

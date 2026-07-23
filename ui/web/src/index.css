@@ -265,3 +265,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(79, 156, 246, 0.45);
 }
+
+/* Lucide replaced Phosphor, which had an app-level IconContext setting a thin
+   weight. Lucide has no such provider, so the thin look is a global default
+   here. stroke-width is safe to set globally: no component overrides it, and
+   unlike width/height it cannot fight an explicit `size` prop. Colour is left
+   to `currentColor` so icons keep inheriting their container's text colour. */
+.lucide {
+  stroke-width: 1.5;
+}

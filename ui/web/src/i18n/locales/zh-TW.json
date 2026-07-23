@@ -236,7 +236,13 @@
   "stressTest": {
     "toggle": "歷史情景壓力測試",
     "intro": "一個「如果……會怎樣」的推演:假如再來一次這樣的大跌,這隻股票的分數大概會到什麼位置?我們拿它今天的表現特徵,去套當年那種行情。沒有人在預測這些事會重演——這只是讓你看清楚,它還有多少變糟的空間。",
-    "baseline": "基準"
+    "baseline": "基準",
+    "narrative": "如果{label}那樣的行情重演，這隻股票的風險分數會從 {baseline} 變成 {stressed}（{delta}）。",
+    "scenario": {
+      "2008_financial_crisis": "2008 年全球金融危機",
+      "2020_covid_crash": "2020 年新冠疫情崩盤",
+      "2022_rate_hike_selloff": "2022 年升息熊市"
+    }
   },
   "regimeSignals": {
     "toggle": "市場狀態與技術結構",

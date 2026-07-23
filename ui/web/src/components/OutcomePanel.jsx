@@ -1,4 +1,4 @@
-import { ChartBar } from '@phosphor-icons/react'
+import { BarChart3 } from 'lucide-react'
 import { useState } from 'react'
 import { apiOutcomes } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -41,7 +41,7 @@ export default function OutcomePanel({ ticker }) {
       >
         <span className="inline-flex items-center gap-2">
           <span className="icon-badge h-7 w-7 transition-colors duration-150 group-hover:bg-accent/20">
-            <ChartBar aria-hidden="true" size={16} />
+            <BarChart3 aria-hidden="true" size={16} />
           </span>
           {t('outcomes.toggle')}
         </span>

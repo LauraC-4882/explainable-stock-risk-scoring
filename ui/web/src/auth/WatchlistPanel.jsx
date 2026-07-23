@@ -1,4 +1,4 @@
-import { X } from '@phosphor-icons/react'
+import { X } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useAuth } from './AuthContext'
 

@@ -1,4 +1,4 @@
-import { ThumbsDown, ThumbsUp } from '@phosphor-icons/react'
+import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { apiVote } from '../api'
 import { useAuth } from '../auth/AuthContext'

@@ -1,4 +1,3 @@
-import { IconContext } from '@phosphor-icons/react'
 import { useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
@@ -60,9 +59,12 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <OnboardingProvider>
-          {/* Phosphor icon defaults (phosphoricons.com, thin @ #71b8e5) —
-              every icon inherits these unless it explicitly overrides. */}
-          <IconContext.Provider value={{ size: 18, weight: 'thin', color: '#71b8e5' }}>
+          {/* Lucide has no icon context provider, unlike Phosphor. The old
+              thin/#71b8e5 defaults are replaced by a `.lucide` stroke-width
+              rule in index.css plus each icon inheriting `currentColor` from
+              its container — which is how the surrounding styles already work.
+              Only 3 of 37 icon usages ever relied on the inherited size. */}
+          <>
             <div className="relative flex min-h-screen flex-col text-slate-100">
               {/* Ambient "Deep Network" backdrop matched to the user's
                 background artwork: three drifting glow orbs (blue top-left,
@@ -178,7 +180,7 @@ export default function App() {
                 <OnboardingTour />
               </div>
             </div>
-          </IconContext.Provider>
+          </>
         </OnboardingProvider>
       </AuthProvider>
     </LanguageProvider>

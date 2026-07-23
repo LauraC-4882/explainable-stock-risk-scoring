@@ -1,13 +1,4 @@
-import {
-  ChartLineUp,
-  Cpu,
-  Database,
-  Flask,
-  LockKey,
-  Scales,
-  ShieldCheck,
-  X,
-} from '@phosphor-icons/react'
+import { Cpu, Database, FlaskConical, LockKeyhole, Scale, ShieldCheck, TrendingUp, X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { RiscoreIcon, RiscoreWordmark } from './Logo'
@@ -24,10 +15,10 @@ export default function AboutPanel() {
 
   const PIPELINE = [
     { key: 'data', icon: Database },
-    { key: 'lenses', icon: ChartLineUp },
+    { key: 'lenses', icon: TrendingUp },
     { key: 'ml', icon: Cpu },
-    { key: 'stress', icon: Flask },
-    { key: 'explain', icon: Scales },
+    { key: 'stress', icon: FlaskConical },
+    { key: 'explain', icon: Scale },
   ]
 
   const STATS = ['stocks', 'years', 'auc', 'weight']
@@ -119,7 +110,7 @@ export default function AboutPanel() {
                 <div key={key} className="panel-tile flex items-start gap-3 p-3.5">
                   <span className="icon-badge h-8 w-8 flex-shrink-0">
                     {key === 'accounts' || key === 'data' ? (
-                      <LockKey aria-hidden="true" size={16} />
+                      <LockKeyhole aria-hidden="true" size={16} />
                     ) : (
                       <ShieldCheck aria-hidden="true" size={16} />
                     )}

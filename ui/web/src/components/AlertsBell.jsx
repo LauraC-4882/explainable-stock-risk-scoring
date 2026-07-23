@@ -1,4 +1,4 @@
-import { Bell } from '@phosphor-icons/react'
+import { Bell } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { apiMarkAlertsSeen, apiWatchlistAlerts } from '../api'
 import { useAuth } from '../auth/AuthContext'
