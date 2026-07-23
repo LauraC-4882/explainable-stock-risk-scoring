@@ -288,3 +288,13 @@
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+
+/* Swipeable mobile nav: hide the scrollbar without disabling scroll — the
+   affordance is the horizontal overflow itself plus scroll-snap. */
+.nav-swipe {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.nav-swipe::-webkit-scrollbar {
+  display: none;
+}

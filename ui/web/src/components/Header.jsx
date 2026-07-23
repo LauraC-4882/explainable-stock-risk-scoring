@@ -28,7 +28,7 @@ export default function Header({ onHome, onOpenTicker }) {
   // Sign up, ?) — matches the Riscore.dc design: faint white fill, violet
   // hairline, violet-tint hover.
   const pill =
-    'flex items-center gap-1.5 rounded-full border border-accent/20 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-slate-200 transition-all duration-150 hover:border-accent/40 hover:bg-accent/[0.14] hover:text-white active:scale-95'
+    'flex items-center gap-1.5 rounded-full border border-accent/20 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-slate-200 transition-all duration-150 hover:border-accent/40 hover:bg-accent/[0.14] hover:text-white active:scale-95 max-md:snap-start max-md:flex-shrink-0'
 
   return (
     <header className="relative z-10 px-1 pb-3 pt-6 sm:px-2">
@@ -53,7 +53,12 @@ export default function Header({ onHome, onOpenTicker }) {
           </div>
         </button>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
+        {/* Mobile: one horizontally swipeable scroll-snap row (the spec's
+            "swipeable tabs instead of horizontal nav") — the previous wrap
+            stacked the pills three rows deep on a 375px screen. From md up
+            the original wrapping layout returns untouched. scrollbar-none +
+            snap classes live in index.css. */}
+        <div className="nav-swipe flex items-center gap-2 max-md:-mx-1 max-md:snap-x max-md:snap-mandatory max-md:overflow-x-auto max-md:flex-nowrap max-md:px-1 md:flex-wrap md:justify-end sm:gap-2.5">
           <button onClick={openAboutPanel} className={pill}>
             <Info aria-hidden="true" size={16} /> {t('about.navButton')}
           </button>
