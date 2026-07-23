@@ -303,7 +303,11 @@
     "toggle": "ML downside-risk signal (secondary)",
     "intro": "A computer model’s rough guess at the odds of a 10%-or-worse fall within the next month of trading. It’s one small input (15%) to the headline score, not the whole thing. Be aware of its weak spot: it misses more real falls than it catches, so treat a low number as “no signal here”, not as “this is safe”.",
     "probability": "Estimated 20-day drawdown probability:",
-    "topFeatures": "Top contributing factors"
+    "topFeatures": "Top contributing factors",
+    "waterfallBase": "base rate",
+    "waterfallPredicted": "model output (pre-calibration)",
+    "waterfallOther": "other features",
+    "waterfallNote": "Bars are in log-odds — the only scale where SHAP contributions truly add up; red pushes the drawdown probability up, green pushes it down, and “other features” covers everything outside the top list. Attribution shows association, not causation."
   },
   "outcomes": {
     "toggle": "What happened at this risk level before",

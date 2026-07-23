@@ -1,6 +1,7 @@
 import { Cpu } from 'lucide-react'
 import { useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
+import ShapWaterfall from './ShapWaterfall'
 
 // Collapsible SHAP feature-attribution panel for the secondary XGBoost
 // downside-risk signal (models/explain.py). Rendered only when the backend
@@ -13,7 +14,6 @@ export default function MLSignalPanel({ probability, explanation }) {
   if (probability == null || !explanation) return null
 
   const features = explanation.top_features || []
-  const maxAbs = Math.max(...features.map((f) => Math.abs(f.shap_contribution)), 0.0001)
   // ml_drawdown_probability is already 0-100; calibrated_probability (when
   // present) is 0-1 — normalize both to the same 0-1 basis before display.
   const displayProb = explanation.calibrated_probability ?? probability / 100
@@ -59,36 +59,16 @@ export default function MLSignalPanel({ probability, explanation }) {
             </div>
 
             {features.length > 0 && (
-              <div className="space-y-2.5 pt-1">
-                <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+              <div className="pt-1">
+                <div className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
                   {t('mlSignal.topFeatures')}
                 </div>
-                {features.map((f) => {
-                  const positive = f.shap_contribution >= 0
-                  return (
-                    <div key={f.feature}>
-                      <div className="mb-0.5 flex items-center justify-between gap-2 text-[0.7rem]">
-                        <span className="truncate font-mono text-slate-300">{f.feature}</span>
-                        <span
-                          className={`flex-shrink-0 font-mono ${positive ? 'text-risk-high' : 'text-risk-low'}`}
-                        >
-                          {positive ? '+' : ''}
-                          {f.shap_contribution.toFixed(3)}
-                        </span>
-                      </div>
-                      <div className="h-1 overflow-hidden rounded-full bg-surface2">
-                        <div
-                          className={`h-full rounded-full ${positive ? 'bg-risk-high' : 'bg-risk-low'}`}
-                          style={{
-                            width: open
-                              ? `${Math.min(100, (Math.abs(f.shap_contribution) / maxAbs) * 100)}%`
-                              : '0%',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
+                {/* Waterfall replaces the old magnitude bars: same features,
+                    but now the DIRECTION and the running total are visible,
+                    and an explicit "other features" bar closes the gap the
+                    top-N list leaves. Only rendered while open so Recharts
+                    doesn't measure a 0-height container. */}
+                {open && <ShapWaterfall explanation={explanation} />}
               </div>
             )}
           </div>
