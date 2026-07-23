@@ -418,7 +418,12 @@
         "abuse": "辱罵言論",
         "off_topic": "無關內容"
       }
-    }
+    },
+    "previewOn": "預覽",
+    "previewOff": "編輯",
+    "previewEmpty": "還沒有可預覽的內容。",
+    "precheckWarn": "內容可能包含交易指令或保證性表述——此類貼文會被內容過濾器拒絕。建議改寫為觀察性描述。",
+    "moderatorBadge": "管理員"
   },
   "admin": {
     "navButton": "管理",

@@ -1,4 +1,4 @@
-import { Flag, X } from 'lucide-react'
+import { Flag, ShieldCheck, X } from 'lucide-react'
 import { useState } from 'react'
 import { apiDeletePost, apiReportPost } from '../api'
 import { useAuth } from '../auth/AuthContext'
@@ -55,7 +55,16 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
               {post.ticker}
             </span>
           )}
-          <span className="font-mono text-muted">{post.author_handle}</span>
+          <span className="font-mono text-muted">{post.author_handle}
+          {post.author_is_admin && (
+            <span
+              className="ml-1.5 inline-flex items-center gap-0.5 rounded-full border border-accent/50 bg-accent/10 px-1.5 py-px align-middle text-[0.55rem] font-bold uppercase tracking-wide text-accent"
+              title={t('community.moderatorBadge')}
+            >
+              <ShieldCheck aria-hidden="true" size={9} />
+              {t('community.moderatorBadge')}
+            </span>
+          )}</span>
           <AccuracyBadge accuracy={post.author_accuracy} />
         </div>
         {post.can_delete && (

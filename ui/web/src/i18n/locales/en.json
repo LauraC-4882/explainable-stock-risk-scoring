@@ -418,7 +418,12 @@
         "abuse": "Abusive language",
         "off_topic": "Off-topic"
       }
-    }
+    },
+    "previewOn": "Preview",
+    "previewOff": "Edit",
+    "previewEmpty": "Nothing to preview yet.",
+    "precheckWarn": "This looks like it may contain a trade directive or a guarantee — posts like that are rejected by the content filter. Consider rephrasing as an observation.",
+    "moderatorBadge": "Moderator"
   },
   "admin": {
     "navButton": "Admin",

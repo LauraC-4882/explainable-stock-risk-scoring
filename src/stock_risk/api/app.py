@@ -924,6 +924,9 @@ class PostResponse(BaseModel):
     my_vote: Optional[int] = None
     is_own_post: bool = False
     can_delete: bool = False
+    # Site-owner posts get a "moderator" badge on the frontend. Derived from
+    # User.is_admin at serialisation time, never stored on the post.
+    author_is_admin: bool = False
 
 
 class PostListResponse(BaseModel):
@@ -940,17 +943,22 @@ class LeaderboardEntry(BaseModel):
     latest_post_at: datetime
 
 
-def _identity_maps(session: Session) -> tuple[dict[int, str], dict[int, Optional[str]]]:
-    """(emails_by_user_id, nicknames_by_user_id) in one pass over User —
-    the raw email (never shown publicly) plus the public nickname, both
-    keyed by user id, for building post/leaderboard display names via
-    display_name_for()."""
+def _identity_maps(
+    session: Session,
+) -> tuple[dict[int, str], dict[int, Optional[str]], set[int]]:
+    """(emails_by_user_id, nicknames_by_user_id, admin_user_ids) in one pass
+    over User — the raw email (never shown publicly), the public nickname,
+    and which authors are admins (drives the moderator badge), all keyed by
+    user id."""
     emails: dict[int, str] = {}
     nicknames: dict[int, Optional[str]] = {}
+    admin_ids: set[int] = set()
     for u in session.exec(select(User)).all():
         emails[u.id] = u.email
         nicknames[u.id] = u.nickname
-    return emails, nicknames
+        if u.is_admin:
+            admin_ids.add(u.id)
+    return emails, nicknames, admin_ids
 
 
 def _vote_tallies(session: Session) -> dict[int, dict]:
@@ -1007,6 +1015,7 @@ def _post_response(
     viewer_id: Optional[int],
     my_votes: dict[int, int],
     viewer_is_admin: bool = False,
+    admin_user_ids: frozenset[int] | set[int] = frozenset(),
 ) -> PostResponse:
     tally = tallies.get(post.id, {"upvotes": 0, "downvotes": 0})
     astats = author_stats.get(
@@ -1029,6 +1038,7 @@ def _post_response(
         downvotes=tally["downvotes"],
         my_vote=my_votes.get(post.id),
         is_own_post=is_own_post,
+        author_is_admin=post.user_id in admin_user_ids,
         # Server-computed, same precedent as is_own_post: authorization
         # logic stays here, not replicated as a frontend boolean expression.
         can_delete=is_own_post or (viewer_id is not None and viewer_is_admin),
@@ -1077,6 +1087,7 @@ def create_post(
         viewer_id=user.id,
         my_votes={},
         viewer_is_admin=user.is_admin,
+        admin_user_ids={user.id} if user.is_admin else frozenset(),
     )
 
 
@@ -1116,7 +1127,7 @@ def list_posts(
     total = len(posts)
     page = posts[offset : offset + limit]
 
-    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
+    emails_by_user_id, nicknames_by_user_id, admin_user_ids = _identity_maps(session)
 
     my_votes: dict[int, int] = {}
     if user is not None and page:
@@ -1140,6 +1151,7 @@ def list_posts(
             viewer_id=user.id if user else None,
             my_votes=my_votes,
             viewer_is_admin=user.is_admin if user else False,
+            admin_user_ids=admin_user_ids,
         )
         for p in page
     ]
@@ -1189,7 +1201,7 @@ def vote_post(
 
     tallies = _vote_tallies(session)
     author_stats = _author_stats(session, tallies)
-    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
+    emails_by_user_id, nicknames_by_user_id, admin_user_ids = _identity_maps(session)
     return _post_response(
         post,
         tallies=tallies,
@@ -1199,6 +1211,7 @@ def vote_post(
         viewer_id=user.id,
         my_votes={post_id: payload.value},
         viewer_is_admin=user.is_admin,
+        admin_user_ids=admin_user_ids,
     )
 
 
@@ -1252,7 +1265,7 @@ def leaderboard(
 ):
     tallies = _vote_tallies(session)
     author_stats = _author_stats(session, tallies)
-    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
+    emails_by_user_id, nicknames_by_user_id, admin_user_ids = _identity_maps(session)
 
     entries = []
     for user_id, stats in author_stats.items():
@@ -1301,6 +1314,7 @@ def my_posts(user: User = Depends(get_current_user), session: Session = Depends(
             viewer_id=user.id,
             my_votes={},
             viewer_is_admin=user.is_admin,
+            admin_user_ids={user.id} if user.is_admin else frozenset(),
         )
         for p in posts
     ]
@@ -1322,7 +1336,7 @@ def my_votes_endpoint(
     }
     tallies = _vote_tallies(session)
     author_stats = _author_stats(session, tallies)
-    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
+    emails_by_user_id, nicknames_by_user_id, admin_user_ids = _identity_maps(session)
     my_votes = {v.post_id: v.value for v in votes}
 
     return [
@@ -1335,6 +1349,7 @@ def my_votes_endpoint(
             viewer_id=user.id,
             my_votes=my_votes,
             viewer_is_admin=user.is_admin,
+            admin_user_ids=admin_user_ids,
         )
         for v in votes
         if v.post_id in posts_by_id  # a vote's post may have since been deleted
@@ -1577,7 +1592,7 @@ def admin_list_reports(
     total = len(reports)
     page = reports[offset : offset + limit]
 
-    emails_by_user_id, nicknames_by_user_id = _identity_maps(session)
+    emails_by_user_id, nicknames_by_user_id, admin_user_ids = _identity_maps(session)
     posts_by_id = {
         p.id: p
         for p in session.exec(

@@ -333,3 +333,39 @@ def test_admin_analytics_summary_shape_and_numeric_types(client, engine):
         assert isinstance(bucket["count"], int)
     for entry in body["top_paths"]:
         assert isinstance(entry["count"], int)
+
+
+def test_admin_authored_posts_carry_the_moderator_flag(client, engine):
+    """author_is_admin drives the frontend's moderator badge. It must be True
+    on every route that serialises a post (feed, create, vote) — a badge that
+    appears in the feed but vanishes from the vote response would flicker off
+    the moment a user votes."""
+    admin_headers = _make_admin(engine, email="modbadge@example.com")
+    member_headers = _auth_headers(client, email="plain-member@example.com")
+
+    created = client.post(
+        "/api/community/posts",
+        json={"ticker": "AAPL", "market": "us", "body": "Volatility regime looks sticky."},
+        headers=admin_headers,
+    )
+    assert created.status_code == 201
+    assert created.json()["author_is_admin"] is True
+
+    member_post = client.post(
+        "/api/community/posts",
+        json={"ticker": "AAPL", "market": "us", "body": "Watching the same setup."},
+        headers=member_headers,
+    )
+    assert member_post.json()["author_is_admin"] is False
+
+    feed = client.get("/api/community/posts", headers=member_headers).json()["items"]
+    by_body = {p["body"]: p["author_is_admin"] for p in feed}
+    assert by_body["Volatility regime looks sticky."] is True
+    assert by_body["Watching the same setup."] is False
+
+    voted = client.post(
+        f"/api/community/posts/{created.json()['id']}/vote",
+        json={"value": 1},
+        headers=member_headers,
+    )
+    assert voted.json()["author_is_admin"] is True
