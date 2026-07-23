@@ -45,7 +45,12 @@
         "body": "Weaknesses documented. Descriptive statistics — never advice."
       }
     },
-    "learnMore": "How Riscore works →"
+    "learnMore": "How Riscore works →",
+    "stats": {
+      "analyses": "score requests served",
+      "tickers": "tickers tracked",
+      "readings": "daily readings stored"
+    }
   },
   "card": {
     "remove": "Remove",

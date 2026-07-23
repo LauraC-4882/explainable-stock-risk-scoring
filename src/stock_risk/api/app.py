@@ -1643,6 +1643,46 @@ def admin_dismiss_report(
     return Response(status_code=204)
 
 
+# ── Public usage stats ───────────────────────────────────────────────────────
+
+_stats_cache: dict = {"at": 0.0, "data": None}
+_STATS_TTL = 60.0
+
+
+@app.get("/api/stats")
+def public_stats(session: Session = Depends(get_session)):
+    """Real counters for the landing hero — every number is a DB count, not
+    marketing copy. `analyses` is the number of score requests actually served
+    (PageView rows on the score paths), `tickers_tracked` / `daily_readings`
+    come from ScoreSnapshot.
+
+    Honesty caveat, by design: the backing SQLite lives on the dyno's disk, so
+    the counters reset on redeploy. Small true numbers over big invented ones —
+    the hero labels them as served requests, with no "since launch" claim.
+    """
+    import time as _time
+
+    if _stats_cache["data"] is not None and _time.time() - _stats_cache["at"] < _STATS_TTL:
+        return _stats_cache["data"]
+
+    analyses = session.exec(
+        select(func.count()).select_from(PageView).where(PageView.path.like("/api/score/%"))
+    ).one()
+    tickers_tracked = session.exec(
+        select(func.count(func.distinct(ScoreSnapshot.ticker)))
+    ).one()
+    daily_readings = session.exec(select(func.count()).select_from(ScoreSnapshot)).one()
+
+    data = {
+        "analyses": int(analyses),
+        "tickers_tracked": int(tickers_tracked),
+        "daily_readings": int(daily_readings),
+    }
+    _stats_cache["at"] = _time.time()
+    _stats_cache["data"] = data
+    return data
+
+
 # ── Ticker bar ───────────────────────────────────────────────────────────────
 
 # Universe for the header ticker bar: a handful of recognisable US names plus

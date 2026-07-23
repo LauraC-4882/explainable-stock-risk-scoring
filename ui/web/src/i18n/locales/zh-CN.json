@@ -45,7 +45,12 @@
         "body": "弱点公开记录。描述性统计——绝不构成建议。"
       }
     },
-    "learnMore": "Riscore 是如何工作的 →"
+    "learnMore": "Riscore 是如何工作的 →",
+    "stats": {
+      "analyses": "已处理的评分请求",
+      "tickers": "追踪的股票",
+      "readings": "已存档的每日读数"
+    }
   },
   "card": {
     "remove": "移除",

@@ -1,5 +1,8 @@
 import { Database, Scale, ShieldCheck, TrendingUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { apiStats } from '../api'
 import { useAuth } from '../auth/AuthContext'
+import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
 import { RiscoreIcon, RiscoreWordmark, SloganRing } from './Logo'
 
@@ -22,10 +25,36 @@ const POPULAR = {
 // Hero lockup per the brand spec: shield icon on top, the Ri·score wordmark
 // beneath it, the circular slogan ring beneath that, then the search prompt
 // and quick-pick chips.
+function StatCounter({ value, label }) {
+  const animated = useCountUp(value)
+  return (
+    <div className="text-center">
+      <div className="font-display text-2xl font-bold tabular-nums text-accent2">
+        {Math.round(animated).toLocaleString()}
+      </div>
+      <div className="mt-0.5 text-[0.66rem] leading-snug text-muted">{label}</div>
+    </div>
+  )
+}
+
 export default function EmptyState({ market, onAdd }) {
   const { t } = useLanguage()
   const { openAboutPanel } = useAuth()
   const popular = POPULAR[market] || POPULAR.us
+  const [stats, setStats] = useState(null)
+
+  // Real counters from /api/stats — every number is a DB count (see the
+  // endpoint's docstring for the redeploy-reset caveat). The row simply
+  // doesn't render until real numbers arrive, and never renders placeholders.
+  useEffect(() => {
+    let cancelled = false
+    apiStats().then((d) => {
+      if (!cancelled && d) setStats(d)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="flex animate-fade-in flex-col items-center gap-4 px-8 py-14 text-center sm:py-20">
@@ -79,6 +108,14 @@ export default function EmptyState({ market, onAdd }) {
       {/* Trust strip: the four pillars the About page expands on, right on
           the landing view — data, explainability, validation, honesty. */}
       <div className="mt-12 w-full max-w-3xl">
+        {stats && (stats.analyses > 0 || stats.daily_readings > 0) && (
+          <div className="mx-auto mb-10 flex max-w-md items-start justify-center gap-10">
+            <StatCounter value={stats.analyses} label={t('emptyState.stats.analyses')} />
+            <StatCounter value={stats.tickers_tracked} label={t('emptyState.stats.tickers')} />
+            <StatCounter value={stats.daily_readings} label={t('emptyState.stats.readings')} />
+          </div>
+        )}
+
         <h3 className="heading-flourish mb-4 text-xl">{t('emptyState.trustTitle')}</h3>
         <div className="grid gap-2.5 text-left sm:grid-cols-2 lg:grid-cols-4">
           {TRUST_TILES.map(({ key, icon: Icon }, i) => (

@@ -35,6 +35,12 @@ export async function apiTickerBar() {
   return data.entries ?? []
 }
 
+// Landing-hero counters. Real DB counts; zero on a fresh deploy, honestly.
+export async function apiStats() {
+  const res = await fetch('/api/stats')
+  return res.ok ? res.json() : null
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []
