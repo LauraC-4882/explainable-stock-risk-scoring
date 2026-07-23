@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext'
 import { LanguageProvider } from '../i18n/LanguageContext'
+import { ToastProvider } from '../toast/ToastContext'
 import { scoreTsla } from '../test/fixtures/score'
 import { timeseriesTsla } from '../test/fixtures/timeseries'
 import StockCard from './StockCard'
@@ -43,9 +44,11 @@ const pending = () => new Promise(() => {})
 function renderCard(props = {}) {
   return render(
     <LanguageProvider>
+      <ToastProvider>
       <AuthProvider>
         <StockCard ticker="TSLA" period="1mo" onRemove={() => {}} {...props} />
       </AuthProvider>
+      </ToastProvider>
     </LanguageProvider>
   )
 }
@@ -132,9 +135,11 @@ describe('StockCard', () => {
 
     rerender(
       <LanguageProvider>
+        <ToastProvider>
         <AuthProvider>
           <StockCard ticker="TSLA" period="1y" onRemove={() => {}} />
         </AuthProvider>
+        </ToastProvider>
       </LanguageProvider>
     )
 
@@ -154,9 +159,11 @@ describe('StockCard', () => {
 
     rerender(
       <LanguageProvider>
+        <ToastProvider>
         <AuthProvider>
           <StockCard ticker="NVDA" period="1mo" onRemove={() => {}} />
         </AuthProvider>
+        </ToastProvider>
       </LanguageProvider>
     )
 

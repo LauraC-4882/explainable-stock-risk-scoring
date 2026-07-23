@@ -368,7 +368,11 @@ def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
         page.mouse.click(20, 20)  # click the backdrop, outside the centered panel, to close it
         page.wait_for_timeout(200)
         page.click(f'button[title="{voter_email}"]')  # the avatar button opens Profile
-        page.wait_for_selector("text=Profile", timeout=5000)
+        # "Member since" is unique to the profile panel. "text=Profile" broke
+        # when the mobile bottom nav landed: its (md:hidden) "Profile" label
+        # precedes the panel heading in DOM order, and non-strict
+        # wait_for_selector polls visibility on the FIRST match only.
+        page.wait_for_selector("text=Member since", timeout=5000)
         page.wait_for_timeout(800)  # my-posts/my-votes counts fetch settle
 
         profile_path = out_dir / "ui-profile-community.png"

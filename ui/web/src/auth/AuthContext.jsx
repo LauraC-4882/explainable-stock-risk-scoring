@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useLanguage } from '../i18n/LanguageContext'
+import { useToast } from '../toast/ToastContext'
 import {
   apiAddWatchlist,
   apiGetWatchlist,
@@ -16,6 +18,8 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY))
   const [user, setUser] = useState(null)
   const [watchlist, setWatchlist] = useState([])
+  const { toast } = useToast()
+  const { t } = useLanguage()
   const [ready, setReady] = useState(false) // whether the initial session restore finished
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authModalMode, setAuthModalMode] = useState('signIn') // 'signIn' | 'signUp'
@@ -112,9 +116,11 @@ export function AuthProvider({ children }) {
     if (existing) {
       await apiRemoveWatchlist(token, existing.id)
       setWatchlist((prev) => prev.filter((w) => w.id !== existing.id))
+      toast(t('toast.watchlistRemoved', { ticker }), { tone: 'info' })
     } else {
       const item = await apiAddWatchlist(token, ticker, market)
       setWatchlist((prev) => [...prev, item])
+      toast(t('toast.watchlistAdded', { ticker }), { tone: 'success' })
     }
   }
 

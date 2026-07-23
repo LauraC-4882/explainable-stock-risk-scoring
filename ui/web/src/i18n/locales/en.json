@@ -774,5 +774,9 @@
     "search": "Search",
     "watchlist": "Watchlist",
     "profile": "Profile"
+  },
+  "toast": {
+    "watchlistAdded": "{ticker} added to watchlist",
+    "watchlistRemoved": "{ticker} removed from watchlist"
   }
 }

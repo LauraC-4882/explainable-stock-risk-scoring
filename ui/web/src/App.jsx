@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
 import ColdStartBanner from './components/ColdStartBanner'
@@ -8,6 +8,7 @@ import MobileNav from './components/MobileNav'
 import TechStackPanel from './components/TechStackPanel'
 import TickerBar from './components/TickerBar'
 import { fadeUp, stagger, viewSwap } from './motion'
+import { ToastProvider } from './toast/ToastContext'
 import ReplayViewer from './replay/ReplayViewer'
 import { AuthProvider } from './auth/AuthContext'
 import AuthModal from './auth/AuthModal'
@@ -55,6 +56,20 @@ export default function App() {
   // market/timeframe back to their defaults, landing back on the same
   // EmptyState a fresh visit would show — the only "back to homepage"
   // affordance this single-page app needs since there's no router/URL.
+  // Cmd+K (mac) / Ctrl+K: jump to search from anywhere. Esc is handled by
+  // each dialog locally, so it is not duplicated here.
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        document.querySelector('input[type="text"]')?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   function goHome() {
     setTickers([])
     setMarket('us')
@@ -63,6 +78,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
+      <ToastProvider>
       <AuthProvider>
         <OnboardingProvider>
           {/* Lucide has no icon context provider, unlike Phosphor. The old
@@ -212,6 +228,7 @@ export default function App() {
           </>
         </OnboardingProvider>
       </AuthProvider>
+      </ToastProvider>
     </LanguageProvider>
   )
 }

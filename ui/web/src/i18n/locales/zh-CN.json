@@ -774,5 +774,9 @@
     "search": "搜索",
     "watchlist": "自选股",
     "profile": "我的"
+  },
+  "toast": {
+    "watchlistAdded": "{ticker} 已加入自选股",
+    "watchlistRemoved": "{ticker} 已从自选股移除"
   }
 }
