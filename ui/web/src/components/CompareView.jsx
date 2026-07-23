@@ -214,9 +214,7 @@ export default function CompareView({ tickers, onRemove }) {
               </RadarChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-1 text-[0.62rem] leading-relaxed text-muted">
-            {t('compare.radarNote')}
-          </p>
+          <p className="mt-1 text-[0.62rem] leading-relaxed text-muted">{t('compare.radarNote')}</p>
         </div>
 
         <div>
@@ -253,9 +251,7 @@ export default function CompareView({ tickers, onRemove }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-1 text-[0.62rem] leading-relaxed text-muted">
-            {t('compare.priceNote')}
-          </p>
+          <p className="mt-1 text-[0.62rem] leading-relaxed text-muted">{t('compare.priceNote')}</p>
         </div>
       </div>
 

@@ -58,7 +58,8 @@ export default function Footer() {
             <p className="mt-1.5 text-[0.62rem] text-muted/80">
               {t('footer.poweredBy')} Twelve Data · akshare · FastAPI · React · Render
               <span className="mx-1.5">·</span>v{__APP_VERSION__}
-              <span className="mx-1.5">·</span>{t('footer.builtWith')}
+              <span className="mx-1.5">·</span>
+              {t('footer.builtWith')}
             </p>
           </div>
         </div>

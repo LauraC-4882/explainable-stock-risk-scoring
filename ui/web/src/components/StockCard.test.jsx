@@ -45,9 +45,9 @@ function renderCard(props = {}) {
   return render(
     <LanguageProvider>
       <ToastProvider>
-      <AuthProvider>
-        <StockCard ticker="TSLA" period="1mo" onRemove={() => {}} {...props} />
-      </AuthProvider>
+        <AuthProvider>
+          <StockCard ticker="TSLA" period="1mo" onRemove={() => {}} {...props} />
+        </AuthProvider>
       </ToastProvider>
     </LanguageProvider>
   )
@@ -136,9 +136,9 @@ describe('StockCard', () => {
     rerender(
       <LanguageProvider>
         <ToastProvider>
-        <AuthProvider>
-          <StockCard ticker="TSLA" period="1y" onRemove={() => {}} />
-        </AuthProvider>
+          <AuthProvider>
+            <StockCard ticker="TSLA" period="1y" onRemove={() => {}} />
+          </AuthProvider>
         </ToastProvider>
       </LanguageProvider>
     )
@@ -160,9 +160,9 @@ describe('StockCard', () => {
     rerender(
       <LanguageProvider>
         <ToastProvider>
-        <AuthProvider>
-          <StockCard ticker="NVDA" period="1mo" onRemove={() => {}} />
-        </AuthProvider>
+          <AuthProvider>
+            <StockCard ticker="NVDA" period="1mo" onRemove={() => {}} />
+          </AuthProvider>
         </ToastProvider>
       </LanguageProvider>
     )

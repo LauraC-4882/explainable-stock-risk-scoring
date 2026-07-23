@@ -43,8 +43,7 @@ function Candle({ x, y, width, height, payload }) {
   const up = close >= open
   const color = up ? UP : DOWN
   const bodyTop = span === 0 ? y : y + ((high - Math.max(open, close)) / span) * height
-  const bodyH =
-    span === 0 ? 1 : Math.max(1, (Math.abs(close - open) / span) * height)
+  const bodyH = span === 0 ? 1 : Math.max(1, (Math.abs(close - open) / span) * height)
   const cx = x + width / 2
   const bodyW = Math.max(2, width * 0.6)
   return (

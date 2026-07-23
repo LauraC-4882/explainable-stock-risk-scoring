@@ -29,14 +29,7 @@ const logit = (p) => Math.log(p / (1 - p))
 // steps, each with the floating-bar geometry ([offset, delta]) Recharts needs.
 export function buildWaterfallSteps(explanation) {
   const { base_probability: base, predicted_probability: pred } = explanation
-  if (
-    base == null ||
-    pred == null ||
-    base <= 0 ||
-    base >= 1 ||
-    pred <= 0 ||
-    pred >= 1
-  ) {
+  if (base == null || pred == null || base <= 0 || base >= 1 || pred <= 0 || pred >= 1) {
     return null
   }
   const start = logit(base)
@@ -131,9 +124,7 @@ export default function ShapWaterfall({ explanation }) {
                 if (name === 'offset') return null // invisible spacer
                 const sign = payload.positive ? '+' : '−'
                 const raw =
-                  payload.rawValue != null
-                    ? ` (raw ${Number(payload.rawValue).toFixed(3)})`
-                    : ''
+                  payload.rawValue != null ? ` (raw ${Number(payload.rawValue).toFixed(3)})` : ''
                 return [`${sign}${Math.abs(payload.contribution).toFixed(3)} log-odds${raw}`, null]
               }}
             />
@@ -153,7 +144,9 @@ export default function ShapWaterfall({ explanation }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-1 text-[0.62rem] leading-relaxed text-muted">{t('mlSignal.waterfallNote')}</p>
+      <p className="mt-1 text-[0.62rem] leading-relaxed text-muted">
+        {t('mlSignal.waterfallNote')}
+      </p>
     </div>
   )
 }

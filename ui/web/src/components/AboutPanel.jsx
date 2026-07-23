@@ -1,4 +1,13 @@
-import { Cpu, Database, FlaskConical, LockKeyhole, Scale, ShieldCheck, TrendingUp, X } from 'lucide-react'
+import {
+  Cpu,
+  Database,
+  FlaskConical,
+  LockKeyhole,
+  Scale,
+  ShieldCheck,
+  TrendingUp,
+  X,
+} from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { RiscoreIcon, RiscoreWordmark } from './Logo'
@@ -145,7 +154,16 @@ export default function AboutPanel() {
               {[
                 {
                   key: 'live',
-                  items: ['composite', 'metrics', 'ml', 'garch', 'har', 'stress', 'outcomes', 'options'],
+                  items: [
+                    'composite',
+                    'metrics',
+                    'ml',
+                    'garch',
+                    'har',
+                    'stress',
+                    'outcomes',
+                    'options',
+                  ],
                   tone: 'border-up/30 bg-up/[0.06]',
                   dot: 'bg-up',
                   mark: '●',

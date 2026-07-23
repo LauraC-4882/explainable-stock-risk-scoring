@@ -36,10 +36,28 @@ const FACTORS = [
 ]
 
 const GLOSSARY_TERMS = [
-  'riskScore', 'percentile', 'volatility', 'downsideDeviation', 'var', 'cvar',
-  'drawdown', 'maxDrawdown', 'beta', 'liquidity', 'amihud', 'skew', 'kurtosis',
-  'garch', 'har', 'impliedVolatility', 'stressTest', 'shap', 'calibration',
-  'breachRate', 'concentration', 'regime',
+  'riskScore',
+  'percentile',
+  'volatility',
+  'downsideDeviation',
+  'var',
+  'cvar',
+  'drawdown',
+  'maxDrawdown',
+  'beta',
+  'liquidity',
+  'amihud',
+  'skew',
+  'kurtosis',
+  'garch',
+  'har',
+  'impliedVolatility',
+  'stressTest',
+  'shap',
+  'calibration',
+  'breachRate',
+  'concentration',
+  'regime',
 ]
 
 // Same cut-offs the backend applies; see module comment.
@@ -109,7 +127,10 @@ export default function LearnPanel() {
             <p className="mb-4 text-[0.8rem] leading-relaxed text-muted">{t('learn.tryBody')}</p>
 
             <div className="panel-tile px-4 py-4">
-              <label htmlFor="learn-score" className="text-[0.7rem] uppercase tracking-wide text-muted">
+              <label
+                htmlFor="learn-score"
+                className="text-[0.7rem] uppercase tracking-wide text-muted"
+              >
                 {t('learn.tryLabel')}
               </label>
               <div className="mt-2 flex items-baseline gap-3">

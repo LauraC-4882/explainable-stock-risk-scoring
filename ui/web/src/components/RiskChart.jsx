@@ -18,8 +18,14 @@ export default function RiskChart({ timeseries = [] }) {
             {/* y1/y2 in value space: 110 is the chart's pixel height, and the
                 offsets below are (1 - threshold/100) because SVG gradients run
                 top-down while the score axis runs bottom-up. */}
-            <linearGradient id="risk-stroke" x1="0" y1="110" x2="0" y2="0"
-              gradientUnits="userSpaceOnUse">
+            <linearGradient
+              id="risk-stroke"
+              x1="0"
+              y1="110"
+              x2="0"
+              y2="0"
+              gradientUnits="userSpaceOnUse"
+            >
               <stop offset="0%" stopColor="#34d399" />
               <stop offset="25%" stopColor="#34d399" />
               <stop offset="25%" stopColor="#fbbf24" />

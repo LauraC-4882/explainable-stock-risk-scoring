@@ -61,7 +61,10 @@ export default function TickerBar() {
 
   return (
     <div className="flex items-center gap-3 border-b border-border/60 bg-black/20 px-4 py-1.5">
-      <div className="relative min-w-0 flex-1 overflow-hidden" aria-hidden={reduced ? undefined : true}>
+      <div
+        className="relative min-w-0 flex-1 overflow-hidden"
+        aria-hidden={reduced ? undefined : true}
+      >
         {reduced ? (
           <div className="overflow-x-auto whitespace-nowrap">{track}</div>
         ) : (

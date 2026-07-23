@@ -86,155 +86,157 @@ export default function App() {
   return (
     <LanguageProvider>
       <ToastProvider>
-      <AuthProvider>
-        <OnboardingProvider>
-          {/* Lucide has no icon context provider, unlike Phosphor. The old
+        <AuthProvider>
+          <OnboardingProvider>
+            {/* Lucide has no icon context provider, unlike Phosphor. The old
               thin/#71b8e5 defaults are replaced by a `.lucide` stroke-width
               rule in index.css plus each icon inheriting `currentColor` from
               its container — which is how the surrounding styles already work.
               Only 3 of 37 icon usages ever relied on the inherited size. */}
-          <>
-            <div className="relative flex min-h-screen flex-col text-slate-100">
-              {/* Ambient "Deep Network" backdrop matched to the user's
+            <>
+              <div className="relative flex min-h-screen flex-col text-slate-100">
+                {/* Ambient "Deep Network" backdrop matched to the user's
                 background artwork: three drifting glow orbs (blue top-left,
                 teal center-right, faint violet bottom), the animated plexus
                 canvas, and a perspective grid-floor — all fixed behind the
                 content, animated via transform/opacity only, and stilled
                 under prefers-reduced-motion. */}
-              <div aria-hidden="true">
-                <div
-                  className="bg-orb animate-aurora1"
-                  style={{
-                    top: '-18%',
-                    left: '-8%',
-                    width: '48vw',
-                    height: '48vw',
-                    opacity: 0.3,
-                    filter: 'blur(70px)',
-                    background: 'radial-gradient(circle,rgba(64,144,255,0.55),transparent 68%)',
-                  }}
-                />
-                <div
-                  className="bg-orb animate-aurora2"
-                  style={{
-                    top: '18%',
-                    right: '-14%',
-                    width: '50vw',
-                    height: '50vw',
-                    opacity: 0.28,
-                    filter: 'blur(85px)',
-                    background: 'radial-gradient(circle,rgba(20,170,180,0.5),transparent 66%)',
-                  }}
-                />
-                <div
-                  className="bg-orb animate-aurora3"
-                  style={{
-                    bottom: '-24%',
-                    left: '22%',
-                    width: '52vw',
-                    height: '52vw',
-                    opacity: 0.16,
-                    filter: 'blur(90px)',
-                    background: 'radial-gradient(circle,rgba(120,80,220,0.4),transparent 68%)',
-                  }}
-                />
-                <Starfield />
-                <div className="grid-floor">
-                  <div className="grid-floor-inner animate-grid-scroll" />
+                <div aria-hidden="true">
+                  <div
+                    className="bg-orb animate-aurora1"
+                    style={{
+                      top: '-18%',
+                      left: '-8%',
+                      width: '48vw',
+                      height: '48vw',
+                      opacity: 0.3,
+                      filter: 'blur(70px)',
+                      background: 'radial-gradient(circle,rgba(64,144,255,0.55),transparent 68%)',
+                    }}
+                  />
+                  <div
+                    className="bg-orb animate-aurora2"
+                    style={{
+                      top: '18%',
+                      right: '-14%',
+                      width: '50vw',
+                      height: '50vw',
+                      opacity: 0.28,
+                      filter: 'blur(85px)',
+                      background: 'radial-gradient(circle,rgba(20,170,180,0.5),transparent 66%)',
+                    }}
+                  />
+                  <div
+                    className="bg-orb animate-aurora3"
+                    style={{
+                      bottom: '-24%',
+                      left: '22%',
+                      width: '52vw',
+                      height: '52vw',
+                      opacity: 0.16,
+                      filter: 'blur(90px)',
+                      background: 'radial-gradient(circle,rgba(120,80,220,0.4),transparent 68%)',
+                    }}
+                  />
+                  <Starfield />
+                  <div className="grid-floor">
+                    <div className="grid-floor-inner animate-grid-scroll" />
+                  </div>
                 </div>
-              </div>
 
-              <div className="relative z-10 flex flex-1 flex-col">
-                <TickerBar />
-                <Header onHome={goHome} onOpenTicker={addStock} />
+                <div className="relative z-10 flex flex-1 flex-col">
+                  <TickerBar />
+                  <Header onHome={goHome} onOpenTicker={addStock} />
 
-                {/* The design floats its controls and cards directly on the
+                  {/* The design floats its controls and cards directly on the
                   cosmic backdrop (no competing wrapper box) inside a wide,
                   centered column. Controls sit in a left-aligned stack; the
                   search bar spans the column while the market/timeframe
                   pill-groups size to their content. */}
-                <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-5 pb-28 pt-5 sm:px-8 md:pb-16">
-                  {/* Free-tier boot notice — renders only while a sleeping
+                  <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-5 pb-28 pt-5 sm:px-8 md:pb-16">
+                    {/* Free-tier boot notice — renders only while a sleeping
                       instance is waking (~60-100s); invisible when warm. */}
-                  <ColdStartBanner />
-                  <div className="flex flex-col gap-4">
-                    <MarketSwitcher market={market} onChange={setMarket} />
-                    <SearchBar market={market} onAdd={addStock} />
-                    <TimeframeSelector period={period} onChange={setPeriod} />
-                  </div>
+                    <ColdStartBanner />
+                    <div className="flex flex-col gap-4">
+                      <MarketSwitcher market={market} onChange={setMarket} />
+                      <SearchBar market={market} onAdd={addStock} />
+                      <TimeframeSelector period={period} onChange={setPeriod} />
+                    </div>
 
-                  {tickers.length === 0 ? (
-                    // Signed-in users land on their watchlist board (renders
-                    // nothing when signed out or empty), so returning users see
-                    // what moved instead of an empty search box every visit.
-                    <motion.div
-                      variants={reduced ? undefined : fadeUp}
-                      initial={reduced ? false : 'hidden'}
-                      animate="visible"
-                    >
-                      <WatchlistBoard onOpen={addStock} onCompare={openCompare} />
-                      <EmptyState market={market} onAdd={addStock} />
-                    </motion.div>
-                  ) : (
-                    <>
-                      {tickers.length > 1 && <ViewToggle view={view} onChange={setView} />}
-                      {/* mode="wait" + keyed wrappers: the outgoing view fades
+                    {tickers.length === 0 ? (
+                      // Signed-in users land on their watchlist board (renders
+                      // nothing when signed out or empty), so returning users see
+                      // what moved instead of an empty search box every visit.
+                      <motion.div
+                        variants={reduced ? undefined : fadeUp}
+                        initial={reduced ? false : 'hidden'}
+                        animate="visible"
+                      >
+                        <WatchlistBoard onOpen={addStock} onCompare={openCompare} />
+                        <EmptyState market={market} onAdd={addStock} />
+                      </motion.div>
+                    ) : (
+                      <>
+                        {tickers.length > 1 && <ViewToggle view={view} onChange={setView} />}
+                        {/* mode="wait" + keyed wrappers: the outgoing view fades
                           out before the incoming one slides up, so the two
                           full-width layouts never overlap mid-swap. Reduced
                           motion mounts everything in its final state. */}
-                      <AnimatePresence mode="wait" initial={false}>
-                        {view === 'compare' && tickers.length > 1 ? (
-                          <motion.div key="compare" {...(reduced ? {} : viewSwap)}>
-                            <CompareView tickers={tickers} onRemove={removeStock} />
-                          </motion.div>
-                        ) : (
-                          // Every stock gets the full wide bento layout; comparing
-                          // means stacking those full dashboards vertically rather
-                          // than shrinking each into a cramped side-by-side card —
-                          // scroll between them, every section keeps its room.
-                          <motion.div
-                            key="cards"
-                            className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7"
-                            variants={reduced ? undefined : stagger}
-                            initial={reduced ? false : 'hidden'}
-                            animate="visible"
-                            exit={reduced ? undefined : { opacity: 0, transition: { duration: 0.15 } }}
-                          >
-                            {tickers.map((t, i) => (
-                              <motion.div key={t} variants={reduced ? undefined : fadeUp}>
-                                <StockCard
-                                  ticker={t}
-                                  period={period}
-                                  onRemove={removeStock}
-                                  index={i}
-                                />
-                              </motion.div>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </>
-                  )}
-                </main>
+                        <AnimatePresence mode="wait" initial={false}>
+                          {view === 'compare' && tickers.length > 1 ? (
+                            <motion.div key="compare" {...(reduced ? {} : viewSwap)}>
+                              <CompareView tickers={tickers} onRemove={removeStock} />
+                            </motion.div>
+                          ) : (
+                            // Every stock gets the full wide bento layout; comparing
+                            // means stacking those full dashboards vertically rather
+                            // than shrinking each into a cramped side-by-side card —
+                            // scroll between them, every section keeps its room.
+                            <motion.div
+                              key="cards"
+                              className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-10 pt-7"
+                              variants={reduced ? undefined : stagger}
+                              initial={reduced ? false : 'hidden'}
+                              animate="visible"
+                              exit={
+                                reduced ? undefined : { opacity: 0, transition: { duration: 0.15 } }
+                              }
+                            >
+                              {tickers.map((t, i) => (
+                                <motion.div key={t} variants={reduced ? undefined : fadeUp}>
+                                  <StockCard
+                                    ticker={t}
+                                    period={period}
+                                    onRemove={removeStock}
+                                    index={i}
+                                  />
+                                </motion.div>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    )}
+                  </main>
 
-                <Footer />
-                <MobileNav onHome={goHome} />
+                  <Footer />
+                  <MobileNav onHome={goHome} />
 
-                <AuthModal />
-                <WatchlistPanel onAdd={addStock} />
-                <ProfilePanel />
-                <CommunityPanel />
-                <AdminPanel />
-                <AboutPanel />
-                <LearnPanel />
-                <TechStackPanel />
-                <ReplayViewer />
-                <OnboardingTour />
+                  <AuthModal />
+                  <WatchlistPanel onAdd={addStock} />
+                  <ProfilePanel />
+                  <CommunityPanel />
+                  <AdminPanel />
+                  <AboutPanel />
+                  <LearnPanel />
+                  <TechStackPanel />
+                  <ReplayViewer />
+                  <OnboardingTour />
+                </div>
               </div>
-            </div>
-          </>
-        </OnboardingProvider>
-      </AuthProvider>
+            </>
+          </OnboardingProvider>
+        </AuthProvider>
       </ToastProvider>
     </LanguageProvider>
   )

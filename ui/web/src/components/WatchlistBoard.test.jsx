@@ -11,28 +11,20 @@ const rows = [
 
 describe('sortRows', () => {
   it('preserves server order for "added"', () => {
-    expect(sortRows(rows, 'added').map((r) => r.ticker)).toEqual([
-      'TSLA', 'AAPL', 'NEWCO', 'MSFT',
-    ])
+    expect(sortRows(rows, 'added').map((r) => r.ticker)).toEqual(['TSLA', 'AAPL', 'NEWCO', 'MSFT'])
   })
 
   it('sorts by risk descending with unreadable rows sinking to the bottom', () => {
-    expect(sortRows(rows, 'risk').map((r) => r.ticker)).toEqual([
-      'TSLA', 'MSFT', 'AAPL', 'NEWCO',
-    ])
+    expect(sortRows(rows, 'risk').map((r) => r.ticker)).toEqual(['TSLA', 'MSFT', 'AAPL', 'NEWCO'])
   })
 
   it('sorts by delta descending', () => {
-    expect(sortRows(rows, 'delta').map((r) => r.ticker)).toEqual([
-      'TSLA', 'MSFT', 'AAPL', 'NEWCO',
-    ])
+    expect(sortRows(rows, 'delta').map((r) => r.ticker)).toEqual(['TSLA', 'MSFT', 'AAPL', 'NEWCO'])
   })
 
   it('sorts alphabetically for ticker mode and never mutates its input', () => {
     const before = rows.map((r) => r.ticker)
-    expect(sortRows(rows, 'ticker').map((r) => r.ticker)).toEqual([
-      'AAPL', 'MSFT', 'NEWCO', 'TSLA',
-    ])
+    expect(sortRows(rows, 'ticker').map((r) => r.ticker)).toEqual(['AAPL', 'MSFT', 'NEWCO', 'TSLA'])
     expect(rows.map((r) => r.ticker)).toEqual(before)
   })
 })
