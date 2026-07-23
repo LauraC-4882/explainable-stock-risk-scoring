@@ -41,6 +41,13 @@ export async function apiStats() {
   return res.ok ? res.json() : null
 }
 
+// GitHub repo stats via the backend proxy (/api/github-stats) — same-origin,
+// so the strict connect-src CSP stays exactly as it is. {} when unavailable.
+export async function apiGithubStats() {
+  const res = await fetch('/api/github-stats')
+  return res.ok ? res.json() : {}
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []

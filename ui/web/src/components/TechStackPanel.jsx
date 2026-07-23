@@ -1,5 +1,6 @@
 import { Cpu, ExternalLink, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { apiGithubStats } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 
@@ -42,10 +43,23 @@ export default function TechStackPanel() {
     return () => window.removeEventListener('keydown', onKey)
   }, [techPanelOpen, closeTechPanel])
 
-  // No live GitHub stats widget: the app ships a strict connect-src CSP
-  // (security/headers.py), and api.github.com is rightly not on it. Loosening
-  // a security header to decorate a panel would invert the priorities — the
-  // static link below is enough.
+  // Live GitHub stats return, without touching the CSP: the browser calls the
+  // same-origin /api/github-stats proxy and the SERVER talks to GitHub (with
+  // an hour's cache). The first cut fetched api.github.com directly and was
+  // blocked by the app's own connect-src — loosening that header for
+  // decoration was refused; proxying is the sanctioned shape.
+  const [gh, setGh] = useState(null)
+  useEffect(() => {
+    if (!techPanelOpen || gh) return
+    let cancelled = false
+    apiGithubStats().then((d) => {
+      if (!cancelled && d && d.stars != null) setGh(d)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [techPanelOpen, gh])
+
   if (!techPanelOpen) return null
 
   return (
@@ -129,7 +143,9 @@ export default function TechStackPanel() {
             className="panel-tile flex items-center justify-between gap-3 p-3.5 transition hover:border-accent/40"
           >
             <span className="text-[0.82rem] font-semibold text-slate-100">{t('tech.repo')}</span>
-            <span className="font-mono text-[0.72rem] text-muted">GitHub →</span>
+            <span className="font-mono text-[0.72rem] text-muted">
+              {gh ? `★ ${gh.stars} · ${t('tech.lastPush', { date: gh.pushed_at })}` : 'GitHub →'}
+            </span>
           </a>
         </div>
       </div>

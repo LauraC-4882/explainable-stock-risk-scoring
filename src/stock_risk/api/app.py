@@ -1643,6 +1643,54 @@ def admin_dismiss_report(
     return Response(status_code=204)
 
 
+# ── GitHub stats proxy ───────────────────────────────────────────────────────
+
+# The Tech Stack panel wanted live repo stats, but the frontend's connect-src
+# CSP rightly doesn't allow api.github.com, and loosening a security header
+# for decoration was refused. The CSP binds the BROWSER, not this server — so
+# the server fetches, caches for an hour, and the page calls same-origin.
+_GITHUB_REPO = "LauraC-4882/explainable-stock-risk-scoring"
+_github_cache: dict = {"at": 0.0, "data": None}
+_GITHUB_TTL = 3600.0
+
+
+@app.get("/api/github-stats")
+def github_stats():
+    """Star count + last push for the Tech Stack panel, via server-side fetch.
+
+    Degrades to an empty object on any failure (rate limit, offline dyno,
+    upstream change) — the panel renders its static link either way, and a
+    decorative widget must never surface an error. The hour-long cache keeps
+    this well under GitHub's 60/hr unauthenticated allowance regardless of
+    page traffic.
+    """
+    import time as _time
+
+    if _github_cache["data"] is not None and _time.time() - _github_cache["at"] < _GITHUB_TTL:
+        return _github_cache["data"]
+
+    import requests as _requests
+
+    data: dict = {}
+    try:
+        res = _requests.get(
+            f"https://api.github.com/repos/{_GITHUB_REPO}",
+            timeout=4,
+            headers={"Accept": "application/vnd.github+json"},
+        )
+        if res.ok:
+            payload = res.json()
+            data = {
+                "stars": int(payload.get("stargazers_count", 0)),
+                "pushed_at": (payload.get("pushed_at") or "")[:10] or None,
+            }
+    except Exception as exc:
+        logger.info(f"github-stats fetch skipped: {exc}")
+    _github_cache["at"] = _time.time()
+    _github_cache["data"] = data
+    return data
+
+
 # ── Public usage stats ───────────────────────────────────────────────────────
 
 _stats_cache: dict = {"at": 0.0, "data": None}
