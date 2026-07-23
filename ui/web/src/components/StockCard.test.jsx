@@ -6,12 +6,10 @@ import { scoreTsla } from '../test/fixtures/score'
 import { timeseriesTsla } from '../test/fixtures/timeseries'
 import StockCard from './StockCard'
 
-// Charts are covered by charts.test.jsx; here they'd only add Chart.js noise
+// Charts are covered by charts.test.jsx; here they'd only add Recharts noise
 // to assertions about the card's own load/error/populated states.
-vi.mock('react-chartjs-2', () => ({
-  Line: () => <div data-testid="chart" />,
-  Bar: () => <div data-testid="chart" />,
-}))
+vi.mock('./PriceChart', () => ({ default: () => <div data-testid="chart" /> }))
+vi.mock('./RiskChart', () => ({ default: () => <div data-testid="chart" /> }))
 
 vi.mock('../api', () => ({
   apiScore: vi.fn(),

@@ -1,6 +1,5 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import '../chartSetup'
 import { timeseriesTsla } from '../test/fixtures/timeseries'
 import AdminAnalyticsChart from './AdminAnalyticsChart'
 import PriceChart from './PriceChart'
@@ -33,11 +32,15 @@ describe('chart components tolerate missing data', () => {
 })
 
 describe('chart components render real data', () => {
-  it('draws a canvas for each series', () => {
+  // Recharts renders SVG (Chart.js drew to a canvas). ResponsiveContainer
+  // measures its parent, which jsdom reports as 0x0, so the chart surface is
+  // asserted via the container class rather than a laid-out <svg> — the
+  // ui_shot harness covers the actually-painted pixels.
+  it('mounts a responsive chart surface for each series', () => {
     const { container } = render(<PriceChart timeseries={timeseriesTsla} color="#f43f5e" />)
-    expect(container.querySelector('canvas')).toBeInTheDocument()
+    expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
 
     const risk = render(<RiskChart timeseries={timeseriesTsla} />)
-    expect(risk.container.querySelector('canvas')).toBeInTheDocument()
+    expect(risk.container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
   })
 })

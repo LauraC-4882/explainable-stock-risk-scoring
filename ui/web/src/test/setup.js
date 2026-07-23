@@ -1,34 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach } from 'vitest'
 
 afterEach(() => {
   cleanup()
   localStorage.clear()
 })
 
-// jsdom ships no canvas backend, so Chart.js would throw on construction and
-// every chart-rendering test would pass or fail for that reason rather than
-// for the behaviour under test. A no-op 2D context lets the real Chart.js run
-// its data pipeline — which is where the crashes we care about (mapping over
-// undefined series) actually happen.
-const noopContext = () =>
-  new Proxy(
-    {
-      canvas: null,
-      createLinearGradient: () => ({ addColorStop: () => {} }),
-      createPattern: () => ({}),
-      measureText: () => ({ width: 0 }),
-      getImageData: () => ({ data: [] }),
-      save: () => {},
-      restore: () => {},
-    },
-    { get: (target, prop) => (prop in target ? target[prop] : () => {}) }
-  )
-
-HTMLCanvasElement.prototype.getContext = vi.fn(noopContext)
-
-// Chart.js sizes itself off ResizeObserver, which jsdom doesn't implement.
+// Recharts' ResponsiveContainer sizes itself off ResizeObserver, which jsdom
+// doesn't implement.
 global.ResizeObserver = class {
   observe() {}
   unobserve() {}
