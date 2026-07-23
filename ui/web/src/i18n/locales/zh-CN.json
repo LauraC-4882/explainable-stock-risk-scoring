@@ -213,7 +213,14 @@
     "asOf": "截至",
     "firstReading": "首次读数",
     "noReading": "暂无读数",
-    "note": "分数上升表示风险升高,下降表示风险缓和——所有市场统一如此显示,因为风险分不是价格。读数来自每日存档快照,不是实时报价。"
+    "note": "分数上升表示风险升高,下降表示风险缓和——所有市场统一如此显示,因为风险分不是价格。读数来自每日存档快照,不是实时报价。",
+    "sortAdded": "添加顺序",
+    "sortRisk": "风险分",
+    "sortDelta": "变化",
+    "sortTicker": "代码",
+    "exportCsv": "导出 CSV（含说明行）",
+    "selectForCompare": "选择 {ticker} 进行对比",
+    "compareSelected": "对比选中的 {n} 只"
   },
   "alerts": {
     "title": "风险变化",

@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
 import Avatar from '../components/Avatar'
 import { useAuth } from './AuthContext'
+import { dateLocale } from '../utils'
 
 export default function ProfilePanel() {
   const { t, lang } = useLanguage()
@@ -39,7 +40,7 @@ export default function ProfilePanel() {
   if (!profilePanelOpen || !user) return null
 
   const memberSince = user.created_at
-    ? new Date(user.created_at).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+    ? new Date(user.created_at).toLocaleDateString(dateLocale(lang), {
         year: 'numeric',
         month: 'long',
       })

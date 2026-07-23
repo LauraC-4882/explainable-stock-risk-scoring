@@ -75,3 +75,11 @@ export function debounce(fn, ms) {
     timer = setTimeout(() => fn(...args), ms)
   }
 }
+
+// Maps the app language to a BCP-47 locale for date formatting. Exists because
+// the i18next migration split 'zh' into 'zh-CN'/'zh-TW', and five components
+// were still comparing lang === 'zh' — which silently gave every Chinese user
+// en-US dates. Centralised so the next language added can't re-scatter the bug.
+export function dateLocale(lang) {
+  return lang && lang.startsWith('zh') ? lang : 'en-US'
+}

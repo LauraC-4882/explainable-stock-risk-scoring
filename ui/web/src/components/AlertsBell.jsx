@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiMarkAlertsSeen, apiWatchlistAlerts } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
-import { riskColor } from '../utils'
+import { dateLocale, riskColor } from '../utils'
 
 // Risk-movement bell for the signed-in user's watchlist.
 //
@@ -60,7 +60,7 @@ export default function AlertsBell({ onOpen }) {
 
   const fmtDate = (iso) =>
     iso
-      ? new Date(`${iso}T00:00:00`).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+      ? new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale(lang), {
           month: 'short',
           day: 'numeric',
         })

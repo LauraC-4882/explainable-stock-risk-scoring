@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import AccuracyBadge from './AccuracyBadge'
 import VoteButtons from './VoteButtons'
+import { dateLocale } from '../utils'
 
 const REPORT_REASONS = [
   'investment_advice',
@@ -32,7 +33,7 @@ export default function PostCard({ post, onVoted, onDeleted, showTicker = true }
     setReported(true)
   }
 
-  const timestamp = new Date(post.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+  const timestamp = new Date(post.created_at).toLocaleString(dateLocale(lang), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

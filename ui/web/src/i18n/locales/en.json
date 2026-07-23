@@ -213,7 +213,14 @@
     "asOf": "as of",
     "firstReading": "first reading",
     "noReading": "no reading yet",
-    "note": "A rising score means risk increased, a falling score means it eased — shown the same way for every market, because a risk score is not a price. Readings come from stored daily snapshots, not a live quote."
+    "note": "A rising score means risk increased, a falling score means it eased — shown the same way for every market, because a risk score is not a price. Readings come from stored daily snapshots, not a live quote.",
+    "sortAdded": "Added",
+    "sortRisk": "Risk",
+    "sortDelta": "Change",
+    "sortTicker": "A-Z",
+    "exportCsv": "Export readings as CSV (caveat line included)",
+    "selectForCompare": "Select {ticker} for comparison",
+    "compareSelected": "Compare {n} selected"
   },
   "alerts": {
     "title": "Risk movement",

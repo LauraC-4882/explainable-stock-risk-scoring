@@ -70,6 +70,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Board hand-off: open the selected tickers straight in compare view.
+  // Caps at 3 — same limit the compare palette is built for.
+  function openCompare(tickers) {
+    setTickers(tickers.slice(0, 3))
+    setView('compare')
+  }
+
   function goHome() {
     setTickers([])
     setMarket('us')
@@ -165,7 +172,7 @@ export default function App() {
                       initial={reduced ? false : 'hidden'}
                       animate="visible"
                     >
-                      <WatchlistBoard onOpen={addStock} />
+                      <WatchlistBoard onOpen={addStock} onCompare={openCompare} />
                       <EmptyState market={market} onAdd={addStock} />
                     </motion.div>
                   ) : (

@@ -213,7 +213,14 @@
     "asOf": "截至",
     "firstReading": "首次讀數",
     "noReading": "暫無讀數",
-    "note": "分數上升表示風險升高,下降表示風險緩和——所有市場統一如此顯示,因為風險分不是價格。讀數來自每日存檔快照,不是實時報價。"
+    "note": "分數上升表示風險升高,下降表示風險緩和——所有市場統一如此顯示,因為風險分不是價格。讀數來自每日存檔快照,不是實時報價。",
+    "sortAdded": "新增順序",
+    "sortRisk": "風險分",
+    "sortDelta": "變化",
+    "sortTicker": "代碼",
+    "exportCsv": "匯出 CSV（含說明行）",
+    "selectForCompare": "選擇 {ticker} 進行對比",
+    "compareSelected": "對比選中的 {n} 隻"
   },
   "alerts": {
     "title": "風險變化",

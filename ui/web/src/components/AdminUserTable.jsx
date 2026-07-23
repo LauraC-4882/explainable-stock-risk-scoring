@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiAdminBanUser, apiAdminListUsers, apiAdminUnbanUser } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { dateLocale } from '../utils'
 
 export default function AdminUserTable() {
   const { t, lang } = useLanguage()
@@ -82,7 +83,7 @@ export default function AdminUserTable() {
                     )}
                   </div>
                   <div className="text-[0.62rem] text-muted">
-                    {new Date(u.created_at).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US')}
+                    {new Date(u.created_at).toLocaleDateString(dateLocale(lang))}
                   </div>
                 </div>
                 {/* No ban control on your own row or on another admin —
