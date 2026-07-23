@@ -92,6 +92,45 @@ def shoot(
         browser.close()
 
 
+def shoot_learn(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """The Learn panel, with the interactive score slider dragged into EXTREME.
+
+    Captured because the slider is the panel's whole teaching device: it maps a
+    score onto a band and a plain-language meaning, and the band cut-offs have to
+    agree with the backend. A static build check cannot show that the slider
+    moves the label, so this drives it and screenshots the result."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        page.on(
+            "console",
+            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
+        )
+        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        page.click('button:has-text("Learn")')
+        page.wait_for_selector('[role="dialog"]', timeout=5000)
+        page.wait_for_selector("text=It is not a probability", timeout=5000)
+        # Drive the slider so the capture proves the band label tracks the score.
+        page.fill('input[type="range"]', "88")
+        page.wait_for_timeout(300)
+
+        learn_path = out_dir / "ui-learn.png"
+        page.screenshot(path=str(learn_path), full_page=True)
+        print(f"[ui_shot] learn -> {learn_path} ({learn_path.stat().st_size} bytes)")
+
+        browser.close()
+
+        if learn_path.stat().st_size == 0:
+            errors.append("learn screenshot is empty")
+
+
 def shoot_about(base_url: str, out_dir: Path, errors: list[str]) -> None:
     """The About panel, scrolled to the "what actually runs here" matrix.
 
@@ -482,6 +521,7 @@ def main() -> int:
                 return 1
 
     shoot_about(args.base_url, out_dir, errors)
+    shoot_learn(args.base_url, out_dir, errors)
     shoot_replay(args.base_url, out_dir, errors)
     shoot_signup(args.base_url, out_dir, errors)
     shoot_community(args.base_url, out_dir, errors)

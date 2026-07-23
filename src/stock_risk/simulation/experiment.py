@@ -33,7 +33,7 @@ from .profiles import UserProfile
 from .scenarios import run_market_crash
 from .stats import EffectEstimate, benjamini_hochberg, paired_bootstrap
 from .sut import load_scorecard
-from .tasks import run_portfolio_concentration
+from .tasks import _hash_user, run_portfolio_concentration
 
 # Per-user outcome function: (profile, seed, config_hash) -> float.
 OutcomeFn = Callable[[UserProfile, int, str], float]
@@ -54,7 +54,12 @@ def _comprehension_after_variant(
         scorecard, variant=variant, language=profile.language,
         color_vision=profile.color_vision_mode, include_untranslated=include_untranslated,
     )
-    rng = derive_generator(seed, hash(profile.user_id) & 0xFFFF, 30)
+    # _hash_user, NOT the builtin hash(): CPython salts str hashing with
+    # PYTHONHASHSEED, so hash("first_time_retail-0000") differs on every process
+    # start. Using it here made experiments A and I reproducible *within* a
+    # process but not *across* runs — silently breaking the determinism this
+    # package promises. _hash_user is a plain byte-wise fold, so it is stable.
+    rng = derive_generator(seed, _hash_user(profile.user_id), 30)
     state = UserState.initial(profile)
     interpret_view(profile, state, view, rng)  # mutates state.understood_concepts
     outcome = run_comprehension_battery(profile, state, rng)

@@ -672,4 +672,81 @@ export default {
     },
     verifyHint: 'Verify any of these yourself from the repository:',
   },
+  learn: {
+    nav: 'Learn',
+    title: 'Learn — how to read a risk score',
+    intro:
+      'A short, plain-language guide for newer investors. Everything here explains what the numbers on this site describe, and what they deliberately do not. Nothing on this page is investment advice.',
+    tryTitle: '1. What is a risk score?',
+    tryBody:
+      'Drag the slider. The score is a percentile: it compares this stock against its own past two years, not against other stocks. A 70 does not mean a 70% chance of losing money — it means calmer than only 30% of its own history.',
+    tryLabel: 'Try a risk score',
+    notProbTitle: 'It is not a probability',
+    notProb:
+      'This is the single most common misreading. A score of 80 is not an 80% chance of a loss. It is a ranking against this stock’s own history — nothing more.',
+    notCompare:
+      'Scores are self-relative, so comparing two different stocks’ scores tells you how unusual each is versus its own past — not which one is objectively safer.',
+    factorsTitle: '2. Understanding each factor',
+    factorsBody:
+      'The score blends five lenses. Each is ranked against the stock’s own history, then weighted. Two of them (market sensitivity and liquidity) can raise the score but never lower it — a calm, easily-traded stock should not earn a discount for being boring.',
+    weightLabel: 'weight',
+    twoSidedNote:
+      'Can push the score up, never down — a calm, liquid stock earns no discount for it.',
+    stressTitle: '3. How to read a stress test',
+    stressBody:
+      'A stress test replays real historical conditions — 2008, 2020, 2022 — against this stock’s current behaviour, and asks where its score would sit under those conditions. It is a what-if exercise using past data. It is not a forecast, and nobody is predicting these events will recur.',
+    riskReturnTitle: '4. Risk is not the same as bad',
+    riskReturnBody:
+      'A high score means turbulence, not doom. Turbulence widens the range of outcomes in both directions — bigger falls and bigger jumps both become more likely. Whether that suits you depends on your own horizon and circumstances, which this site knows nothing about.',
+    riskReturnWarn:
+      'This site never tells you what to buy or sell, never sets price targets, and cannot judge whether something suits you. For decisions that matter, talk to a qualified adviser.',
+    glossaryTitle: '5. Glossary',
+    glossaryBody: 'Plain definitions for the terms used across the site.',
+    terms: {
+      riskScore:
+        'Risk score — a 0-100 percentile ranking this stock against its own recent history. Higher means more turbulent than its own normal. Not a probability, not a recommendation.',
+      percentile:
+        'Percentile — where today’s reading sits inside a sorted history. 90 means only 10% of the past two years was more extreme.',
+      volatility:
+        'Volatility — how much the price moves day to day, in either direction. It measures spread, not direction, so a steadily rising stock can still read high.',
+      downsideDeviation:
+        'Downside deviation — like volatility, but counting only the falls. Useful when you care about drops rather than movement in general.',
+      var:
+        'Value at Risk (VaR) — a threshold for a bad day. A 95% VaR of -6% means that on the worst 5% of days, losses exceeded 6%. It is not a maximum loss.',
+      cvar:
+        'Conditional VaR / Expected Shortfall — the average loss on those worst days, once VaR has already been breached. It describes how bad the bad days actually get.',
+      drawdown:
+        'Drawdown — how far the price has fallen from its most recent peak. A recovery only counts once the old peak is regained.',
+      maxDrawdown:
+        'Maximum drawdown — the deepest peak-to-trough fall within a window. A blunt measure of the worst stretch an investor would have sat through.',
+      beta:
+        'Beta — how much the stock moves with the wider market. Above 1 amplifies market moves; below 1 damps them. It is co-movement, not cause.',
+      liquidity:
+        'Liquidity — how easily the stock can be traded without moving its own price. Thin liquidity makes exiting expensive, especially in a panic.',
+      amihud:
+        'Amihud illiquidity — price impact per unit of trading volume. Higher means a given trade shifts the price more.',
+      skew:
+        'Skew — whether the tail of returns leans negative or positive. Negative skew means rare large falls are the bigger risk.',
+      kurtosis:
+        'Kurtosis — how fat the tails are. High kurtosis means extreme moves happen more often than a normal bell curve would suggest.',
+      garch:
+        'GJR-GARCH — a volatility model that lets falls raise future volatility more than equivalent rises do, matching how markets actually behave.',
+      har:
+        'HAR-RV — a volatility model that blends daily, weekly and monthly realised volatility, capturing how different horizons interact.',
+      impliedVolatility:
+        'Implied volatility — the volatility the options market is currently pricing in. A forward-looking expectation, not a measurement of the past.',
+      stressTest:
+        'Stress test — replaying historical crisis conditions against current behaviour to see where the score would move. Descriptive, not predictive.',
+      shap:
+        'SHAP — a method for attributing a model’s output across its inputs, showing which features pushed a prediction up or down. It shows association, not causation.',
+      calibration:
+        'Calibration — whether a model’s stated probabilities match observed frequencies. A well-calibrated 20% should happen about 20% of the time.',
+      breachRate:
+        'Breach rate — how often losses actually exceeded VaR. A 9% realised rate against a 5% target means the model understated tail risk.',
+      concentration:
+        'Concentration — how much of a portfolio’s risk sits in one position. Holding many names does not guarantee diversification if they move together.',
+      regime:
+        'Market regime — a coarse read of overall conditions (calm / elevated / panic), used to shift how much each factor counts.',
+    },
+  },
 }

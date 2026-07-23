@@ -29,6 +29,7 @@ export function AuthProvider({ children }) {
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
   const [aboutPanelOpen, setAboutPanelOpen] = useState(false)
   const [replayPanelOpen, setReplayPanelOpen] = useState(false)
+  const [learnPanelOpen, setLearnPanelOpen] = useState(false)
 
   // [R2] Adopt a token the backend silently re-issued. Access tokens now live
   // 12 hours instead of a week, so an active session would otherwise expire
@@ -163,6 +164,9 @@ export function AuthProvider({ children }) {
         replayPanelOpen,
         openReplayPanel: () => setReplayPanelOpen(true),
         closeReplayPanel: () => setReplayPanelOpen(false),
+        learnPanelOpen,
+        openLearnPanel: () => setLearnPanelOpen(true),
+        closeLearnPanel: () => setLearnPanelOpen(false),
       }}
     >
       {children}

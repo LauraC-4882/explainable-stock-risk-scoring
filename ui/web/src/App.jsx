@@ -3,6 +3,7 @@ import { useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
 import ColdStartBanner from './components/ColdStartBanner'
+import LearnPanel from './components/LearnPanel'
 import ReplayViewer from './replay/ReplayViewer'
 import { AuthProvider } from './auth/AuthContext'
 import AuthModal from './auth/AuthModal'
@@ -172,6 +173,7 @@ export default function App() {
                 <CommunityPanel />
                 <AdminPanel />
                 <AboutPanel />
+                <LearnPanel />
                 <ReplayViewer />
                 <OnboardingTour />
               </div>

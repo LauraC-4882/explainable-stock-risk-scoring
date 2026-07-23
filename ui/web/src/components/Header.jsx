@@ -1,4 +1,4 @@
-import { ChatsCircle, FilmSlate, Info, ShieldStar, Star } from '@phosphor-icons/react'
+import { BookOpen, ChatsCircle, FilmSlate, Info, ShieldStar, Star } from '@phosphor-icons/react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
@@ -19,6 +19,7 @@ export default function Header({ onHome, onOpenTicker }) {
     openAdminPanel,
     openAboutPanel,
     openReplayPanel,
+    openLearnPanel,
   } = useAuth()
   const { openTour } = useOnboarding()
 
@@ -54,6 +55,9 @@ export default function Header({ onHome, onOpenTicker }) {
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
           <button onClick={openAboutPanel} className={pill}>
             <Info aria-hidden="true" size={16} /> {t('about.navButton')}
+          </button>
+          <button onClick={openLearnPanel} className={pill}>
+            <BookOpen aria-hidden="true" size={16} /> {t('learn.nav')}
           </button>
           <button onClick={openReplayPanel} className={pill}>
             <FilmSlate aria-hidden="true" size={16} /> {t('replay.open')}

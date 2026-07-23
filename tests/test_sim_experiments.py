@@ -92,6 +92,40 @@ def test_experiments_are_deterministic():
     assert a.to_dict() == b.to_dict()
 
 
+def test_experiments_are_deterministic_across_processes():
+    """Reproducibility must survive a fresh interpreter, not just a second call.
+
+    Regression test for a real bug: `_comprehension_after_variant` derived its
+    RNG stream from the builtin `hash(user_id)`, which CPython salts with
+    PYTHONHASHSEED. Experiments A and I were therefore stable within one process
+    (so the same-process check above passed) and different on every new run —
+    exactly the guarantee this package advertises, silently broken. Running the
+    experiment in two subprocesses is the only way to catch that class of bug.
+    """
+    import json
+    import subprocess
+    import sys
+
+    script = (
+        "from stock_risk.simulation import experiment as exp;"
+        "from stock_risk.simulation.events import config_hash;"
+        "from stock_risk.simulation.profiles import Archetype, generate_population;"
+        "import json;"
+        "pop = generate_population(seed=2026, per_archetype=6, archetypes=("
+        "Archetype.FIRST_TIME_RETAIL, Archetype.EXPERIENCED_INVESTOR));"
+        "r = exp.experiment_a_score_only_vs_explained("
+        "pop, seed=7, config_hash=config_hash({'x': 1}));"
+        "print(json.dumps(r.to_dict()))"
+    )
+    runs = []
+    for _ in range(2):
+        out = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, check=True
+        )
+        runs.append(json.loads(out.stdout.strip().splitlines()[-1]))
+    assert runs[0] == runs[1]
+
+
 def test_null_experiments_do_not_manufacture_an_effect():
     # A (score-only vs explained) and I (technical vs plain) should NOT come back
     # as confident positive effects on a general comprehension battery — the
