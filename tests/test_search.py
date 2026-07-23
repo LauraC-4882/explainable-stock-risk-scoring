@@ -72,3 +72,19 @@ def test_api_search_prefers_live_yfinance_results_when_available():
     assert body == [
         {"symbol": "TCEHY", "name": "Tencent Holdings ADR", "exchange": "OTC", "type": "Equity"}
     ]
+
+
+def test_known_symbols_universe_excludes_hong_kong():
+    """Scope guard: US equities + China A-shares only — Hong Kong was dropped
+    from the supported universe (2026-07-22). The module docstring says "no
+    `.HK` entries belong here"; this makes that sentence enforceable instead
+    of aspirational. Companion to ui/web/src/scope.test.js, which guards the
+    same decision on the frontend/locale side."""
+    from stock_risk.data.known_symbols import _ENTRIES
+
+    forbidden = ("hong kong", "港股", "香港", "恒生", "恆生", "hsi")
+    for symbol, name, exchange, aliases in _ENTRIES:
+        assert not symbol.upper().endswith(".HK"), f"HK listing in universe: {symbol}"
+        haystack = " ".join([symbol, name, exchange, *aliases]).lower()
+        for token in forbidden:
+            assert token not in haystack, f"{symbol}: forbidden scope token {token!r}"
