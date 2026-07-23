@@ -18,6 +18,15 @@ function captureRefreshedToken(res) {
   return res
 }
 
+// Liveness probe used only by the cold-start banner (see hooks/useColdStart).
+// /health is exempt from rate limiting and from PageView tracking, and it
+// touches neither yfinance nor the model, so waking a sleeping free-tier
+// instance costs nothing and skews no analytics.
+export async function apiHealth() {
+  const res = await fetch('/health', { cache: 'no-store' })
+  return res.ok
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []

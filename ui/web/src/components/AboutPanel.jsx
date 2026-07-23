@@ -137,6 +137,81 @@ export default function AboutPanel() {
             </div>
           </section>
 
+          {/* ── What actually runs here ──
+              This project is larger than what a free instance serves, so the
+              site states which capabilities are live, which degrade on the free
+              tier, and which exist only in the repository. Without this, the
+              page would imply the whole stack is running — see the "no claim
+              the deployment can't back" rule in the README. Each list was
+              checked against the live deployment, not assumed. */}
+          <section>
+            <h3 className="heading-flourish mb-1.5 text-xl">{t('capabilities.title')}</h3>
+            <p className="mb-4 text-[0.8rem] leading-relaxed text-muted">
+              {t('capabilities.intro')}
+            </p>
+
+            <div className="space-y-3">
+              {[
+                {
+                  key: 'live',
+                  items: ['composite', 'metrics', 'ml', 'garch', 'har', 'stress', 'outcomes', 'options'],
+                  tone: 'border-up/30 bg-up/[0.06]',
+                  dot: 'bg-up',
+                  mark: '●',
+                },
+                {
+                  key: 'degraded',
+                  items: ['vix', 'fundamentals', 'news'],
+                  tone: 'border-gold/30 bg-gold/[0.06]',
+                  dot: 'bg-gold',
+                  mark: '◐',
+                },
+                {
+                  key: 'repo',
+                  items: ['portfolio', 'backtest', 'governance', 'drift', 'simulation'],
+                  tone: 'border-border bg-white/[0.02]',
+                  dot: 'bg-muted',
+                  mark: '○',
+                },
+              ].map(({ key, items, tone, dot, mark }) => (
+                <div key={key} className={`rounded-xl border px-4 py-3.5 ${tone}`}>
+                  <div className="flex items-center gap-2">
+                    {/* Status is never colour-only: a filled/half/hollow glyph
+                        and the heading text both carry it. */}
+                    <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />
+                    <h4 className="text-[0.85rem] font-semibold text-slate-100">
+                      {t(`capabilities.${key}Title`)}
+                    </h4>
+                  </div>
+                  <p className="mt-1 text-[0.74rem] leading-relaxed text-muted">
+                    {t(`capabilities.${key}Note`)}
+                  </p>
+                  <ul className="mt-2.5 space-y-1">
+                    {items.map((id) => (
+                      <li
+                        key={id}
+                        className="flex items-start gap-2 text-[0.78rem] leading-relaxed text-slate-300"
+                      >
+                        <span aria-hidden="true" className="mt-[0.15rem] text-[0.6rem] text-muted">
+                          {mark}
+                        </span>
+                        <span>{t(`capabilities.items.${id}`)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3 text-[0.74rem] leading-relaxed text-muted">
+              {t('capabilities.verifyHint')}
+            </p>
+            <pre className="mt-1.5 overflow-x-auto rounded-lg border border-border bg-black/30 px-3 py-2 font-mono text-[0.68rem] leading-relaxed text-slate-300">
+              pytest tests/ -q{'\n'}
+              python -m stock_risk.simulation run
+            </pre>
+          </section>
+
           {/* ── Responsible use ── */}
           <section className="rounded-xl border border-gold/25 bg-gold/[0.06] px-4 py-3.5">
             <p className="text-[0.8rem] italic leading-relaxed text-slate-300">

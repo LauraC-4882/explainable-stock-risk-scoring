@@ -11,7 +11,7 @@ export default {
   search: {
     placeholder: {
       us: '搜索美股 — 苹果、特斯拉、英伟达…',
-      cn: '搜索中国股票 — 茅台、腾讯、600519、0700…',
+      cn: '搜索中国A股 — 茅台、平安银行、600519、000001…',
     },
   },
   timeframe: {
@@ -28,7 +28,7 @@ export default {
     body: '在上方输入公司名称或股票代码，评分基于真实市场数据实时更新。',
     trustTitle: '为什么可以信任这个分数',
     trust: {
-      data: { title: '真实市场数据', body: '美股 / A股 / 港股实时行情，配每日快照兜底。' },
+      data: { title: '真实市场数据', body: '美股 / A股实时行情，配每日快照兜底。' },
       explain: { title: '从构建上可解释', body: '五个可见的风险视角，每个数字都有平实解读。' },
       validated: { title: '步进式验证的 ML', body: '56 只股票 × 5 年；准确率公开，权重上限 15%。' },
       honest: { title: '坦诚局限', body: '弱点公开记录。描述性统计——绝不构成建议。' },
@@ -103,7 +103,7 @@ export default {
       short: '敏感度',
       plainShort: '跟不跟着大盘走',
       plain:
-        '相对市场基准(按上市地取 SPY、沪深300 或恒生指数)的贝塔系数,以 63 日滚动窗口估计,等于收益率协方差除以基准方差。1.0 表示与基准一比一同步。',
+        '相对市场基准(按上市地取 SPY 或沪深300)的贝塔系数,以 63 日滚动窗口估计,等于收益率协方差除以基准方差。1.0 表示与基准一比一同步。',
     },
     liquidity: {
       label: '流动性',
@@ -486,7 +486,7 @@ export default {
     pipeline: {
       data: {
         title: '实时行情数据，从设计上抗中断',
-        body: '美股行情来自 Twelve Data 行情 API；中国与香港市场来自 akshare。每日刷新的快照保证即使上游数据源限流，分数依然可用。',
+        body: '美股行情来自 Twelve Data 行情 API；中国A股来自 akshare。每日刷新的快照保证即使上游数据源限流，分数依然可用。',
       },
       lenses: {
         title: '五个可解释的风险视角',
@@ -563,11 +563,76 @@ export default {
       '创建账号并使用本网站，即表示你同意我们为提供服务而处理这些数据。你可以随时删除自己发布的帖子，或通过下方的联系方式咨询注销账号。',
     licenseTitle: '许可与数据来源',
     licenseBody1:
-      '风险分数基于 Twelve Data（美股）和 akshare（中国A股/港股）提供的市场数据计算。本工具仅用于信息展示与教育目的，不构成投资建议，本网站的任何内容都不构成买卖任何证券的邀约。',
+      '风险分数基于 Twelve Data（美股）和 akshare（中国A股）提供的市场数据计算。本工具仅用于信息展示与教育目的，不构成投资建议，本网站的任何内容都不构成买卖任何证券的邀约。',
     licenseBody2: '社区分析帖子是发帖用户的个人观点，不代表平台立场。',
     contactTitle: '联系管理员',
     contactBody:
       '我们没有公开的客服邮箱——联系管理员的方式是在应用内的社区板块，管理员账号会在那里活跃。',
     openCommunity: '前往社区',
+  },
+  replay: {
+    open: '模拟旅程',
+    title: '模拟用户旅程回放',
+    banner:
+      '模拟旅程。以下步骤来自一个研究工具，由开发者预设的行为假设驱动——它们是关于产品风险的假设，而非真实用户的记录。',
+    intro:
+      '每段回放展示一位模拟用户看到了什么、理解或误解了什么，以及他们打算做什么。你可以加载模拟工具生成的回放 JSON 文件，或查看内置示例。',
+    loadFile: '加载回放文件',
+    loadSample: '查看示例回放',
+    invalidFile: '该文件不是有效的回放 JSON。',
+    archetype: '用户类型',
+    language: '语言',
+    variant: '展示方式',
+    accessibility: '无障碍模式',
+    seed: '随机种子',
+    steps: '步骤',
+    outcome: '结果',
+    intendedAction: '打算采取的行动',
+    corrected: '已纠正的误解',
+    remaining: '仍存在的误解',
+    overreliance: '过度依赖评分',
+    none: '无',
+    yes: '是',
+    no: '否',
+    confidenceHidden: '真实数据置信度较低——产品并未显示任何置信度标识。',
+    close: '关闭',
+  },
+  coldStart: {
+    title: '免费实例正在唤醒…',
+    body:
+      '本演示部署在 Render 免费实例上，闲置后会休眠。休眠后的首次请求需要约 60–100 秒启动；唤醒后响应速度恢复正常。',
+    elapsed: '已等待 {seconds} 秒',
+  },
+  capabilities: {
+    title: '本部署上实际运行的内容',
+    intro:
+      '项目本身比免费实例所能提供的更大。为避免夸大，每项能力都标注了它实际运行的位置——均对本部署实测核对，而非推测。',
+    liveTitle: '线上实跑',
+    liveNote: '当前生产环境中每次评分请求都会执行。',
+    degradedTitle: '免费层降级',
+    degradedNote:
+      '上游会拦截数据中心 IP，因此这些字段在此处返回为空。应用选择降级而非报错——但限制是真实存在的，所以明说而不隐藏。',
+    repoTitle: '仅在仓库，未部署',
+    repoNote:
+      '已实现并有测试，但本站没有对应的接口或界面。列在这里是为了不让网站暗示超出它实际提供的内容；每项均可在仓库中验证。',
+    items: {
+      composite: '五类风险维度的百分位合成评分',
+      metrics: 'VaR、CVaR、beta、波动率、回撤、流动性',
+      ml: 'XGBoost 回撤概率与 SHAP 归因',
+      garch: 'GJR-GARCH 波动率预测',
+      har: 'HAR-RV 波动率预测',
+      stress: '历史压力情景（2008 / 2020 / 2022）',
+      outcomes: '历史前瞻结果分布',
+      options: '期权隐含波动率与偏度',
+      vix: 'VIX 与市场状态加权——取不到时回退为「calm」',
+      fundamentals: '公司名称、行业、市值',
+      news: 'LLM 新闻风险抽取——本部署未配置 API key',
+      portfolio: '组合风险归因（成分 VaR、HHI、有效持仓数）',
+      backtest: 'VaR/ES 回测（Kupiec、Christoffersen、Acerbi-Szekely）',
+      governance: '模型注册表、血缘与模型卡',
+      drift: '漂移监控与挑战者模型对比',
+      simulation: '模拟用户评估框架',
+    },
+    verifyHint: '你可以在仓库中自行验证：',
   },
 }

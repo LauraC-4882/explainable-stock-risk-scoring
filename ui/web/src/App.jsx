@@ -2,6 +2,8 @@ import { IconContext } from '@phosphor-icons/react'
 import { useState } from 'react'
 import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
+import ColdStartBanner from './components/ColdStartBanner'
+import ReplayViewer from './replay/ReplayViewer'
 import { AuthProvider } from './auth/AuthContext'
 import AuthModal from './auth/AuthModal'
 import CommunityPanel from './auth/CommunityPanel'
@@ -119,6 +121,9 @@ export default function App() {
                   search bar spans the column while the market/timeframe
                   pill-groups size to their content. */}
                 <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-5 pb-16 pt-5 sm:px-8">
+                  {/* Free-tier boot notice — renders only while a sleeping
+                      instance is waking (~60-100s); invisible when warm. */}
+                  <ColdStartBanner />
                   <div className="flex flex-col gap-4">
                     <MarketSwitcher market={market} onChange={setMarket} />
                     <SearchBar market={market} onAdd={addStock} />
@@ -167,6 +172,7 @@ export default function App() {
                 <CommunityPanel />
                 <AdminPanel />
                 <AboutPanel />
+                <ReplayViewer />
                 <OnboardingTour />
               </div>
             </div>

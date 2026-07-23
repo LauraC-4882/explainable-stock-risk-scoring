@@ -53,6 +53,7 @@ the file in the same PR that breaks it.
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
 | `bash scripts/ui_shot.sh` | **live** — [D2] landed 2026-07-17; ~15-20s locally, exit 0 | Frontend screenshot round-trip: build, serve (mock data, no network — see below), Playwright-screenshot a real card at 1280px + 375px to `$UI_SHOT_OUT_DIR` (default `/tmp`) |
 | `make restore-drill` | **live** — [R1] landed 2026-07-22; ~2s locally, exit 0 | Restores the newest backup into a scratch database and asserts tables/row counts/revision. Caught a real ordering bug in `latest_backup()` on its first run |
+| `.venv/bin/python -m stock_risk.simulation run --out simulation_reports` | **live** — [S1] landed 2026-07-22; ~40s locally, exit 0 | Simulated-user evaluation harness: runs a seeded population through the core journeys, safety scenarios, accessibility/language checks and four paired experiments, then writes the 15 report artifacts. Fully offline; same seed ⇒ byte-identical output (asserted by `tests/test_sim_reports.py::test_same_seed_reproduces_identical_artifacts`) |
 
 **`make smoke` is no longer a CI gate or a required check.** It makes a real
 yfinance fetch, and GitHub runner IPs are chronically rate-limited by Yahoo, so
@@ -176,7 +177,44 @@ Every rule here is a **must**, each with the command that proves you did it.
    regression by reverting the fix and re-running it — it fails with the
    exact same `TypeError` before the fix, passes after.
 
-## 4. Definition of Done
+## 4. Simulated-user evaluation harness ([S1])
+
+`src/stock_risk/simulation/` is an **offline evaluation harness, not part of the
+served product**. It generates typed simulated users from seeded per-archetype
+distributions, drives them through the platform's *real* pure functions
+(`risk_categories.composite_score`, `portfolio.aggregate.compute_portfolio_risk`,
+committed API fixtures), and records what each user notices, understands,
+misreads, and intends to do — with panic selling, over-reliance and
+concentration blindness treated as **harms to count, never as engagement to
+maximise**.
+
+Rules specific to this package:
+
+1. **It must never gain a network call or a production DB write.** Its inputs are
+   committed fixtures under `tests/fixtures/mock_api/` plus seeded synthetic
+   data; its outputs go to the gitignored `simulation_reports/`. This is what
+   keeps it usable as an offline gate.
+   ```bash
+   grep -rnE "requests\.|httpx\.|yfinance|Session\(engine\)" src/stock_risk/simulation/
+   # must print nothing
+   ```
+2. **Determinism is a feature, not a nicety.** No wall clock, no unseeded RNG —
+   every random draw flows through `distributions.derive_generator(seed, *stream)`.
+   ```bash
+   .venv/bin/python -m pytest tests/test_sim_reports.py -q   # includes a byte-identical rerun
+   ```
+3. **Simulated findings are never described as real-user outcomes.** Every
+   artifact carries the cannot-claim banner; the replay viewer's banner is
+   deliberately non-dismissible, same reasoning as `CommunityDisclaimer.jsx`.
+   ```bash
+   head -1 simulation_reports/*.csv    # every one starts with the banner
+   ```
+4. **The behavioural coefficients are developer-encoded priors.** They live in
+   readable tables (`presentation.CONCEPT_DIFFICULTY`, the `ArchetypeSpec`
+   entries, the utility weights in `decide.py`) precisely so a reviewer can
+   challenge them. Changing one changes the findings — say so in the PR.
+
+## 5. Definition of Done
 
 A change is done when all three are true, and the PR description says so
 with the actual evidence attached (not "should work" — the real output):

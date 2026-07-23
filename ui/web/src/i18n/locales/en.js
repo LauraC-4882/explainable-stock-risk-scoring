@@ -11,7 +11,7 @@ export default {
   search: {
     placeholder: {
       us: 'Search US stocks — Apple, TSLA, NVDA…',
-      cn: 'Search China stocks — Moutai, Tencent, 600519, 0700…',
+      cn: 'Search China A-shares — Moutai, Ping An Bank, 600519, 000001…',
     },
   },
   timeframe: {
@@ -30,7 +30,7 @@ export default {
     trust: {
       data: {
         title: 'Real market data',
-        body: 'Live US / CN / HK prices with daily snapshot fallback.',
+        body: 'Live US / China A-share prices with daily snapshot fallback.',
       },
       explain: {
         title: 'Explainable by construction',
@@ -119,7 +119,7 @@ export default {
       short: 'Sensitivity',
       plainShort: 'Does it follow the whole market?',
       plain:
-        'Beta against the market benchmark (SPY, CSI 300 or HSI, by listing), estimated over a rolling 63-day window as the covariance of returns divided by the benchmark’s variance. 1.0 = moves one-for-one with the benchmark.',
+        'Beta against the market benchmark (SPY or CSI 300, by listing), estimated over a rolling 63-day window as the covariance of returns divided by the benchmark’s variance. 1.0 = moves one-for-one with the benchmark.',
     },
     liquidity: {
       label: 'Liquidity',
@@ -518,7 +518,7 @@ export default {
     pipeline: {
       data: {
         title: 'Live market data, resilient by design',
-        body: 'US prices via the Twelve Data market-data API; China & Hong Kong via akshare. Daily-refreshed snapshots keep scores available even when an upstream source throttles.',
+        body: 'US prices via the Twelve Data market-data API; China A-shares via akshare. Daily-refreshed snapshots keep scores available even when an upstream source throttles.',
       },
       lenses: {
         title: 'Five explainable risk lenses',
@@ -599,12 +599,77 @@ export default {
       'By creating an account and using this site, you consent to that data being processed to provide the service. You can delete your own posts at any time, or contact the admin below about closing your account.',
     licenseTitle: 'License & Data Sources',
     licenseBody1:
-      'Risk scores are computed from market data provided by Twelve Data (US) and akshare (China/Hong Kong). This tool is for informational and educational purposes only — it is not investment advice, and nothing on this site is a solicitation to buy or sell any security.',
+      'Risk scores are computed from market data provided by Twelve Data (US) and akshare (China A-shares). This tool is for informational and educational purposes only — it is not investment advice, and nothing on this site is a solicitation to buy or sell any security.',
     licenseBody2:
       'Community analysis posts are the personal opinions of individual users, not the platform.',
     contactTitle: 'Contact the Admin',
     contactBody:
       "We don't publish a support email address — the way to reach the site admin is inside the app, through the Community board where the admin account is active.",
     openCommunity: 'Open Community',
+  },
+  replay: {
+    open: 'Simulated journeys',
+    title: 'Simulated user journey replay',
+    banner:
+      'Simulated journey. These steps come from a research harness driven by developer-encoded behavioural assumptions — they are a hypothesis about a product risk, not a recording of a real person.',
+    intro:
+      'Each replay shows what one simulated user saw, what they understood or misread, and what they intended to do. Load a replay JSON produced by the simulation harness, or explore the bundled sample.',
+    loadFile: 'Load a replay file',
+    loadSample: 'Show the sample replay',
+    invalidFile: 'That file is not a valid replay JSON.',
+    archetype: 'Archetype',
+    language: 'Language',
+    variant: 'Presentation',
+    accessibility: 'Accessibility mode',
+    seed: 'Seed',
+    steps: 'Steps',
+    outcome: 'Outcome',
+    intendedAction: 'Intended action',
+    corrected: 'Misconceptions corrected',
+    remaining: 'Misconceptions remaining',
+    overreliance: 'Over-relied on the score',
+    none: 'none',
+    yes: 'yes',
+    no: 'no',
+    confidenceHidden: 'True data confidence was low - the product showed no confidence flag.',
+    close: 'Close',
+  },
+  coldStart: {
+    title: 'Waking the free instance…',
+    body:
+      'This demo runs on a free Render instance that sleeps when idle. The first request after it naps takes roughly 60–100 seconds to boot. Once awake, everything responds normally.',
+    elapsed: '{seconds}s elapsed',
+  },
+  capabilities: {
+    title: 'What actually runs on this deployment',
+    intro:
+      'This project is bigger than what a free instance serves. So that nothing here is overstated, every capability is labelled with where it actually runs — verified against this deployment, not assumed.',
+    liveTitle: 'Live on this site',
+    liveNote: 'Running in production right now, on every score request.',
+    degradedTitle: 'Degraded on the free tier',
+    degradedNote:
+      'Upstream blocks datacenter IPs, so these fields come back empty here. The app degrades instead of failing — but the limitation is real, so it is stated rather than hidden.',
+    repoTitle: 'In the repository, not deployed',
+    repoNote:
+      'Built and tested, but with no endpoint or UI on this site. Listed here so the site never implies more than it serves; each is verifiable from the repo.',
+    items: {
+      composite: 'Percentile composite across five risk lenses',
+      metrics: 'VaR, CVaR, beta, volatility, drawdown, liquidity',
+      ml: 'XGBoost drawdown probability with SHAP attribution',
+      garch: 'GJR-GARCH volatility forecast',
+      har: 'HAR-RV volatility forecast',
+      stress: 'Historical stress scenarios (2008 / 2020 / 2022)',
+      outcomes: 'Historical forward-outcome distributions',
+      options: 'Options-implied volatility and skew',
+      vix: 'VIX and market-regime weighting — falls back to "calm" when unavailable',
+      fundamentals: 'Company name, sector, market cap',
+      news: 'LLM news-risk extraction — no API key configured on this deployment',
+      portfolio: 'Portfolio risk attribution (component VaR, HHI, effective-N)',
+      backtest: 'VaR/ES backtesting (Kupiec, Christoffersen, Acerbi-Szekely)',
+      governance: 'Model registry, lineage and model cards',
+      drift: 'Drift monitoring and challenger comparison',
+      simulation: 'Simulated-user evaluation framework',
+    },
+    verifyHint: 'Verify any of these yourself from the repository:',
   },
 }

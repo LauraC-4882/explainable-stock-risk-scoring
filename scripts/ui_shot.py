@@ -92,6 +92,82 @@ def shoot(
         browser.close()
 
 
+def shoot_about(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """The About panel, scrolled to the "what actually runs here" matrix.
+
+    Captured because that section is the site's honesty control: it states which
+    capabilities are live, which degrade on the free tier, and which exist only
+    in the repository. If it silently stopped rendering, the page would go back
+    to implying the whole stack is deployed — which is the exact failure it was
+    added to prevent, and a build/lint pass would not catch it."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        page.on(
+            "console",
+            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
+        )
+        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        page.click('button:has-text("About")')
+        page.wait_for_selector("text=What actually runs on this deployment", timeout=5000)
+        # Scroll the matrix into view inside the panel's own scroll container.
+        page.get_by_text("In the repository, not deployed").scroll_into_view_if_needed()
+        page.wait_for_timeout(400)
+
+        about_path = out_dir / "ui-about-capabilities.png"
+        page.screenshot(path=str(about_path), full_page=True)
+        print(f"[ui_shot] about-capabilities -> {about_path} ({about_path.stat().st_size} bytes)")
+
+        browser.close()
+
+        if about_path.stat().st_size == 0:
+            errors.append("about-capabilities screenshot is empty")
+
+
+def shoot_replay(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """The simulated-user journey replay viewer, opened from the header.
+
+    Captured because a clean build proves the bundler is happy, not that the
+    panel renders — and this panel carries a permanent "this is a simulated
+    journey, not a real person" banner whose presence is the whole point of the
+    feature. It reads a bundled sample replay, so no backend call is involved."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        page.on(
+            "console",
+            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
+        )
+        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        page.click('button:has-text("Simulated journeys")')
+        page.wait_for_selector('[role="dialog"]', timeout=5000)
+        page.wait_for_selector("text=Simulated journey", timeout=5000)
+        page.wait_for_timeout(300)
+
+        replay_path = out_dir / "ui-replay.png"
+        page.screenshot(path=str(replay_path), full_page=True)
+        print(f"[ui_shot] replay -> {replay_path} ({replay_path.stat().st_size} bytes)")
+
+        browser.close()
+
+        if replay_path.stat().st_size == 0:
+            errors.append("replay screenshot is empty")
+
+
 def shoot_signup(base_url: str, out_dir: Path, errors: list[str]) -> None:
     """The sign-up modal in its signUp state, showing the nickname field and
     the required privacy-consent notice + checkbox — the registration
@@ -405,6 +481,8 @@ def main() -> int:
                 print(f"[ui_shot] FAILED: {path} is empty or missing", file=sys.stderr)
                 return 1
 
+    shoot_about(args.base_url, out_dir, errors)
+    shoot_replay(args.base_url, out_dir, errors)
     shoot_signup(args.base_url, out_dir, errors)
     shoot_community(args.base_url, out_dir, errors)
     shoot_admin(args.base_url, out_dir, errors)
