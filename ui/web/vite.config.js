@@ -5,7 +5,12 @@ import react from '@vitejs/plugin-react'
 // the react plugin, so JSX in tests would fail to transform.
 import { defineConfig } from 'vitest/config'
 
+import pkg from './package.json'
+
 export default defineConfig({
+  // Real build-time version stamp for the footer — from package.json, so the
+  // shown version can only change through a versioned commit.
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [react()],
   server: {
     proxy: {

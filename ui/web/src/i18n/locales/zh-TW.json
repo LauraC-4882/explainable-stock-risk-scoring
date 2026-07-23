@@ -587,7 +587,9 @@
     "licenseBody2": "社區分析帖子是發帖用戶的個人觀點，不代表平臺立場。",
     "contactTitle": "聯繫管理員",
     "contactBody": "我們沒有公開的客服郵箱——聯繫管理員的方式是在應用內的社區板塊，管理員賬號會在那裡活躍。",
-    "openCommunity": "前往社區"
+    "openCommunity": "前往社區",
+    "poweredBy": "技術支援：",
+    "builtWith": "用心構建，不承諾確定性"
   },
   "replay": {
     "open": "模擬旅程",

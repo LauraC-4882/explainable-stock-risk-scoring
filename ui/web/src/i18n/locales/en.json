@@ -587,7 +587,9 @@
     "licenseBody2": "Community analysis posts are the personal opinions of individual users, not the platform.",
     "contactTitle": "Contact the Admin",
     "contactBody": "We don't publish a support email address — the way to reach the site admin is inside the app, through the Community board where the admin account is active.",
-    "openCommunity": "Open Community"
+    "openCommunity": "Open Community",
+    "poweredBy": "Powered by",
+    "builtWith": "built with care, not certainty"
   },
   "replay": {
     "open": "Simulated journeys",

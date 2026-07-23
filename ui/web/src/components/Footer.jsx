@@ -52,6 +52,14 @@ export default function Footer() {
             <p className="mt-0.5 text-[0.68rem] text-muted">
               © {new Date().getFullYear()} Riscore · {t('footer.tagline')}
             </p>
+            {/* Every name here is a dependency the product actually runs on
+                (see the Tech Stack panel for the full list + why); the version
+                comes from package.json at build time — nothing invented. */}
+            <p className="mt-1.5 text-[0.62rem] text-muted/80">
+              {t('footer.poweredBy')} Twelve Data · akshare · FastAPI · React · Render
+              <span className="mx-1.5">·</span>v{__APP_VERSION__}
+              <span className="mx-1.5">·</span>{t('footer.builtWith')}
+            </p>
           </div>
         </div>
 

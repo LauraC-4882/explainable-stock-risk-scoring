@@ -587,7 +587,9 @@
     "licenseBody2": "社区分析帖子是发帖用户的个人观点，不代表平台立场。",
     "contactTitle": "联系管理员",
     "contactBody": "我们没有公开的客服邮箱——联系管理员的方式是在应用内的社区板块，管理员账号会在那里活跃。",
-    "openCommunity": "前往社区"
+    "openCommunity": "前往社区",
+    "poweredBy": "技术支持：",
+    "builtWith": "用心构建，不承诺确定性"
   },
   "replay": {
     "open": "模拟旅程",

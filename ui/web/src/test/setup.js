@@ -20,3 +20,6 @@ global.ResizeObserver = class {
 // in the first tick.
 global.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now() + 1000), 0)
 global.cancelAnimationFrame = (id) => clearTimeout(id)
+
+// Vite injects __APP_VERSION__ at build time; tests get a stand-in.
+globalThis.__APP_VERSION__ = '0.0.0-test'
