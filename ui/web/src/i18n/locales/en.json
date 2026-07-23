@@ -796,5 +796,9 @@
   "toast": {
     "watchlistAdded": "{ticker} added to watchlist",
     "watchlistRemoved": "{ticker} removed from watchlist"
+  },
+  "chart": {
+    "line": "Line",
+    "candles": "Candles"
   }
 }

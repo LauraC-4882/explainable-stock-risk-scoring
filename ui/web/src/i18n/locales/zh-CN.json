@@ -796,5 +796,9 @@
   "toast": {
     "watchlistAdded": "{ticker} 已加入自选股",
     "watchlistRemoved": "{ticker} 已从自选股移除"
+  },
+  "chart": {
+    "line": "折线",
+    "candles": "K线"
   }
 }

@@ -162,6 +162,12 @@ def test_score_timeseries_1mo_returns_nonempty_results():
     assert len(results) <= 21
     for row in results:
         assert 0 <= row["risk_score"] <= 100
+        # OHLC ships with every row (candlestick mode); high/low must actually
+        # bracket the body, or the chart would draw impossible candles.
+        for key in ("open", "high", "low", "close"):
+            assert key in row and row[key] is not None
+        assert row["low"] <= min(row["open"], row["close"])
+        assert row["high"] >= max(row["open"], row["close"])
 
 
 def test_score_timeseries_last_day_matches_composite_score_when_ml_disabled():

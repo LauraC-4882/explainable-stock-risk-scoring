@@ -452,8 +452,18 @@ class RiskScorer:
                 if fused is not None:
                     score = round(fused, 1)
             vol = row.get("vol_21d")
+            def _px(col):
+                # OHLC for the frontend's candlestick mode. None (not a guess)
+                # when a source lacks a column — the chart falls back to the
+                # line view rather than drawing invented candles.
+                v = row.get(col)
+                return round(float(v), 2) if v is not None and pd.notna(v) else None
+
             results.append({
                 "date": df.index[i].strftime("%Y-%m-%d"),
+                "open": _px("open"),
+                "high": _px("high"),
+                "low": _px("low"),
                 "close": round(float(row["close"]), 2),
                 "risk_score": score,
                 "risk_label": _label(score),
