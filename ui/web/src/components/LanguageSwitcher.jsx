@@ -1,9 +1,8 @@
-import { useLanguage } from '../i18n/LanguageContext'
+import { LOCALES, useLanguage } from '../i18n/LanguageContext'
 
-const OPTIONS = [
-  { code: 'en', label: 'EN' },
-  { code: 'zh', label: '中文' },
-]
+// Options are derived from the registered locales rather than hard-coded, so
+// adding a language is a one-line change in LanguageContext.
+const OPTIONS = Object.entries(LOCALES).map(([code, { label }]) => ({ code, label }))
 
 export default function LanguageSwitcher() {
   const { lang, setLang } = useLanguage()
@@ -14,7 +13,8 @@ export default function LanguageSwitcher() {
         <button
           key={o.code}
           onClick={() => setLang(o.code)}
-          className={`rounded-full border px-3.5 py-2 text-xs font-bold transition-all duration-200 ease-out active:scale-90 ${
+          aria-pressed={lang === o.code}
+          className={`rounded-full border px-3 py-2 text-xs font-bold transition-all duration-200 ease-out active:scale-90 ${
             lang === o.code
               ? 'border-accent/40 bg-sky/15 text-white'
               : 'border-transparent text-muted hover:text-white'
