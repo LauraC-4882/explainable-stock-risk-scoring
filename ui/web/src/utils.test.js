@@ -86,8 +86,7 @@ describe('riskColor', () => {
 })
 
 describe('inferMarket', () => {
-  it('routes CN/HK suffixes to cn and everything else to us', () => {
-    expect(inferMarket('0700.hk')).toBe('cn')
+  it('routes A-share suffixes to cn and everything else to us', () => {
     expect(inferMarket('600519.SS')).toBe('cn')
     expect(inferMarket('000001.SZ')).toBe('cn')
     expect(inferMarket('TSLA')).toBe('us')

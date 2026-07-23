@@ -136,9 +136,21 @@ documented in Deployment below):
 |---|---|---|
 | US equities | **Twelve Data** (real commercial API) if `TWELVE_DATA_KEY` is set, else yfinance | A real API vendor built for programmatic/cloud traffic isn't subject to the same IP-reputation throttle as scraping Yahoo's unofficial endpoint — the actual fix for the Render/CI throttling problem. Free plan: US-only, no options, 800 req/day. |
 | CN A-shares + the CSI 300 benchmark ETF | **akshare**, Sina-backed (`stock_zh_a_daily` / `fund_etf_hist_sina`) | Free, no key. akshare's own most-documented functions (eastmoney-backed, e.g. `stock_zh_a_hist`) got connection-reset on every attempt from this project's dev machine — verified live, not assumed; the Sina/Tencent-backed ones didn't. |
-| HK equities | **akshare**, Tencent-backed (`stock_hk_daily`) | Same reasoning; verified live with real OHLCV including volume. |
-| The HK benchmark `^HSI` (Hang Seng Index) | **akshare**, Sina-backed (`stock_hk_index_daily_sina`) | Routed to akshare too, so the whole **"China" bucket — A-shares + HK equities + the HK benchmark — is fully akshare-backed with zero yfinance in its price/beta path.** Verified live. |
+| ~~HK equities~~ *(out of scope, 2026-07-22)* | **akshare**, Tencent-backed (`stock_hk_daily`) | Same reasoning; verified live with real OHLCV including volume. **Retained as a working code path but no longer part of the supported universe** — see the scope note below. |
+| ~~The HK benchmark `^HSI`~~ *(out of scope, 2026-07-22)* | **akshare**, Sina-backed (`stock_hk_index_daily_sina`) | Routed to akshare too, so the China bucket is fully akshare-backed with zero yfinance in its price/beta path. Verified live. |
 | `^VIX`, `^VIX3M` | yfinance, unconditionally | US CBOE volatility indices feeding only the soft, already-degrading market-regime signal — not any China-bucket price/beta computation — so leaving them on yfinance costs nothing when they fail. |
+
+**Supported universe: US equities and mainland China A-shares only.** Hong
+Kong listings (`.HK`) were dropped from scope on 2026-07-22. The removal is
+scoped to everything user-facing — the market switcher's quick-pick chips
+(`EmptyState.jsx` POPULAR), the search placeholders and `known_symbols.py`
+search fallback, `refresh_snapshots.py`'s snapshot UNIVERSE, the stored
+`.HK`/`^HSI` snapshots, and the English/Chinese site copy. `SearchBar.jsx`
+no longer rewrites a bare non-6-digit numeric code into a `.HK` ticker; only
+exactly-6-digit A-share codes are normalized (`.SS`/`.SZ`). The akshare HK
+fetch paths in `fetcher.py` and `MARKET_BENCHMARKS["hk"]` in `scorer.py` are
+deliberately **left in place** — they still work if given a `.HK` ticker
+directly, they are simply no longer reachable from the product surface.
 
 All paths still funnel through the same `validate_ohlcv()` contract,
 TTL cache, and snapshot fallback (below) — a provider outage degrades

@@ -12,8 +12,11 @@ const TRUST_TILES = [
 
 const POPULAR = {
   us: ['AAPL', 'TSLA', 'MSFT', 'GOOGL', 'NVDA', 'AMZN', 'META', 'JPM'],
-  // A-shares and HK-listed names mixed together — the "China" bucket covers both.
-  cn: ['600519.SS', '0700.HK', '000001.SZ', '9988.HK', '601318.SS', '3690.HK'],
+  // Mainland A-shares only — Hong Kong listings are out of scope, so the
+  // "China" bucket is Shanghai/Shenzhen. Every chip here is snapshot-backed
+  // (scripts/refresh_snapshots.py UNIVERSE) so the quick picks still resolve
+  // when the upstream data source is throttled.
+  cn: ['600519.SS', '000001.SZ', '601318.SS', '510300.SS'],
 }
 
 // Hero lockup per the brand spec: shield icon on top, the Ri·score wordmark

@@ -11,6 +11,9 @@ user would reasonably type for this app's own known universe (the same
 tickers in scripts/refresh_snapshots.py's UNIVERSE / EmptyState.jsx's
 POPULAR) so the common case still resolves even with yfinance down.
 
+Scope is US equities + China A-shares only — Hong Kong listings were dropped
+from the supported universe, so no `.HK` entries belong here.
+
 Not a general-purpose symbol search — narrow and static on purpose.
 """
 
@@ -28,12 +31,9 @@ _ENTRIES: list[tuple[str, str, str, tuple[str, ...]]] = [
     ("META", "Meta Platforms, Inc.", "NASDAQ", ("meta", "facebook", "脸书")),
     ("JPM", "JPMorgan Chase & Co.", "NYSE", ("jpmorgan", "jp morgan", "摩根大通")),
     ("600519.SS", "Kweichow Moutai", "Shanghai", ("moutai", "kweichow moutai", "贵州茅台", "茅台")),
-    ("0700.HK", "Tencent Holdings", "HKEX", ("tencent", "腾讯")),
     ("000001.SZ", "Ping An Bank", "Shenzhen", ("ping an bank", "平安银行")),
-    ("9988.HK", "Alibaba Group", "HKEX", ("alibaba", "阿里巴巴", "阿里")),
     ("601318.SS", "Ping An Insurance", "Shanghai",
      ("ping an insurance", "ping an", "中国平安", "平安")),
-    ("3690.HK", "Meituan", "HKEX", ("meituan", "美团")),
     ("SPY", "SPDR S&P 500 ETF Trust", "NYSE Arca", ("s&p 500", "sp500")),
     ("510300.SS", "CSI 300 ETF", "Shanghai", ("csi 300", "沪深300")),
 ]

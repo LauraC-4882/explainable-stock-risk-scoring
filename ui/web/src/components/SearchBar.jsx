@@ -3,19 +3,18 @@ import { apiSearch } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'
 import { debounce } from '../utils'
 
-// A bare numeric code entered while in the "China" market bucket (which
-// covers both A-shares and HK-listed stocks) is normalized to its Yahoo-style
-// ticker; anything already carrying a suffix (or entered in US mode) passes
-// through untouched. A-share codes are always exactly 6 digits (6xxxxx on
-// Shanghai/.SS, 0xxxxx/3xxxxx on Shenzhen/.SZ); HK codes are shorter, so the
-// digit count alone disambiguates which exchange a bare code means.
+// A bare numeric code entered while in the "China" market bucket is
+// normalized to its Yahoo-style A-share ticker; anything already carrying a
+// suffix (or entered in US mode) passes through untouched. A-share codes are
+// always exactly 6 digits (6xxxxx on Shanghai/.SS, 0xxxxx/3xxxxx on
+// Shenzhen/.SZ). Any other digit count has no A-share reading — Hong Kong
+// listings are out of scope — so it passes through unchanged and is allowed
+// to fail as the invalid ticker it is, rather than being silently rewritten
+// into an unsupported market.
 function normalizeTicker(raw, market) {
   const v = raw.trim().toUpperCase()
-  if (market === 'cn' && /^\d+$/.test(v)) {
-    if (v.length === 6) {
-      return v + (v.startsWith('6') ? '.SS' : '.SZ')
-    }
-    return v.padStart(4, '0') + '.HK'
+  if (market === 'cn' && /^\d{6}$/.test(v)) {
+    return v + (v.startsWith('6') ? '.SS' : '.SZ')
   }
   return v
 }

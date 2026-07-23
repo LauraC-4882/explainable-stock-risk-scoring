@@ -1,10 +1,10 @@
 import { useLanguage } from '../i18n/LanguageContext'
 
-// "cn" covers both A-shares and HK-listed stocks — they route through the
-// same backend regardless (market_for_ticker infers the actual exchange from
-// each ticker's own suffix and picks the right benchmark/HSI vs CSI300 per
-// stock), so splitting them in the switcher was UI overhead, not a real
-// distinction the backend needs from the frontend.
+// Two supported markets: US equities and mainland China A-shares. Hong Kong
+// listings are out of scope. The backend still infers the actual exchange
+// from each ticker's own suffix (market_for_ticker) and picks the matching
+// benchmark (SPY / CSI 300), so this switcher only scopes the search and
+// quick-pick chips — it isn't something the backend needs from the frontend.
 const OPTIONS = [
   { code: 'us', flag: '🇺🇸' },
   { code: 'cn', flag: '🇨🇳' },

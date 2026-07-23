@@ -24,8 +24,8 @@ from stock_risk.data.fetcher import MarketDataFetcher  # noqa: E402
 # Keep in sync with ui/web/src/components/EmptyState.jsx POPULAR + benchmarks.
 UNIVERSE = [
     "AAPL", "TSLA", "MSFT", "GOOGL", "NVDA", "AMZN", "META", "JPM",  # US chips
-    "600519.SS", "0700.HK", "000001.SZ", "9988.HK", "601318.SS", "3690.HK",  # CN/HK chips
-    "SPY", "^HSI", "510300.SS",  # benchmarks (scorer.MARKET_BENCHMARKS)
+    "600519.SS", "000001.SZ", "601318.SS",  # CN A-share chips
+    "SPY", "510300.SS",  # benchmarks (scorer.MARKET_BENCHMARKS)
 ]
 PERIOD = "2y"  # matches RiskScorer.score()'s default fetch
 
