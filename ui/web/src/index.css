@@ -274,3 +274,17 @@
 .lucide {
   stroke-width: 1.5;
 }
+
+/* Seamless marquee: the track holds two copies of its content and slides by
+   exactly one copy's width. Transform-only, so it composites on the GPU; the
+   component swaps to a static scrollable row under prefers-reduced-motion. */
+.ticker-track {
+  animation: ticker-scroll 45s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}

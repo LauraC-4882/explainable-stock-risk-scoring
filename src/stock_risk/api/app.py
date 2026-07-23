@@ -1628,6 +1628,69 @@ def admin_dismiss_report(
     return Response(status_code=204)
 
 
+# ── Ticker bar ───────────────────────────────────────────────────────────────
+
+# Universe for the header ticker bar: a handful of recognisable US names plus
+# the CN A-share set the daily refresh job already snapshots. Serving anything
+# here NEVER triggers scoring or a network fetch — a marquee is decoration,
+# and decoration must not be allowed to fire nine multi-second scoring runs
+# per page load (which is exactly what per-ticker /timeseries calls would do).
+_TICKERBAR_UNIVERSE = [
+    "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "SPY", "BABA",
+    "600519.SS", "601318.SS", "000001.SZ",
+]
+# Snapshots refresh daily, so cache the assembled payload briefly in-process.
+_tickerbar_cache: dict = {"at": 0.0, "rows": None}
+_TICKERBAR_TTL = 600.0
+
+
+@app.get("/api/tickerbar")
+def tickerbar():
+    """Last close + day-over-day change per universe ticker, from snapshots.
+
+    Reads the tail of each persisted snapshot parquet (the daily-refresh
+    artefacts the fetcher already maintains) — no yfinance call, no scoring.
+    Tickers without a snapshot are simply omitted, and every row carries its
+    own as_of date so the frontend can label the data's age instead of
+    implying a live feed.
+    """
+    import time as _time
+
+    if _tickerbar_cache["rows"] is not None and (
+        _time.time() - _tickerbar_cache["at"] < _TICKERBAR_TTL
+    ):
+        return {"entries": _tickerbar_cache["rows"]}
+
+    import pandas as pd
+
+    rows = []
+    for ticker in _TICKERBAR_UNIVERSE:
+        safe = ticker.replace("^", "_").replace(".", "_").replace("/", "_")
+        path = settings.snapshot_dir / f"{safe}_2y_1d.parquet"
+        if not path.exists():
+            continue
+        try:
+            closes = pd.read_parquet(path, columns=["close"])["close"].dropna()
+            if len(closes) < 2:
+                continue
+            last, prev = float(closes.iloc[-1]), float(closes.iloc[-2])
+            rows.append(
+                {
+                    "ticker": ticker,
+                    "last": round(last, 2),
+                    "change_pct": round((last / prev - 1) * 100, 2) if prev else None,
+                    "as_of": str(closes.index[-1].date()),
+                }
+            )
+        except Exception as exc:
+            # One unreadable parquet must not blank the whole bar; the ticker
+            # is dropped and the reason logged for the daily-refresh job.
+            logger.warning(f"tickerbar: skipping {ticker}: {exc}")
+    _tickerbar_cache["at"] = _time.time()
+    _tickerbar_cache["rows"] = rows
+    return {"entries": rows}
+
+
 # ── Legacy endpoints (keep for Prometheus / Streamlit compat) ─────────────────
 
 @app.get("/health")

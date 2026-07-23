@@ -4,6 +4,8 @@ import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
 import ColdStartBanner from './components/ColdStartBanner'
 import LearnPanel from './components/LearnPanel'
+import TechStackPanel from './components/TechStackPanel'
+import TickerBar from './components/TickerBar'
 import { fadeUp, stagger, viewSwap } from './motion'
 import ReplayViewer from './replay/ReplayViewer'
 import { AuthProvider } from './auth/AuthContext'
@@ -119,6 +121,7 @@ export default function App() {
               </div>
 
               <div className="relative z-10 flex flex-1 flex-col">
+                <TickerBar />
                 <Header onHome={goHome} onOpenTicker={addStock} />
 
                 {/* The design floats its controls and cards directly on the
@@ -199,6 +202,7 @@ export default function App() {
                 <AdminPanel />
                 <AboutPanel />
                 <LearnPanel />
+                <TechStackPanel />
                 <ReplayViewer />
                 <OnboardingTour />
               </div>

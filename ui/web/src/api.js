@@ -27,6 +27,14 @@ export async function apiHealth() {
   return res.ok
 }
 
+// Header marquee data: snapshot-derived closes, never a scoring call.
+export async function apiTickerBar() {
+  const res = await fetch('/api/tickerbar')
+  if (!res.ok) return []
+  const data = await res.json()
+  return data.entries ?? []
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []

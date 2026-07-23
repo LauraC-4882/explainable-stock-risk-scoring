@@ -238,6 +238,10 @@
     "price": "价格走势",
     "riskScore": "每日风险分数（0–100）"
   },
+  "riskNote": {
+    "percentile": "这个分数衡量的是这只股票相对它自身历史分布的风险（并考虑相对 {benchmark} 的市场敏感度）——它不是亏损概率，不是违约概率，也不构成投资建议。",
+    "fused": "这个分数由两部分融合而成：这只股票相对自身历史的风险百分位（{pct}%），加上经步进式验证的机器学习模型对其未来 20 日严重回撤概率的估计（{ml}%），并考虑相对 {benchmark} 的市场敏感度——它不是亏损概率，不是违约概率，也不构成投资建议。"
+  },
   "stressTest": {
     "toggle": "历史情景压力测试",
     "intro": "一个「如果……会怎样」的推演:假如再来一次这样的大跌,这只股票的分数大概会到什么位置?我们拿它今天的表现特征,去套当年那种行情。没有人在预测这些事会重演——这只是让你看清楚,它还有多少变糟的空间。",
@@ -672,6 +676,95 @@
       "breachRate": "突破率——亏损实际超过 VaR 的频率。实测 9% 对比 5% 的目标，说明模型低估了尾部风险。",
       "concentration": "集中度——投资组合的风险有多少集中在单一持仓上。持有很多标的并不保证分散，如果它们同涨同跌。",
       "regime": "市场状态——对整体环境的粗略判断（平静／偏高／恐慌），用于调整各因子的权重。"
+    }
+  },
+  "tickerBar": {
+    "asOf": "数据截至 {date}",
+    "scheduleNote": "开闭市状态仅由交易所时段与时钟推算——不含节假日。",
+    "market": {
+      "us": "美股",
+      "cn": "A股"
+    },
+    "session": {
+      "open": "开市",
+      "pre": "盘前",
+      "lunch": "午休",
+      "closed": "休市"
+    }
+  },
+  "tech": {
+    "nav": "技术栈",
+    "title": "技术栈——实际运行的内容",
+    "intro": "内容来自仓库自身的依赖清单，而非愿望清单。以下每个指标都是仓库公布的数字或真实配置值。",
+    "repo": "源码仓库",
+    "lastPush": "最近推送 {date}",
+    "metrics": {
+      "auc": {
+        "value": "0.671",
+        "label": "步进式验证 AUC（56 只股票 × 5 年）"
+      },
+      "scoreCache": {
+        "value": "5 分钟",
+        "label": "评分缓存新鲜期"
+      },
+      "dataCache": {
+        "value": "15 分钟",
+        "label": "行情数据缓存"
+      },
+      "tests": {
+        "value": "580+",
+        "label": "前后端测试总数"
+      }
+    },
+    "stack": {
+      "react": {
+        "name": "React 18 + Vite",
+        "why": "卡片体系的组件模型；Vite 提供即时的开发构建。"
+      },
+      "tailwind": {
+        "name": "Tailwind CSS",
+        "why": "工具类让暗色主题保持一致，无需独立 CSS 层。"
+      },
+      "recharts": {
+        "name": "Recharts",
+        "why": "SVG 图表——价格走势、风险分band、雷达图——一套声明式 API。"
+      },
+      "framer": {
+        "name": "Framer Motion",
+        "why": "入场与错峰动画，尊重系统的减少动态偏好。"
+      },
+      "i18next": {
+        "name": "i18next",
+        "why": "同一键树输出 EN / 简体 / 繁體，CI 校验对齐。"
+      },
+      "fastapi": {
+        "name": "FastAPI",
+        "why": "带类型的 Python API；评分管线全程 Python。"
+      },
+      "sqlmodel": {
+        "name": "SQLModel + Alembic",
+        "why": "SQLite 持久化加版本化迁移——单一部署单元，无外部数据库。"
+      },
+      "xgboost": {
+        "name": "XGBoost",
+        "why": "回撤概率分支，先通过步进式验证才开放融合权重。"
+      },
+      "shap": {
+        "name": "SHAP",
+        "why": "ML 分支的逐特征归因——是关联，不是因果。"
+      },
+      "arch": {
+        "name": "arch（GJR-GARCH）",
+        "why": "非对称冲击响应的波动率预测；并行 HAR-RV。"
+      },
+      "data": {
+        "name": "Twelve Data + akshare",
+        "why": "美股行情来自商业 API；A股来自 akshare。每日快照兜底。"
+      },
+      "render": {
+        "name": "Render",
+        "why": "免费层部署；冷启动提示正是因它而生。"
+      }
     }
   }
 }

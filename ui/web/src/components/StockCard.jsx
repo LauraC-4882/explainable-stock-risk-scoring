@@ -14,6 +14,7 @@ import PriceChart from './PriceChart'
 import RiskChart from './RiskChart'
 import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
+import RiskNote from './RiskNote'
 import StressTestPanel from './StressTestPanel'
 import TopAnalysisWidget from './TopAnalysisWidget'
 
@@ -281,14 +282,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
             </div>
           </Panel>
 
-          {score.risk_note && (
-            <p
-              className="animate-rise-in px-1 text-[0.7rem] leading-relaxed text-muted"
-              style={{ animationDelay: '360ms', animationFillMode: 'backwards' }}
-            >
-              {score.risk_note}
-            </p>
-          )}
+          <RiskNote score={score} />
         </div>
       </div>
 

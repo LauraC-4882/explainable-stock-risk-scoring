@@ -238,6 +238,10 @@
     "price": "Price History",
     "riskScore": "Daily Risk Score (0–100)"
   },
+  "riskNote": {
+    "percentile": "Score reflects this stock's risk relative to its own historical distribution (and market sensitivity vs. {benchmark}) — it is not a probability of loss, default probability, or investment recommendation.",
+    "fused": "Score blends this stock's risk percentile relative to its own history ({pct}%) with a walk-forward-validated ML estimate of its 20-day severe-drawdown probability ({ml}%), plus market sensitivity vs. {benchmark} — it is not a probability of loss, default probability, or investment recommendation."
+  },
   "stressTest": {
     "toggle": "Historical stress test",
     "intro": "A “what if” exercise: if a crash like one of these happened again, where would this stock’s score likely end up? We take how this particular stock behaves today and replay those past conditions against it. Nobody is predicting these events will repeat — it’s a way to see how much room there is to get worse.",
@@ -672,6 +676,95 @@
       "breachRate": "Breach rate — how often losses actually exceeded VaR. A 9% realised rate against a 5% target means the model understated tail risk.",
       "concentration": "Concentration — how much of a portfolio’s risk sits in one position. Holding many names does not guarantee diversification if they move together.",
       "regime": "Market regime — a coarse read of overall conditions (calm / elevated / panic), used to shift how much each factor counts."
+    }
+  },
+  "tickerBar": {
+    "asOf": "data as of {date}",
+    "scheduleNote": "Session state from the exchange schedule and clock only — holidays are not modelled.",
+    "market": {
+      "us": "US",
+      "cn": "CN"
+    },
+    "session": {
+      "open": "OPEN",
+      "pre": "PRE-MKT",
+      "lunch": "LUNCH",
+      "closed": "CLOSED"
+    }
+  },
+  "tech": {
+    "nav": "Tech Stack",
+    "title": "Tech stack — what actually runs",
+    "intro": "Assembled from the repository's own dependency manifests, not aspiration. Every metric below is the repo's published number or a real configuration value.",
+    "repo": "Source repository",
+    "lastPush": "pushed {date}",
+    "metrics": {
+      "auc": {
+        "value": "0.671",
+        "label": "walk-forward AUC (56 tickers × 5y)"
+      },
+      "scoreCache": {
+        "value": "5 min",
+        "label": "score cache fresh TTL"
+      },
+      "dataCache": {
+        "value": "15 min",
+        "label": "market-data cache TTL"
+      },
+      "tests": {
+        "value": "580+",
+        "label": "backend + frontend tests"
+      }
+    },
+    "stack": {
+      "react": {
+        "name": "React 18 + Vite",
+        "why": "Component model for the card system; Vite for instant dev builds."
+      },
+      "tailwind": {
+        "name": "Tailwind CSS",
+        "why": "Utility classes keep the dark theme consistent without a bespoke CSS layer."
+      },
+      "recharts": {
+        "name": "Recharts",
+        "why": "SVG charts — price history, risk bands, radar — with one declarative API."
+      },
+      "framer": {
+        "name": "Framer Motion",
+        "why": "Entrance/stagger animation with prefers-reduced-motion respected."
+      },
+      "i18next": {
+        "name": "i18next",
+        "why": "EN / 简体 / 繁體 from one key tree, parity-tested in CI."
+      },
+      "fastapi": {
+        "name": "FastAPI",
+        "why": "Typed Python API; the scoring pipeline is Python end to end."
+      },
+      "sqlmodel": {
+        "name": "SQLModel + Alembic",
+        "why": "SQLite persistence with versioned migrations — one deployable unit, no external DB."
+      },
+      "xgboost": {
+        "name": "XGBoost",
+        "why": "Drawdown-probability leg, walk-forward validated before its fusion weight opened."
+      },
+      "shap": {
+        "name": "SHAP",
+        "why": "Per-feature attribution for the ML leg — association, not causation."
+      },
+      "arch": {
+        "name": "arch (GJR-GARCH)",
+        "why": "Volatility forecasting with asymmetric shock response; HAR-RV alongside."
+      },
+      "data": {
+        "name": "Twelve Data + akshare",
+        "why": "US prices via a commercial API; China A-shares via akshare. Daily snapshots as fallback."
+      },
+      "render": {
+        "name": "Render",
+        "why": "Free-tier deploy; the cold-start banner exists because of it."
+      }
     }
   }
 }
