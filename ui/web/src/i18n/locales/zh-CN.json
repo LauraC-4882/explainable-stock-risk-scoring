@@ -624,7 +624,8 @@
   "coldStart": {
     "title": "免费实例正在唤醒…",
     "body": "本演示部署在 Render 免费实例上，闲置后会休眠。休眠后的首次请求需要约 60–100 秒启动；唤醒后响应速度恢复正常。",
-    "elapsed": "已等待 {seconds} 秒"
+    "elapsed": "已等待 {seconds} 秒",
+    "eta": "通常 60-100 秒内就绪"
   },
   "capabilities": {
     "title": "本部署上实际运行的内容",

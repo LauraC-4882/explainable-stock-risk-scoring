@@ -31,8 +31,19 @@ export default function ColdStartBanner() {
         <span className="mt-0.5 block text-[0.78rem] leading-relaxed text-muted">
           {t('coldStart.body')}
         </span>
+        {/* Progress against the measured ~100s boot, capped at 95% so the bar
+            never claims completion the probe hasn't confirmed. Purely
+            presentational — the app's own requests resume by themselves the
+            moment the dyno answers, since fetch() just keeps waiting. */}
+        <span className="mt-2 block h-1 overflow-hidden rounded-full bg-surface2">
+          <span
+            aria-hidden="true"
+            className="block h-full rounded-full bg-gold transition-[width] duration-1000 ease-linear"
+            style={{ width: `${Math.min(95, (elapsed / 100) * 100)}%` }}
+          />
+        </span>
         <span aria-hidden="true" className="mt-1 block font-mono text-[0.72rem] text-gold">
-          {t('coldStart.elapsed', { seconds: elapsed })}
+          {t('coldStart.elapsed', { seconds: elapsed })} · {t('coldStart.eta')}
         </span>
       </span>
     </div>

@@ -624,7 +624,8 @@
   "coldStart": {
     "title": "Waking the free instance…",
     "body": "This demo runs on a free Render instance that sleeps when idle. The first request after it naps takes roughly 60–100 seconds to boot. Once awake, everything responds normally.",
-    "elapsed": "{seconds}s elapsed"
+    "elapsed": "{seconds}s elapsed",
+    "eta": "typically ready within 60-100s"
   },
   "capabilities": {
     "title": "What actually runs on this deployment",

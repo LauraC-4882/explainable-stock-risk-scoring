@@ -624,7 +624,8 @@
   "coldStart": {
     "title": "免費實例正在喚醒…",
     "body": "本演示部署在 Render 免費實例上，閒置後會休眠。休眠後的首次請求需要約 60–100 秒啟動；喚醒後響應速度恢復正常。",
-    "elapsed": "已等待 {seconds} 秒"
+    "elapsed": "已等待 {seconds} 秒",
+    "eta": "通常 60-100 秒內就緒"
   },
   "capabilities": {
     "title": "本部署上實際運行的內容",
