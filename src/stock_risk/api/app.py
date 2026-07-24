@@ -120,6 +120,7 @@ _ENDPOINT_COSTS: tuple[tuple[str, float], ...] = (
     ("/api/auth/register", 8.0),
     ("/api/auth/login", 8.0),
     ("/api/search", 2.0),
+    ("/api/portfolio", 5.0),  # fans out up to 5 history fetches
     ("/health", 0.0),
     ("/metrics", 0.0),
 )
@@ -1689,6 +1690,72 @@ def github_stats():
     _github_cache["at"] = _time.time()
     _github_cache["data"] = data
     return data
+
+
+# ── Portfolio risk attribution ───────────────────────────────────────────────
+
+class PortfolioPositionIn(BaseModel):
+    ticker: str
+    weight: float
+
+
+class PortfolioRequest(BaseModel):
+    positions: list[PortfolioPositionIn]
+
+
+@app.post("/api/portfolio/risk")
+def portfolio_risk(payload: PortfolioRequest):
+    """Aggregate risk + per-position attribution for a small book (2-5 names).
+
+    Thin HTTP shell over portfolio.aggregate.compute_portfolio_risk — the
+    component-VaR/HHI library that until now existed only behind the test
+    suite. Everything analytical stays in that module; this endpoint only
+    fetches return series and validates input.
+
+    Design notes:
+    * period="2y" matches the scoring path, so a portfolio of already-scored
+      tickers is served from warm fetch caches instead of re-hitting upstream.
+    * No benchmark / portfolio beta in v1: a mixed US + A-share book has no
+      single honest benchmark, and returning SPY beta for it would be a
+      number wearing a costume. The response simply omits it.
+    * Concentration ALERTS are not returned as backend strings — the frontend
+      derives them from these numbers with localized copy, avoiding another
+      english-only-string leak (the audited stress-narrative problem).
+    """
+    positions = payload.positions
+    if not 2 <= len(positions) <= 5:
+        raise HTTPException(status_code=422, detail="Provide between 2 and 5 positions")
+    tickers = [pos.ticker.upper().strip() for pos in positions]
+    if len(set(tickers)) != len(tickers):
+        raise HTTPException(status_code=422, detail="Duplicate tickers in portfolio")
+    if any(pos.weight <= 0 for pos in positions):
+        raise HTTPException(status_code=422, detail="Weights must be positive")
+
+    from ..portfolio.aggregate import Position as _Position
+    from ..portfolio.aggregate import compute_portfolio_risk as _compute
+
+    returns = {}
+    for ticker in tickers:
+        try:
+            raw = scorer.fetcher.fetch_history(ticker, period="2y")
+            returns[ticker] = scorer.preprocessor.process(raw)["log_return"]
+        except Exception as exc:
+            logger.warning(f"portfolio: history fetch failed for {ticker}: {exc}")
+            raise HTTPException(
+                status_code=404, detail=f"No usable history for {ticker}"
+            ) from exc
+
+    book = [_Position(t, pos.weight) for t, pos in zip(tickers, positions)]
+    try:
+        risk = _compute(returns, book)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    from dataclasses import asdict as _asdict
+
+    result = _asdict(risk)
+    result["tickers"] = tickers
+    return result
 
 
 # ── Public usage stats ───────────────────────────────────────────────────────

@@ -34,6 +34,7 @@ export function AuthProvider({ children }) {
   const [aboutPanelOpen, setAboutPanelOpen] = useState(false)
   const [replayPanelOpen, setReplayPanelOpen] = useState(false)
   const [learnPanelOpen, setLearnPanelOpen] = useState(false)
+  const [portfolioPanelOpen, setPortfolioPanelOpen] = useState(false)
   const [techPanelOpen, setTechPanelOpen] = useState(false)
 
   // [R2] Adopt a token the backend silently re-issued. Access tokens now live
@@ -174,6 +175,9 @@ export function AuthProvider({ children }) {
         learnPanelOpen,
         openLearnPanel: () => setLearnPanelOpen(true),
         closeLearnPanel: () => setLearnPanelOpen(false),
+        portfolioPanelOpen,
+        openPortfolioPanel: () => setPortfolioPanelOpen(true),
+        closePortfolioPanel: () => setPortfolioPanelOpen(false),
         techPanelOpen,
         openTechPanel: () => setTechPanelOpen(true),
         closeTechPanel: () => setTechPanelOpen(false),

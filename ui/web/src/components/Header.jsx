@@ -1,4 +1,4 @@
-import { BookOpen, Cpu, Clapperboard, Info, MessagesSquare, ShieldCheck, Star } from 'lucide-react'
+import { BookOpen, ChartPie, Clapperboard, Cpu, Info, MessagesSquare, ShieldCheck, Star } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'
@@ -20,6 +20,7 @@ export default function Header({ onHome, onOpenTicker }) {
     openAboutPanel,
     openReplayPanel,
     openLearnPanel,
+    openPortfolioPanel,
     openTechPanel,
   } = useAuth()
   const { openTour } = useOnboarding()
@@ -64,6 +65,9 @@ export default function Header({ onHome, onOpenTicker }) {
           </button>
           <button onClick={openLearnPanel} className={pill}>
             <BookOpen aria-hidden="true" size={16} /> {t('learn.nav')}
+          </button>
+          <button onClick={openPortfolioPanel} className={pill}>
+            <ChartPie aria-hidden="true" size={16} /> {t('portfolio.nav')}
           </button>
           <button onClick={openTechPanel} className={pill}>
             <Cpu aria-hidden="true" size={16} /> {t('tech.nav')}

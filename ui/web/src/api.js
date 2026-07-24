@@ -48,6 +48,21 @@ export async function apiGithubStats() {
   return res.ok ? res.json() : {}
 }
 
+// Portfolio attribution: positions = [{ticker, weight}] (2-5). Server
+// normalises weights; errors surface with the backend's detail message.
+export async function apiPortfolioRisk(positions) {
+  const res = await fetch('/api/portfolio/risk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ positions }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []

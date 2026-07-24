@@ -805,5 +805,31 @@
   "chart": {
     "line": "Line",
     "candles": "Candles"
+  },
+  "portfolio": {
+    "nav": "Portfolio",
+    "title": "Portfolio risk attribution",
+    "intro": "Enter 2-5 positions with rough weights (any positive numbers — they are normalised). The result decomposes the book's risk per position: the biggest holding is often not the biggest risk contributor.",
+    "tickerPlaceholder": "Ticker",
+    "weightPlaceholder": "Weight",
+    "tickerAria": "Ticker for position {n}",
+    "weightAria": "Weight for position {n}",
+    "removeRow": "Remove position {n}",
+    "addRow": "Add position",
+    "analyze": "Analyze",
+    "analyzing": "Analyzing…",
+    "weightsNote": "Weights are relative shares, not dollar amounts; they are normalised to 100%.",
+    "metrics": {
+      "vol": "annualised volatility",
+      "var": "1-day VaR (95%)",
+      "cvar": "1-day CVaR (95%)",
+      "effectiveN": "effective positions"
+    },
+    "contributionTitle": "Risk contribution by position",
+    "topContributor": "top contributor",
+    "contributionNote": "Euler allocation: the shares sum to 100% of portfolio risk, so this is a true decomposition — not a set of loosely related numbers.",
+    "flagPosition": "{ticker} contributes {pct}% of portfolio risk — well above its fair share.",
+    "flagEffectiveN": "This book behaves like roughly {value} independent positions — diversification is thinner than the holding count suggests.",
+    "disclaimer": "Descriptive statistics from historical co-movement. Nothing here forecasts, and nothing here recommends a position."
   }
 }

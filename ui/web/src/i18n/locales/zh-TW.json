@@ -805,5 +805,31 @@
   "chart": {
     "line": "折線",
     "candles": "K線"
+  },
+  "portfolio": {
+    "nav": "組合",
+    "title": "組合風險歸因",
+    "intro": "輸入 2-5 個持倉和大致權重（任意正數——會自動歸一化）。結果按持倉分解整體風險：最大的持倉往往並不是最大的風險來源。",
+    "tickerPlaceholder": "代碼",
+    "weightPlaceholder": "權重",
+    "tickerAria": "第 {n} 個持倉的代碼",
+    "weightAria": "第 {n} 個持倉的權重",
+    "removeRow": "刪除第 {n} 個持倉",
+    "addRow": "新增持倉",
+    "analyze": "分析",
+    "analyzing": "分析中…",
+    "weightsNote": "權重是相對佔比而非金額，會歸一化到 100%。",
+    "metrics": {
+      "vol": "年化波動率",
+      "var": "1日 VaR（95%）",
+      "cvar": "1日 CVaR（95%）",
+      "effectiveN": "有效持倉數"
+    },
+    "contributionTitle": "各持倉的風險貢獻",
+    "topContributor": "最大貢獻",
+    "contributionNote": "Euler 分解：各佔比相加恰為組合風險的 100%，因此這是真正的歸因，而不是一組鬆散的數字。",
+    "flagPosition": "{ticker} 貢獻了組合風險的 {pct}%——遠超其應有份額。",
+    "flagEffectiveN": "該組合的行為約相當於 {value} 個獨立持倉——分散程度比持倉數量看起來要低。",
+    "disclaimer": "基於歷史共同波動的描述性統計。不預測未來，也不構成任何持倉建議。"
   }
 }

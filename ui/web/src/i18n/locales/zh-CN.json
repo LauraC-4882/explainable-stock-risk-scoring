@@ -805,5 +805,31 @@
   "chart": {
     "line": "折线",
     "candles": "K线"
+  },
+  "portfolio": {
+    "nav": "组合",
+    "title": "组合风险归因",
+    "intro": "输入 2-5 个持仓和大致权重（任意正数——会自动归一化）。结果按持仓分解整体风险：最大的持仓往往并不是最大的风险来源。",
+    "tickerPlaceholder": "代码",
+    "weightPlaceholder": "权重",
+    "tickerAria": "第 {n} 个持仓的代码",
+    "weightAria": "第 {n} 个持仓的权重",
+    "removeRow": "删除第 {n} 个持仓",
+    "addRow": "添加持仓",
+    "analyze": "分析",
+    "analyzing": "分析中…",
+    "weightsNote": "权重是相对占比而非金额，会归一化到 100%。",
+    "metrics": {
+      "vol": "年化波动率",
+      "var": "1日 VaR（95%）",
+      "cvar": "1日 CVaR（95%）",
+      "effectiveN": "有效持仓数"
+    },
+    "contributionTitle": "各持仓的风险贡献",
+    "topContributor": "最大贡献",
+    "contributionNote": "Euler 分解：各占比相加恰为组合风险的 100%，因此这是真正的归因，而不是一组松散的数字。",
+    "flagPosition": "{ticker} 贡献了组合风险的 {pct}%——远超其应有份额。",
+    "flagEffectiveN": "该组合的行为约相当于 {value} 个独立持仓——分散程度比持仓数量看起来要低。",
+    "disclaimer": "基于历史共同波动的描述性统计。不预测未来，也不构成任何持仓建议。"
   }
 }
