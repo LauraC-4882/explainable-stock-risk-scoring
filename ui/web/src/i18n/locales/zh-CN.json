@@ -619,7 +619,38 @@
     "yes": "是",
     "no": "否",
     "confidenceHidden": "真实数据置信度较低——产品并未显示任何置信度标识。",
-    "close": "关闭"
+    "close": "关闭",
+    "samplesTitle": "每个核心功能一条旅程",
+    "samples": {
+      "score": "读懂一个评分",
+      "portfolio": "集中持仓组合",
+      "community": "误导性帖子",
+      "crash": "市场崩盘",
+      "comprehension": "理解测验"
+    },
+    "correct": "答对",
+    "incorrect": "答错",
+    "stepLabels": {
+      "user_simulation_started": "开始",
+      "score_viewed": "查看了风险评分",
+      "component_viewed": "阅读了因子分解",
+      "methodology_viewed": "阅读了通俗解释",
+      "uncertainty_viewed": "看到了不确定性提示",
+      "data_warning_viewed": "看到了数据质量警告",
+      "disclaimer_viewed": "看到了免责声明",
+      "misconception_detected": "形成了一个误解",
+      "misconception_corrected": "纠正了一个误解",
+      "stress_test_viewed": "查看了压力情景",
+      "risk_contribution_viewed": "查看了风险贡献",
+      "community_post_viewed": "阅读了社区帖子",
+      "community_post_reported": "举报了该帖子",
+      "user_action_intent_recorded": "做出了行动决定",
+      "user_overreliance_detected": "过度依赖了评分",
+      "professional_help_prompt_viewed": "考虑了专业建议",
+      "simulation_completed": "结束",
+      "portfolio_created": "构建了一个组合",
+      "comprehension_answered": "回答了一道理解题"
+    }
   },
   "coldStart": {
     "title": "免费实例正在唤醒…",

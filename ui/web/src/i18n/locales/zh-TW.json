@@ -619,7 +619,38 @@
     "yes": "是",
     "no": "否",
     "confidenceHidden": "真實數據置信度較低——產品並未顯示任何置信度標識。",
-    "close": "關閉"
+    "close": "關閉",
+    "samplesTitle": "每個核心功能一條旅程",
+    "samples": {
+      "score": "讀懂一個評分",
+      "portfolio": "集中持倉組合",
+      "community": "誤導性貼文",
+      "crash": "市場崩盤",
+      "comprehension": "理解測驗"
+    },
+    "correct": "答對",
+    "incorrect": "答錯",
+    "stepLabels": {
+      "user_simulation_started": "開始",
+      "score_viewed": "查看了風險評分",
+      "component_viewed": "閱讀了因子分解",
+      "methodology_viewed": "閱讀了通俗解釋",
+      "uncertainty_viewed": "看到了不確定性提示",
+      "data_warning_viewed": "看到了資料品質警告",
+      "disclaimer_viewed": "看到了免責聲明",
+      "misconception_detected": "形成了一個誤解",
+      "misconception_corrected": "糾正了一個誤解",
+      "stress_test_viewed": "查看了壓力情景",
+      "risk_contribution_viewed": "查看了風險貢獻",
+      "community_post_viewed": "閱讀了社區貼文",
+      "community_post_reported": "舉報了該貼文",
+      "user_action_intent_recorded": "做出了行動決定",
+      "user_overreliance_detected": "過度依賴了評分",
+      "professional_help_prompt_viewed": "考慮了專業建議",
+      "simulation_completed": "結束",
+      "portfolio_created": "構建了一個組合",
+      "comprehension_answered": "回答了一道理解題"
+    }
   },
   "coldStart": {
     "title": "免費實例正在喚醒…",

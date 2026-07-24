@@ -619,7 +619,38 @@
     "yes": "yes",
     "no": "no",
     "confidenceHidden": "True data confidence was low - the product showed no confidence flag.",
-    "close": "Close"
+    "close": "Close",
+    "samplesTitle": "One journey per core surface",
+    "samples": {
+      "score": "Reading a score",
+      "portfolio": "Concentrated portfolio",
+      "community": "Misleading post",
+      "crash": "Market crash",
+      "comprehension": "Comprehension check"
+    },
+    "correct": "correct",
+    "incorrect": "incorrect",
+    "stepLabels": {
+      "user_simulation_started": "Started",
+      "score_viewed": "Viewed the risk score",
+      "component_viewed": "Read a component breakdown",
+      "methodology_viewed": "Read the plain-language meaning",
+      "uncertainty_viewed": "Saw an uncertainty cue",
+      "data_warning_viewed": "Saw a data-quality warning",
+      "disclaimer_viewed": "Saw the disclaimer",
+      "misconception_detected": "Formed a misconception",
+      "misconception_corrected": "Corrected a misconception",
+      "stress_test_viewed": "Reviewed a stress scenario",
+      "risk_contribution_viewed": "Reviewed risk contribution",
+      "community_post_viewed": "Read a community post",
+      "community_post_reported": "Reported the post",
+      "user_action_intent_recorded": "Decided on an action",
+      "user_overreliance_detected": "Over-relied on the score",
+      "professional_help_prompt_viewed": "Considered professional advice",
+      "simulation_completed": "Finished",
+      "portfolio_created": "Built a portfolio",
+      "comprehension_answered": "Answered a comprehension question"
+    }
   },
   "coldStart": {
     "title": "Waking the free instance…",

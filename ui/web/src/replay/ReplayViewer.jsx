@@ -2,39 +2,27 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
-import { SAMPLE_REPLAY } from './sampleReplay'
+import { SAMPLE_REPLAYS } from './sampleReplays'
 
-// Viewer for a simulated-user journey replay produced by the offline evaluation
-// harness (`python -m stock_risk.simulation`). It is deliberately backend-free:
-// it renders a bundled sample or a replay JSON the user picks from disk, so it
-// adds no endpoint and no coupling to the served API.
+// Viewer for simulated-user journey replays produced by the offline evaluation
+// harness (`python -m stock_risk.simulation`). Deliberately backend-free: it
+// renders the bundled samples or a replay JSON picked from disk, so it adds no
+// endpoint and no coupling to the served API.
+//
+// The bundle ships five deterministic journeys, one per core surface of the
+// site (score card, portfolio attribution, community misinformation, market
+// crash, comprehension battery) — regenerated only via
+// scripts/generate_sample_replays.py so they can never drift from real
+// harness output.
 //
 // The permanent banner is not decoration. A journey replay reads like a real
 // user session, and it must never be mistaken for one — every replay here is
 // generated from developer-encoded behavioural assumptions.
 //
-// Accessibility: unlike the older panels, this dialog sets role/aria-modal,
-// labels itself, closes on Escape, and moves focus to the close button on open —
-// the gaps the evaluation itself flagged.
-
-const STEP_LABEL = {
-  user_simulation_started: 'Started',
-  score_viewed: 'Viewed the risk score',
-  component_viewed: 'Read a component breakdown',
-  methodology_viewed: 'Read the plain-language meaning',
-  uncertainty_viewed: 'Saw an uncertainty cue',
-  data_warning_viewed: 'Saw a data-quality warning',
-  disclaimer_viewed: 'Saw the disclaimer',
-  misconception_detected: 'Formed a misconception',
-  misconception_corrected: 'Corrected a misconception',
-  stress_test_viewed: 'Reviewed a stress scenario',
-  risk_contribution_viewed: 'Reviewed risk contribution',
-  community_post_viewed: 'Read a community post',
-  user_action_intent_recorded: 'Decided on an action',
-  user_overreliance_detected: 'Over-relied on the score',
-  professional_help_prompt_viewed: 'Considered professional advice',
-  simulation_completed: 'Finished',
-}
+// Step labels resolve through i18n (replay.stepLabels.*) with the raw event
+// name as fallback — the first version hardcoded English labels, which leaked
+// untranslated text into the Chinese modes, the exact defect class the
+// harness's own language-parity scenario measures.
 
 function isReplay(value) {
   return Boolean(value && Array.isArray(value.steps) && value.summary)
@@ -43,7 +31,8 @@ function isReplay(value) {
 export default function ReplayViewer() {
   const { t } = useLanguage()
   const { replayPanelOpen, closeReplayPanel } = useAuth()
-  const [replay, setReplay] = useState(SAMPLE_REPLAY)
+  const [sampleId, setSampleId] = useState(SAMPLE_REPLAYS[0].id)
+  const [replay, setReplay] = useState(SAMPLE_REPLAYS[0].replay)
   const [error, setError] = useState('')
   const closeRef = useRef(null)
 
@@ -59,6 +48,18 @@ export default function ReplayViewer() {
 
   if (!replayPanelOpen) return null
 
+  const stepLabel = (event) => {
+    const key = `replay.stepLabels.${event}`
+    const resolved = t(key)
+    return resolved === key ? event : resolved
+  }
+
+  function pickSample(sample) {
+    setSampleId(sample.id)
+    setReplay(sample.replay)
+    setError('')
+  }
+
   const onFile = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -68,6 +69,7 @@ export default function ReplayViewer() {
         const parsed = JSON.parse(String(reader.result))
         if (!isReplay(parsed)) throw new Error('not a replay')
         setReplay(parsed)
+        setSampleId(null)
         setError('')
       } catch {
         setError(t('replay.invalidFile'))
@@ -121,20 +123,36 @@ export default function ReplayViewer() {
 
           <p className="text-[0.82rem] leading-relaxed text-muted">{t('replay.intro')}</p>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-[0.78rem] text-slate-200 transition hover:border-accent hover:text-accent">
-              {t('replay.loadFile')}
-              <input type="file" accept="application/json" className="sr-only" onChange={onFile} />
-            </label>
-            <button
-              onClick={() => {
-                setReplay(SAMPLE_REPLAY)
-                setError('')
-              }}
-              className="rounded-lg border border-border px-3 py-1.5 text-[0.78rem] text-slate-200 transition hover:border-accent hover:text-accent"
-            >
-              {t('replay.loadSample')}
-            </button>
+          {/* One journey per core surface of the site. */}
+          <div>
+            <div className="mb-1.5 text-[0.66rem] font-semibold uppercase tracking-wide text-muted">
+              {t('replay.samplesTitle')}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {SAMPLE_REPLAYS.map((sample) => (
+                <button
+                  key={sample.id}
+                  onClick={() => pickSample(sample)}
+                  aria-pressed={sampleId === sample.id}
+                  className={`rounded-full border px-3 py-1 text-[0.7rem] font-semibold transition ${
+                    sampleId === sample.id
+                      ? 'border-accent/50 bg-accent/10 text-accent'
+                      : 'border-border text-muted hover:text-slate-200'
+                  }`}
+                >
+                  {t(`replay.samples.${sample.id}`)}
+                </button>
+              ))}
+              <label className="cursor-pointer rounded-full border border-border px-3 py-1 text-[0.7rem] font-semibold text-muted transition hover:text-slate-200">
+                {t('replay.loadFile')}
+                <input
+                  type="file"
+                  accept="application/json"
+                  className="sr-only"
+                  onChange={onFile}
+                />
+              </label>
+            </div>
           </div>
           {error ? (
             <p role="alert" className="text-[0.78rem] text-down">
@@ -163,9 +181,19 @@ export default function ReplayViewer() {
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[0.82rem] font-semibold text-slate-100">
-                      {STEP_LABEL[step.event] || step.event}
+                      {stepLabel(step.event)}
                       {step.score != null ? ` — ${step.score}/100` : ''}
                     </span>
+                    {step.event === 'comprehension_answered' && step.detail?.qid ? (
+                      <span
+                        className={`mt-0.5 block text-[0.76rem] ${
+                          step.detail.correct ? 'text-up' : 'text-down'
+                        }`}
+                      >
+                        {step.detail.qid} —{' '}
+                        {step.detail.correct ? t('replay.correct') : t('replay.incorrect')}
+                      </span>
+                    ) : null}
                     {step.intended_financial_action ? (
                       <span className="mt-0.5 block text-[0.76rem] text-accent2">
                         {t('replay.intendedAction')}: {step.intended_financial_action}
