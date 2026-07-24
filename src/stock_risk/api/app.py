@@ -1692,6 +1692,86 @@ def github_stats():
     return data
 
 
+# ── VaR backtest ─────────────────────────────────────────────────────────────
+
+@app.get("/api/score/{ticker}/backtest")
+def var_backtest(ticker: str):
+    """Backtest the 95% VaR the product actually shows, on this ticker's own
+    history — Kupiec coverage, Christoffersen independence/conditional
+    coverage, and the Acerbi-Szekely ES check, via validation/tail_tests.
+
+    Honesty constraints, both structural:
+    * The forecast series is the same 21-day rolling empirical quantile the
+      scorecard's var_95 tile uses, SHIFTED one day — each day is judged by a
+      VaR computed strictly from data before it. No lookahead, or the
+      backtest would grade the model on answers it was shown.
+    * Results are per-ticker and computed live from that ticker's history.
+      There is deliberately no site-wide "our VaR is N% accurate" headline —
+      a single global number would average away exactly the per-name failures
+      a backtest exists to expose.
+    """
+    tkr = ticker.upper().strip()
+    if MOCK_MODE:
+        # Fixture mode serves stand-in data by definition (see the mock-mode
+        # banner). The suite still runs for REAL — on the committed AAPL
+        # snapshot — so the harness exercises genuine test output offline and
+        # deterministically rather than a hand-typed pass/fail blob.
+        import pandas as _pd
+
+        raw = _pd.read_parquet(
+            Path(__file__).resolve().parents[3] / "snapshots" / "AAPL_2y_1d.parquet"
+        )
+        df = scorer.preprocessor.process(raw)
+    else:
+        try:
+            raw = scorer.fetcher.fetch_history(tkr, period="2y")
+            df = scorer.preprocessor.process(raw)
+        except Exception as exc:
+            logger.warning(f"backtest: history fetch failed for {tkr}: {exc}")
+            raise HTTPException(
+                status_code=404, detail=f"No usable history for {tkr}"
+            ) from exc
+
+    returns = df["log_return"].dropna()
+    # Same construction as features/risk_metrics var_95_21d, shifted so day t
+    # is tested against a forecast built from days < t.
+    var_forecast = returns.rolling(21).quantile(0.05).shift(1)
+    aligned = returns[var_forecast.notna()]
+    var_aligned = var_forecast[var_forecast.notna()]
+    if len(aligned) < 60:
+        raise HTTPException(status_code=422, detail="Not enough history to backtest")
+
+    from ..validation.tail_tests import run_full_suite
+
+    suite = run_full_suite(aligned, var_aligned, alpha=0.05)["tests"]
+
+    def _test(name):
+        t = suite[name]
+        return {
+            "statistic": round(float(t.statistic), 4),
+            "p_value": round(float(t.p_value), 4),
+            "reject": bool(t.reject),
+            "detail": {
+                k: (round(float(v), 4) if isinstance(v, (int, float)) else v)
+                for k, v in t.detail.items()
+            },
+        }
+
+    kupiec = suite["kupiec_pof"]
+    breaches = int(kupiec.detail.get("breaches", 0))
+    n_days = int(kupiec.detail.get("n", len(aligned)))
+    return {
+        "ticker": tkr,
+        "days": n_days,
+        "breaches": breaches,
+        "breach_rate_pct": round(100.0 * breaches / n_days, 2) if n_days else None,
+        "target_pct": 5.0,
+        "kupiec": _test("kupiec_pof"),
+        "independence": _test("christoffersen_independence"),
+        "conditional_coverage": _test("christoffersen_conditional_coverage"),
+    }
+
+
 # ── Portfolio risk attribution ───────────────────────────────────────────────
 
 class PortfolioPositionIn(BaseModel):

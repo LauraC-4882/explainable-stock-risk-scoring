@@ -831,5 +831,18 @@
     "flagPosition": "{ticker} contributes {pct}% of portfolio risk — well above its fair share.",
     "flagEffectiveN": "This book behaves like roughly {value} independent positions — diversification is thinner than the holding count suggests.",
     "disclaimer": "Descriptive statistics from historical co-movement. Nothing here forecasts, and nothing here recommends a position."
+  },
+  "backtest": {
+    "toggle": "VaR backtest (does the 95% line hold?)",
+    "intro": "Each day's 95% VaR is computed only from data before that day, then judged against what actually happened. These are the standard coverage tests risk desks use — run live on this stock's own two years.",
+    "breachLine": "Losses exceeded VaR on {breaches} of {days} days — a {rate}% breach rate against the {target}% target.",
+    "tests": {
+      "kupiec": "Kupiec coverage (is the breach rate ≈ 5%?)",
+      "independence": "Christoffersen independence (do breaches cluster?)",
+      "conditionalCoverage": "Conditional coverage (both at once)"
+    },
+    "rejected": "REJECTED",
+    "consistent": "CONSISTENT",
+    "note": "REJECTED means the test found the VaR line inconsistent with its target at the 5% level — shown as-is, including when unflattering. A validation panel that only ever passes is marketing, not validation."
   }
 }

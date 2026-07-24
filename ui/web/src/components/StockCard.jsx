@@ -16,6 +16,7 @@ import RiskExplainer from './RiskExplainer'
 import RiskGauge from './RiskGauge'
 import RiskNote from './RiskNote'
 import StressTestPanel from './StressTestPanel'
+import BacktestPanel from './BacktestPanel'
 import TopAnalysisWidget from './TopAnalysisWidget'
 
 // Every tracked stock renders as the full two-column bento dashboard
@@ -255,6 +256,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
           <Panel delay={3} hover className="[&>div]:border-b-0">
             <StressTestPanel stressTest={score.stress_test} />
+            <BacktestPanel ticker={score.ticker} />
           </Panel>
 
           <Panel delay={4} hover className="[&>div]:border-b-0">

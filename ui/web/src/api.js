@@ -63,6 +63,16 @@ export async function apiPortfolioRisk(positions) {
   return res.json()
 }
 
+// Per-ticker VaR backtest (Kupiec / Christoffersen), computed live.
+export async function apiBacktest(ticker) {
+  const res = await fetch(`/api/score/${encodeURIComponent(ticker)}/backtest`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []

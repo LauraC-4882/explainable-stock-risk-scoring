@@ -831,5 +831,18 @@
     "flagPosition": "{ticker} 贡献了组合风险的 {pct}%——远超其应有份额。",
     "flagEffectiveN": "该组合的行为约相当于 {value} 个独立持仓——分散程度比持仓数量看起来要低。",
     "disclaimer": "基于历史共同波动的描述性统计。不预测未来，也不构成任何持仓建议。"
+  },
+  "backtest": {
+    "toggle": "VaR 回测（95% 线站得住吗？）",
+    "intro": "每一天的 95% VaR 只用该日之前的数据计算，再与实际发生的收益对照。这些是风控台标准的覆盖检验——对这只股票自己的两年历史实时运行。",
+    "breachLine": "{days} 个交易日中有 {breaches} 天亏损超过 VaR——实际突破率 {rate}%，目标 {target}%。",
+    "tests": {
+      "kupiec": "Kupiec 覆盖检验（突破率 ≈ 5% 吗？）",
+      "independence": "Christoffersen 独立性（突破是否扎堆？）",
+      "conditionalCoverage": "条件覆盖（两者联合）"
+    },
+    "rejected": "未通过",
+    "consistent": "一致",
+    "note": "「未通过」表示检验在 5% 显著性水平下认为 VaR 线与目标不一致——原样展示，即使不体面。只会通过的验证面板是营销，不是验证。"
   }
 }

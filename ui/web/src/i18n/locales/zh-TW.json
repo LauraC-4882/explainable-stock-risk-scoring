@@ -831,5 +831,18 @@
     "flagPosition": "{ticker} 貢獻了組合風險的 {pct}%——遠超其應有份額。",
     "flagEffectiveN": "該組合的行為約相當於 {value} 個獨立持倉——分散程度比持倉數量看起來要低。",
     "disclaimer": "基於歷史共同波動的描述性統計。不預測未來，也不構成任何持倉建議。"
+  },
+  "backtest": {
+    "toggle": "VaR 回測（95% 線站得住嗎？）",
+    "intro": "每一天的 95% VaR 只用該日之前的資料計算，再與實際發生的收益對照。這些是風控台標準的覆蓋檢驗——對這隻股票自己的兩年歷史即時運行。",
+    "breachLine": "{days} 個交易日中有 {breaches} 天虧損超過 VaR——實際突破率 {rate}%，目標 {target}%。",
+    "tests": {
+      "kupiec": "Kupiec 覆蓋檢驗（突破率 ≈ 5% 嗎？）",
+      "independence": "Christoffersen 獨立性（突破是否扎堆？）",
+      "conditionalCoverage": "條件覆蓋（兩者聯合）"
+    },
+    "rejected": "未通過",
+    "consistent": "一致",
+    "note": "「未通過」表示檢驗在 5% 顯著性水平下認為 VaR 線與目標不一致——原樣展示，即使不體面。只會通過的驗證面板是營銷，不是驗證。"
   }
 }
