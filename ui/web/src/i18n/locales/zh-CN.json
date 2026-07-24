@@ -654,7 +654,8 @@
       "drift": "漂移监控与挑战者模型对比",
       "simulation": "模拟用户评估框架"
     },
-    "verifyHint": "你可以在仓库中自行验证："
+    "verifyHint": "你可以在仓库中自行验证：",
+    "replayCta": "看一位模拟用户如何读懂评分 →"
   },
   "learn": {
     "nav": "教育",
@@ -736,8 +737,8 @@
         "label": "行情数据缓存"
       },
       "tests": {
-        "value": "580+",
-        "label": "前后端测试总数"
+        "value": "620+",
+        "label": "前后端测试（截至 2026 年 7 月）"
       }
     },
     "stack": {
@@ -789,6 +790,10 @@
         "name": "Render",
         "why": "免费层部署；冷启动提示正是因它而生。"
       }
+    },
+    "links": {
+      "ci": "GitHub Actions 上的 CI 运行记录 →",
+      "sim": "模拟用户评估框架 →"
     }
   },
   "mobileNav": {

@@ -18,7 +18,7 @@ import { RiscoreIcon, RiscoreWordmark } from './Logo'
 // docs can back up. Copy lives in i18n (about.*) in both languages.
 export default function AboutPanel() {
   const { t } = useLanguage()
-  const { aboutPanelOpen, closeAboutPanel } = useAuth()
+  const { aboutPanelOpen, closeAboutPanel, openReplayPanel } = useAuth()
 
   if (!aboutPanelOpen) return null
 
@@ -219,6 +219,15 @@ export default function AboutPanel() {
               pytest tests/ -q{'\n'}
               python -m stock_risk.simulation run
             </pre>
+            <button
+              onClick={() => {
+                closeAboutPanel()
+                openReplayPanel()
+              }}
+              className="mt-3 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1.5 text-[0.74rem] font-semibold text-accent transition hover:bg-accent/20 active:scale-95"
+            >
+              {t('capabilities.replayCta')}
+            </button>
           </section>
 
           {/* ── Responsible use ── */}

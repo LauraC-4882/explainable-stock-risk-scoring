@@ -654,7 +654,8 @@
       "drift": "Drift monitoring and challenger comparison",
       "simulation": "Simulated-user evaluation framework"
     },
-    "verifyHint": "Verify any of these yourself from the repository:"
+    "verifyHint": "Verify any of these yourself from the repository:",
+    "replayCta": "Watch a simulated user read a score →"
   },
   "learn": {
     "nav": "Learn",
@@ -736,8 +737,8 @@
         "label": "market-data cache TTL"
       },
       "tests": {
-        "value": "580+",
-        "label": "backend + frontend tests"
+        "value": "620+",
+        "label": "backend + frontend tests (as of Jul 2026)"
       }
     },
     "stack": {
@@ -789,6 +790,10 @@
         "name": "Render",
         "why": "Free-tier deploy; the cold-start banner exists because of it."
       }
+    },
+    "links": {
+      "ci": "CI runs on GitHub Actions →",
+      "sim": "Simulated-user evaluation framework →"
     }
   },
   "mobileNav": {

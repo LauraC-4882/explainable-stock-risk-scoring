@@ -654,7 +654,8 @@
       "drift": "漂移監控與挑戰者模型對比",
       "simulation": "模擬用戶評估框架"
     },
-    "verifyHint": "你可以在倉庫中自行驗證："
+    "verifyHint": "你可以在倉庫中自行驗證：",
+    "replayCta": "看一位模擬用戶如何讀懂評分 →"
   },
   "learn": {
     "nav": "教育",
@@ -736,8 +737,8 @@
         "label": "行情資料快取"
       },
       "tests": {
-        "value": "580+",
-        "label": "前後端測試總數"
+        "value": "620+",
+        "label": "前後端測試（截至 2026 年 7 月）"
       }
     },
     "stack": {
@@ -789,6 +790,10 @@
         "name": "Render",
         "why": "免費層部署；冷啟動提示正是因它而生。"
       }
+    },
+    "links": {
+      "ci": "GitHub Actions 上的 CI 運行記錄 →",
+      "sim": "模擬用戶評估框架 →"
     }
   },
   "mobileNav": {

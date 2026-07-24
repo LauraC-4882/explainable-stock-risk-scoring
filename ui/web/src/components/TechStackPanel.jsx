@@ -108,6 +108,29 @@ export default function TechStackPanel() {
             ))}
           </div>
 
+          {/* ── Verifiable receipts: plain navigation links (no fetch, so the
+              strict connect-src CSP is untouched). The test-count tile above
+              is a floor with an as-of date, not a live counter — a number
+              that silently goes stale reads as precision it doesn't have. */}
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`${REPO_URL}/actions`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-border px-3 py-1 text-[0.7rem] font-semibold text-muted transition hover:border-accent/40 hover:text-slate-200"
+            >
+              {t('tech.links.ci')}
+            </a>
+            <a
+              href={`${REPO_URL}/tree/main/src/stock_risk/simulation`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-border px-3 py-1 text-[0.7rem] font-semibold text-muted transition hover:border-accent/40 hover:text-slate-200"
+            >
+              {t('tech.links.sim')}
+            </a>
+          </div>
+
           {/* ── The stack ── */}
           <div className="grid gap-2.5 sm:grid-cols-2">
             {STACK.map(({ key, url }) => (
