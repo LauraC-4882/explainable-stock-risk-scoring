@@ -34,3 +34,6 @@ backups/
 # Simulated-user evaluation artifacts (event JSONL, replays, the 15 reports).
 # Generated locally/CI on demand; never committed and never in the production DB.
 simulation_reports/
+# A stray npx run from the repo root creates a root node_modules —
+# ui/web has its own ignore; this keeps the root immune too.
+node_modules/
