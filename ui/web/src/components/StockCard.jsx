@@ -1,9 +1,10 @@
-import { CircleAlert, Star, X } from 'lucide-react'
+import { CircleAlert, Share2, Star, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { apiScore, apiTimeseries } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { useCountUp } from '../hooks/useCountUp'
 import { useLanguage } from '../i18n/LanguageContext'
+import { useToast } from '../toast/ToastContext'
 import { fmt, inferMarket, riskColor, windowStats } from '../utils'
 import CardSkeleton from './CardSkeleton'
 import KeyFactorTiles from './KeyFactorTiles'
@@ -17,6 +18,7 @@ import RiskGauge from './RiskGauge'
 import RiskNote from './RiskNote'
 import StressTestPanel from './StressTestPanel'
 import BacktestPanel from './BacktestPanel'
+import { buildShareText, drawShareCard, shareFilename } from './shareCard'
 import TopAnalysisWidget from './TopAnalysisWidget'
 
 // Every tracked stock renders as the full two-column bento dashboard
@@ -97,6 +99,27 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
       : score?.fundamentals?.sector || (loading ? t('card.fetching') : ticker)
   const animatedScore = useCountUp(score?.risk_score)
   const favorited = isFavorited(ticker)
+  const { toast } = useToast()
+
+  // Downloads a PNG summary card. The disclaimer is drawn INTO the image
+  // (see shareCard.js) — the sim evaluation ranked disclaimer-stripped
+  // screenshots among its harms, and a share card is exactly that screenshot
+  // made on purpose.
+  function handleShare() {
+    if (!score) return
+    const canvas = document.createElement('canvas')
+    drawShareCard(canvas, buildShareText(score, t))
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = shareFilename(score.ticker)
+      a.click()
+      URL.revokeObjectURL(url)
+      toast(t('share.saved'), { tone: 'success' })
+    }, 'image/png')
+  }
 
   async function handleToggleFavorite() {
     if (favBusy) return
@@ -110,6 +133,13 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
 
   const headerButtons = (
     <div className="flex items-center gap-1">
+      <button
+        onClick={handleShare}
+        title={t('share.button')}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-all duration-150 hover:scale-110 hover:bg-surface2 active:scale-90"
+      >
+        <Share2 aria-hidden="true" size={15} />
+      </button>
       <button
         onClick={handleToggleFavorite}
         disabled={favBusy}

@@ -844,5 +844,10 @@
     "rejected": "REJECTED",
     "consistent": "CONSISTENT",
     "note": "REJECTED means the test found the VaR line inconsistent with its target at the 5% level — shown as-is, including when unflattering. A validation panel that only ever passes is marketing, not validation."
+  },
+  "share": {
+    "button": "Download share card",
+    "saved": "Share card saved — disclaimer included in the image.",
+    "imageDisclaimer": "Self-relative risk percentile, not a probability of loss and not investment advice · riscore"
   }
 }
