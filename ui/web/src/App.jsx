@@ -230,7 +230,7 @@ export default function App() {
                   <AdminPanel />
                   <AboutPanel />
                   <LearnPanel />
-                <PortfolioPanel />
+                  <PortfolioPanel />
                   <TechStackPanel />
                   <ReplayViewer />
                   <OnboardingTour />

@@ -1,4 +1,13 @@
-import { BookOpen, ChartPie, Clapperboard, Cpu, Info, MessagesSquare, ShieldCheck, Star } from 'lucide-react'
+import {
+  BookOpen,
+  ChartPie,
+  Clapperboard,
+  Cpu,
+  Info,
+  MessagesSquare,
+  ShieldCheck,
+  Star,
+} from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { useOnboarding } from '../onboarding/OnboardingContext'

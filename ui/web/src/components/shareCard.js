@@ -19,8 +19,7 @@ export const CARD_H = 630
 // caller's locale, assembled from the real scorecard.
 export function buildShareText(score, t) {
   const metrics = []
-  if (score.volatility_30d != null)
-    metrics.push(`Vol ${(score.volatility_30d * 100).toFixed(1)}%`)
+  if (score.volatility_30d != null) metrics.push(`Vol ${(score.volatility_30d * 100).toFixed(1)}%`)
   if (score.var_95 != null) metrics.push(`VaR ${(score.var_95 * 100).toFixed(2)}%`)
   if (score.beta != null) metrics.push(`β ${score.beta.toFixed(2)}`)
   return {
