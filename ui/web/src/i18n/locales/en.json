@@ -585,7 +585,7 @@
     "support": "Support",
     "contact": "Contact Admin",
     "privacyTitle": "Privacy & Consent",
-    "privacyBody1": "We store only what your account needs to work: your email, your hashed password, your watchlist, and any posts or votes you make in the Community board. We do not sell your data or share it with advertisers.",
+    "privacyBody1": "We store only what your account needs to work: your email, your hashed password, your watchlist, and any posts or votes you make in the Community board. We also keep basic usage records — which path was requested, the method, and the response status — and, for security events only (failed sign-ins, lockouts, bans), the IP address involved; ordinary browsing never records your IP. We do not sell your data or share it with advertisers.",
     "privacyBody2": "By creating an account and using this site, you consent to that data being processed to provide the service. You can delete your own posts at any time, or contact the admin below about closing your account.",
     "licenseTitle": "License & Data Sources",
     "licenseBody1": "Risk scores are computed from market data provided by Twelve Data (US) and akshare (China A-shares). This tool is for informational and educational purposes only — it is not investment advice, and nothing on this site is a solicitation to buy or sell any security.",
