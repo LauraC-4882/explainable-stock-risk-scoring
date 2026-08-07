@@ -64,10 +64,10 @@
     "EXTREME": "EXTREME"
   },
   "labelExplanation": {
-    "LOW": "Quieter than this stock’s own normal — smaller day-to-day moves, and it hasn’t fallen as far as it usually does.",
-    "MODERATE": "About normal for this stock. Nothing unusual compared with how it usually behaves.",
-    "HIGH": "Bumpier than this stock’s own normal — either it’s swinging more each day, or it has fallen further than it typically does.",
-    "EXTREME": "About as wild as this stock gets — it’s moving near the most extreme levels seen in its own recent history."
+    "LOW": "Below this stock’s own normal: smaller day-to-day moves, and shallower declines than it usually has.",
+    "MODERATE": "In line with this stock’s own normal — nothing unusual compared with its past behaviour.",
+    "HIGH": "Above this stock’s own normal: larger day-to-day moves, or deeper declines than it usually has.",
+    "EXTREME": "Close to the most volatile levels in this stock’s own recent history."
   },
   "keyFactors": {
     "title": "Key Factor Contributions",
@@ -78,11 +78,11 @@
       "low": "Low",
       "none": "No effect"
     },
-    "flooredNote": "Left the score unchanged — a low reading here isn’t a safety margin."
+    "flooredNote": "Left the score unchanged: a low reading here does not add any safety margin."
   },
   "explainer": {
     "toggle": "What does this score mean?",
-    "intro": "We compare this stock only with its own past two years — never with other stocks. 0 means “about as calm as this stock ever gets”, 100 means “about as wild as it ever gets”. A high score doesn’t mean it’s a bad stock, and it doesn’t mean it’s about to fall — it means it’s moving around more than this particular stock usually does.",
+    "intro": "This score compares the stock only with its own past two years, never with other stocks. 0 is close to the calmest this stock has been; 100 is close to the most volatile it has been. A high score does not mean it is a poor stock, and it does not mean it is about to fall — only that it is currently moving more than its own normal.",
     "makeup": "What makes up the score",
     "weight": "weight",
     "counted": "counted as {value}"
@@ -91,31 +91,31 @@
     "volatility": {
       "label": "Volatility",
       "short": "Vol",
-      "plainShort": "How bumpy the ride is",
+      "plainShort": "How large the day-to-day moves are",
       "plain": "Realised volatility. A percentile blend of 21-day (40%) and 63-day (35%) annualised return standard deviation, plus 63-day downside deviation (25%), which counts only downward moves. Each input is ranked against this stock’s own ~2-year history."
     },
     "tail": {
       "label": "Tail Risk",
       "short": "Tail Risk",
-      "plainShort": "How ugly the rare bad days get",
+      "plainShort": "How much the worst few days lose",
       "plain": "Left-tail severity. Blends 21-day 95% Conditional VaR (expected shortfall, 35%) and 95% Value at Risk (25%) with 63-day return skewness (20%) and kurtosis (20%) — the shape of the return distribution, not just its width."
     },
     "drawdown": {
       "label": "Drawdown",
       "short": "Drawdown",
-      "plainShort": "How far it can fall at worst",
+      "plainShort": "How deeply it falls from its peak",
       "plain": "Peak-to-trough decline. Blends 63-day maximum drawdown (45%), the current drawdown from the running peak (35%), and drawdown duration — sessions spent below that peak (20%)."
     },
     "sensitivity": {
       "label": "Market Sensitivity",
       "short": "Sensitivity",
-      "plainShort": "Does it follow the whole market?",
+      "plainShort": "How closely it moves with the market",
       "plain": "Beta against the market benchmark (SPY or CSI 300, by listing), estimated over a rolling 63-day window as the covariance of returns divided by the benchmark’s variance. 1.0 = moves one-for-one with the benchmark."
     },
     "liquidity": {
       "label": "Liquidity",
       "short": "Liquidity",
-      "plainShort": "How easy it is to sell",
+      "plainShort": "How easily it can be bought and sold",
       "plain": "Trading frictions. Blends the 21-day Amihud illiquidity ratio — absolute return per unit of dollar volume (50%) — with volume volatility (30%) and the dollar-volume level (20%)."
     }
   },
@@ -153,49 +153,49 @@
       "overbought": "OVERBOUGHT"
     },
     "vol": {
-      "low": "The price has been moving in small steps lately — a fairly smooth ride.",
-      "normal": "Day-to-day moves are about what you’d expect from an ordinary stock.",
-      "elevated": "It’s been jumping around more than most stocks — bigger moves in both directions.",
-      "high": "Very bumpy lately. Daily moves have been much bigger than a typical stock’s."
+      "low": "Price movement has been small recently, and the trend relatively steady.",
+      "normal": "Day-to-day moves are in line with those of an ordinary stock.",
+      "elevated": "Moves more than most stocks, with larger swings in both directions.",
+      "high": "Volatility has been high recently; daily moves are well above those of an ordinary stock."
     },
     "var95": {
-      "mild": "On a bad day it has typically lost about this much — small, as these things go.",
-      "moderate": "On a bad day it has typically lost about this much — a middling amount.",
-      "elevated": "On a bad day it has typically lost about this much — enough to sting.",
-      "severe": "On a bad day it has typically lost about this much — a heavy one-day hit."
+      "mild": "On its weaker trading days, the stock has historically lost about this much — a comparatively small amount.",
+      "moderate": "On its weaker trading days, the stock has historically lost about this much — a moderate amount.",
+      "elevated": "On its weaker trading days, the stock has historically lost about this much — a fairly large amount.",
+      "severe": "On its weaker trading days, the stock has historically lost about this much — a severe single-day loss."
     },
     "beta": {
-      "negative": "It’s been going the opposite way to the market — up on days the market fell, and vice versa.",
-      "defensive": "It moves less than the market, so market-wide drops land more gently here.",
+      "negative": "It has been moving opposite to the market: rising on days the market fell, and vice versa.",
+      "defensive": "It moves less than the market, so market-wide declines usually affect it less.",
       "inline": "It moves roughly in step with the market.",
-      "amplified": "It exaggerates the market — when the market moves 1%, this tends to move more.",
-      "high": "It exaggerates the market strongly, so market-wide swings hit this much harder."
+      "amplified": "It amplifies the market: when the market moves 1%, this typically moves more.",
+      "high": "It amplifies market moves strongly, so market-wide swings affect it considerably more."
     },
     "rsi": {
-      "oversold": "A lot of selling recently. Below 30 is what people call “oversold” — it describes what just happened, not what comes next.",
-      "weak": "Sellers have had the upper hand lately, but nothing extreme.",
-      "neutral": "Buyers and sellers have been fairly evenly matched.",
-      "firm": "Buyers have had the upper hand lately, but nothing extreme.",
-      "overbought": "A lot of buying recently. Above 70 is what people call “overbought” — it describes what just happened, not what comes next."
+      "oversold": "Selling has clearly dominated recently. A reading below 30 is conventionally called “oversold” — a description of what has just happened, not a forecast of what comes next.",
+      "weak": "Sellers have had a slight advantage recently, but not to an extreme degree.",
+      "neutral": "Buying and selling pressure have been roughly balanced.",
+      "firm": "Buyers have had a slight advantage recently, but not to an extreme degree.",
+      "overbought": "Buying has clearly dominated recently. A reading above 70 is conventionally called “overbought” — a description of what has just happened, not a forecast of what comes next."
     },
     "factor": {
-      "low": "Quieter than this stock’s own normal.",
-      "moderate": "About normal for this stock.",
-      "elevated": "Higher than this stock’s own normal — one of the main things pushing the score up.",
-      "high": "Near the highest this stock has ever been — a main reason the score sits where it does."
+      "low": "Below this stock’s own normal.",
+      "moderate": "In line with this stock’s own normal.",
+      "elevated": "Above this stock’s own normal, and one of the main reasons the score is elevated.",
+      "high": "Close to the highest level in this stock’s own history, and the main reason the score sits where it does."
     },
     "twoSided": {
       "sensitivity": {
-        "low": "Barely follows the market right now. That cushions market-wide selloffs — and it also means this one tends to sit out market-wide rallies.",
-        "moderate": "Follows the market about as closely as it usually does — it will feel broad moves in both directions.",
-        "elevated": "Tracking the market more tightly than usual, so a market-wide drop lands harder here than it normally would.",
-        "high": "About as tied to the market as it ever gets — broad selloffs hit this near their full force."
+        "low": "Barely follows the market at present. Market-wide declines affect it less — but it also tends not to keep up with market-wide rallies.",
+        "moderate": "Follows the market about as closely as it usually does, in both directions.",
+        "elevated": "Tracking the market more closely than usual, so market-wide declines affect it more than they normally would.",
+        "high": "Close to the strongest link to the market in its own history: market-wide declines pass through almost in full."
       },
       "liquidity": {
-        "low": "Trades very easily at the moment — cheap to get in and out of. That’s a convenience, not a reason the position is any safer to hold.",
+        "low": "Trades very easily at the moment, at low cost to enter or exit. That is a matter of convenience, not a reason the position is safer to hold.",
         "moderate": "Trades about as easily as it usually does.",
-        "elevated": "Harder to trade than usual — moving a position costs more in price impact than it normally would.",
-        "high": "About as hard to trade as it ever gets: thin volume, so exiting can move the price against you."
+        "elevated": "Harder to trade than usual: adjusting a position costs more in price impact than it normally would.",
+        "high": "Close to the hardest to trade it has been: thin volume, so exiting may push the price down noticeably."
       }
     }
   },
@@ -256,7 +256,7 @@
   },
   "stressTest": {
     "toggle": "Historical stress test",
-    "intro": "A “what if” exercise: if a crash like one of these happened again, where would this stock’s score likely end up? We take how this particular stock behaves today and replay those past conditions against it. Nobody is predicting these events will repeat — it’s a way to see how much room there is to get worse.",
+    "intro": "A hypothetical exercise: if a decline like one of these happened again, where would this stock’s score end up? Its current behaviour is recalculated under the market conditions of that period. This is not a prediction that these events will repeat — it shows how much room there is for conditions to deteriorate.",
     "baseline": "baseline",
     "narrative": "If {label} conditions recurred, this stock's risk score would move from {baseline} to {stressed} ({delta}).",
     "scenario": {
@@ -267,7 +267,7 @@
   },
   "regimeSignals": {
     "toggle": "Market regime & technical structure",
-    "intro": "Context, not scoring. These read the market backdrop and the stock’s own price structure: is volatility running hotter than the market priced, does it behave like a cyclical or a defensive name, has it run up hard while getting choppy, and what has its candle chart printed lately. None of it moves the risk score above — it has not been backtested against future losses yet, so it is shown as information rather than folded into the number.",
+    "intro": "Context, not scoring. These read the market backdrop and the stock’s own price structure: is realised volatility running higher than the market had priced, does it behave like a cyclical or a defensive name, has volatility picked up again after a run-up, and which candlestick patterns have appeared lately. None of it moves the risk score above — it has not been backtested against future losses yet, so it is shown as information rather than folded into the number.",
     "regime": {
       "label": "Volatility regime",
       "risk_on": "Risk-on",
@@ -313,7 +313,7 @@
   },
   "mlSignal": {
     "toggle": "ML downside-risk signal (secondary)",
-    "intro": "A computer model’s rough guess at the odds of a 10%-or-worse fall within the next month of trading. It’s one small input (15%) to the headline score, not the whole thing. Be aware of its weak spot: it misses more real falls than it catches, so treat a low number as “no signal here”, not as “this is safe”.",
+    "intro": "A machine-learning model’s estimate — of limited precision — of the probability of a 10%-or-worse fall within the next month of trading. It is one small input (15%) to the headline score, not the whole of it. Note its limitation: it misses more real falls than it identifies, so a low number means “no signal here”, not “this is safe”.",
     "probability": "Estimated 20-day drawdown probability:",
     "topFeatures": "Top contributing factors",
     "waterfallBase": "base rate",
@@ -323,16 +323,20 @@
   },
   "outcomes": {
     "toggle": "What happened at this risk level before",
-    "intro": "Looking back over the last two years: on days when this stock sat in each risk band, what actually happened over the following 20 trading days? These are historical frequencies for this stock — how often it ended higher or lower, the typical range of outcomes, and how often a 10%+ drop or 10%+ jump occurred along the way.",
+    "intro": "Looking back over the last two years: on days when this stock sat in each risk band, what actually happened over the following 20 trading days? These are historical frequencies for this stock — how often it ended higher or lower, the typical range of outcomes, and how often a 10%+ decline or 10%+ rise occurred along the way.",
     "samples": "past occurrences",
     "currentBand": "current level",
-    "insufficient": "small sample — read loosely",
+    "insufficient": "small sample — treat as approximate",
     "noData": "This stock hasn’t traded at this risk level in the lookback window.",
     "range": "Typical outcome range",
     "drawdown10": "10%+ drop occurred",
     "rally10": "10%+ jump occurred",
-    "takeaway": "Note what the score actually shifts: higher risk bands widen the range of outcomes in BOTH directions — bigger drops and bigger jumps become more common — rather than simply making a fall more likely. That is what the risk score measures: turbulence, not direction.",
-    "disclaimer": "Historical frequencies for this stock only — past patterns, not probabilities of what happens next, and not investment advice."
+    "takeaway": "Note what the score actually shifts: higher risk bands widen the range of outcomes in BOTH directions — larger declines and larger rises both become more common — rather than simply making a fall more likely. That is what the risk score measures: the size of the moves, not their direction.",
+    "disclaimer": "Historical frequencies for this stock only — past patterns, not probabilities of what happens next, and not investment advice.",
+    "error": "Couldn’t load the historical outcome distribution right now. Close and reopen this section to try again."
+  },
+  "errors": {
+    "upstreamUnavailable": "Market data is temporarily unavailable — the data provider is limiting requests from this server. Nothing is wrong with this stock; try again in a few minutes."
   },
   "auth": {
     "signIn": "Sign in",
@@ -705,12 +709,12 @@
     "stressTitle": "3. How to read a stress test",
     "stressBody": "A stress test replays real historical conditions — 2008, 2020, 2022 — against this stock’s current behaviour, and asks where its score would sit under those conditions. It is a what-if exercise using past data. It is not a forecast, and nobody is predicting these events will recur.",
     "riskReturnTitle": "4. Risk is not the same as bad",
-    "riskReturnBody": "A high score means turbulence, not doom. Turbulence widens the range of outcomes in both directions — bigger falls and bigger jumps both become more likely. Whether that suits you depends on your own horizon and circumstances, which this site knows nothing about.",
+    "riskReturnBody": "A high score means large movement, not certain loss. Larger movement widens the range of outcomes in both directions — bigger falls and bigger rises both become more likely. Whether that suits you depends on your own horizon and circumstances, which this site knows nothing about.",
     "riskReturnWarn": "This site never tells you what to buy or sell, never sets price targets, and cannot judge whether something suits you. For decisions that matter, talk to a qualified adviser.",
     "glossaryTitle": "5. Glossary",
     "glossaryBody": "Plain definitions for the terms used across the site.",
     "terms": {
-      "riskScore": "Risk score — a 0-100 percentile ranking this stock against its own recent history. Higher means more turbulent than its own normal. Not a probability, not a recommendation.",
+      "riskScore": "Risk score — a 0-100 percentile ranking this stock against its own recent history. A higher value means it is currently moving more than its own normal. Not a probability, not a recommendation.",
       "percentile": "Percentile — where today’s reading sits inside a sorted history. 90 means only 10% of the past two years was more extreme.",
       "volatility": "Volatility — how much the price moves day to day, in either direction. It measures spread, not direction, so a steadily rising stock can still read high.",
       "downsideDeviation": "Downside deviation — like volatility, but counting only the falls. Useful when you care about drops rather than movement in general.",
