@@ -44,8 +44,16 @@ from cachetools import TTLCache
 from loguru import logger
 
 from ..config import settings
+from ..errors import TickerNotFoundError, UpstreamUnavailableError
 from .cn_names import cn_name
+from .quality import SOURCE_ATTR
 from .validation import validate_ohlcv
+
+# Re-exported: UpstreamUnavailableError moved to stock_risk.errors when the
+# rest of the failure taxonomy was defined there, but this is the import path
+# the API layer and the tests have always used, and this is still the module
+# that raises it.
+__all__ = ["MarketDataFetcher", "UpstreamUnavailableError"]
 
 # Market data (price history, VIX, options IV) moves within a trading day —
 # 15 minutes bounds staleness without re-fetching on every request.
@@ -97,19 +105,6 @@ def _akshare_cn_symbol(ticker: str) -> str:
 def _akshare_hk_symbol(ticker: str) -> str:
     """"0700.HK" -> "00700" — akshare's HK functions want a 5-digit code."""
     return ticker.upper().removesuffix(".HK").zfill(5)
-
-
-class UpstreamUnavailableError(RuntimeError):
-    """Every price source for this ticker failed and no snapshot could stand
-    in for them.
-
-    Subclasses RuntimeError so existing callers that catch RuntimeError keep
-    working; it exists so the API layer can tell "the upstream provider is
-    throttling us right now" (a 503 the user can retry) apart from a genuine
-    bug in our own code (a 500), instead of collapsing both into
-    "Internal scoring error" — which is what a first-time visitor saw on the
-    card when Yahoo rate-limited a ticker with no snapshot.
-    """
 
 
 class _TimeoutSession(requests.Session):
@@ -209,7 +204,9 @@ class MarketDataFetcher:
                     df = self._fetch_yfinance(ticker, period, interval, start, end)
 
                 if df.empty:
-                    raise ValueError(f"No data returned for ticker '{ticker}'")
+                    raise TickerNotFoundError(
+                        f"No data returned for ticker '{ticker}'", ticker=ticker
+                    )
                 df = validate_ohlcv(df, ticker)
             except Exception as exc:
                 # [IP-block resilience] Yahoo throttles shared datacenter IPs
@@ -226,17 +223,25 @@ class MarketDataFetcher:
                         f"{ticker}: live fetch failed ({exc}) — serving snapshot "
                         f"through {snap.index[-1].date()}"
                     )
+                    snap.attrs[SOURCE_ATTR] = "snapshot"
                     return snap
                 if isinstance(exc, ValueError):
-                    # An empty result or a failed OHLCV validation means the
-                    # symbol itself is wrong/unsupported — a 404, not an
-                    # upstream outage. Keep that distinction intact.
+                    # An empty result or a failed OHLCV validation is a problem
+                    # with the symbol or with the data itself, not an upstream
+                    # outage — the two carry different ScoreErrorCodes (see
+                    # stock_risk/errors.py), so re-raise rather than collapsing
+                    # them into UPSTREAM_UNAVAILABLE here.
                     raise
                 raise UpstreamUnavailableError(
                     f"No price data available for '{ticker}': every source failed "
-                    f"({exc}) and no snapshot could stand in."
+                    f"({exc}) and no snapshot could stand in.",
+                    ticker=ticker,
                 ) from exc
             self._save_snapshot(ticker, period, interval, df)
+            # Provenance for data/quality.py's delisted check: only a frame we
+            # genuinely just fetched can testify that the market has not
+            # printed a bar in a month. See check_history_scorable.
+            df.attrs[SOURCE_ATTR] = "live"
             return df
 
         return self._cached(self._fast_cache, key, _do)

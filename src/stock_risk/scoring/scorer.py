@@ -14,6 +14,7 @@ from ..config import settings
 from ..data.fetcher import MarketDataFetcher
 from ..data.known_symbols import known_symbol_name
 from ..data.preprocessor import DataPreprocessor
+from ..data.quality import check_history_scorable
 from ..features.risk_metrics import RiskMetrics
 from ..features.technical import TechnicalFeatures
 from . import risk_categories
@@ -189,6 +190,11 @@ class RiskScorer:
         period = period if period in self._BASELINE_PERIODS else "2y"
 
         raw = self.fetcher.fetch_history(ticker, period=period)
+        # Applied to the requested ticker only, never to the benchmark below:
+        # a thin benchmark degrades the sensitivity category (already handled
+        # by the try/except there), while a thin *subject* means the headline
+        # number itself would be warm-up noise dressed as a percentile.
+        check_history_scorable(raw, ticker)
         df = self.preprocessor.process(raw)
         df = self.tech.compute(df)
 
@@ -377,6 +383,7 @@ class RiskScorer:
             fetch_period = "2y"
 
         raw = self.fetcher.fetch_history(ticker, period=fetch_period)
+        check_history_scorable(raw, ticker)  # same floor as score() — see data/quality.py
         df = self.preprocessor.process(raw)
         df = self.tech.compute(df)
 

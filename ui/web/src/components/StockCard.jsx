@@ -34,6 +34,10 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   const [timeseries, setTimeseries] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Bumped by the retry button, which is offered for UPSTREAM_UNAVAILABLE only
+  // (see api.js) — the one failure the identical request can recover from.
+  // A counter rather than a boolean so a second retry re-triggers the effect.
+  const [retryCount, setRetryCount] = useState(0)
   // Separate from `loading`: a timeframe switch refreshes only the
   // window-scoped sections, so the card must not fall back to the full
   // skeleton and throw away the score hero that isn't changing.
@@ -51,10 +55,11 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
         if (!cancelled) setScore(sc)
       })
       .catch((err) => {
-        // Kept as {message, code} rather than a rendered string so the copy is
-        // translated at render time — a language switch while the error is on
-        // screen has to move it too.
-        if (!cancelled) setError({ message: err.message, code: err.code })
+        // Kept as {message, code, retryable} rather than a rendered string so
+        // the copy is translated at render time — a language switch while the
+        // error is on screen has to move it too.
+        if (!cancelled)
+          setError({ message: err.message, code: err.code, retryable: err.retryable })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -62,7 +67,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
     return () => {
       cancelled = true
     }
-  }, [ticker])
+  }, [ticker, retryCount])
 
   // Timeseries — keyed on BOTH ticker and period, and with no early-out. An
   // earlier version fetched it alongside the score on mount and then bailed
@@ -183,9 +188,23 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           </div>
           {loading && <CardSkeleton />}
           {error && !loading && (
-            <div className="animate-fade-in flex items-center justify-center gap-1.5 px-8 py-12 text-sm text-down">
-              <CircleAlert aria-hidden="true" size={16} color="currentColor" />{' '}
-              {error.code ? t(error.code) : error.message}
+            <div className="animate-fade-in flex flex-col items-center justify-center gap-3 px-8 py-12">
+              <div className="flex items-center justify-center gap-1.5 text-center text-sm text-down">
+                <CircleAlert aria-hidden="true" size={16} color="currentColor" />{' '}
+                {error.code ? t(error.code) : error.message}
+              </div>
+              {/* Retry is deliberately absent for the other four codes: a bad
+                  symbol, a too-short history and a delisted name all fail the
+                  same way on the second press, and a button that cannot work
+                  is worse than none — it reads as "this was a fluke". */}
+              {error.retryable && (
+                <button
+                  onClick={() => setRetryCount((n) => n + 1)}
+                  className="rounded-lg border border-border px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition-all duration-150 hover:border-accent/40 hover:bg-surface2 active:scale-95"
+                >
+                  {t('errors.retry')}
+                </button>
+              )}
             </div>
           )}
         </div>

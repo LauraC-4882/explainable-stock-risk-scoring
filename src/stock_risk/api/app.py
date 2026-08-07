@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -38,8 +39,8 @@ from ..auth.security import (
     verify_password,
 )
 from ..config import settings
-from ..data.fetcher import UpstreamUnavailableError
 from ..db import engine, get_session, init_db
+from ..errors import ScoreErrorCode, classify_scoring_error
 from ..moderation import check_post_body
 from ..monitoring.metrics import ModelMonitor
 from ..outcomes import compute_outcome_distribution
@@ -54,6 +55,7 @@ from ..security import (
     client_key,
     record_audit,
 )
+from .errors import ERROR_SPECS, ScoringHTTPError, scoring_error_handler
 from .schemas import ScoreResponse
 
 app = FastAPI(
@@ -362,15 +364,53 @@ def api_search(q: str = Query(..., min_length=1, description="Ticker or company 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
-# StockCard renders the backend's `detail` verbatim, so this string is UI copy,
-# not a log line: it has to say what happened and what to do about it. The
-# frontend replaces it with a translated equivalent on 503 (see api.js), but
-# this remains the honest answer for anyone hitting the API directly.
-UPSTREAM_UNAVAILABLE_DETAIL = (
-    "Market data is temporarily unavailable — the upstream data provider is "
-    "rate-limiting this server and no cached snapshot covers this symbol. "
-    "Please try again in a few minutes."
-)
+app.add_exception_handler(ScoringHTTPError, scoring_error_handler)
+
+# Kept as a module-level name because it is what the 503 body actually says
+# and several tests and callers refer to it; the string itself now lives in
+# the one table that owns every scoring error's copy (api/errors.py).
+UPSTREAM_UNAVAILABLE_DETAIL = ERROR_SPECS[ScoreErrorCode.UPSTREAM_UNAVAILABLE].message
+
+
+@contextmanager
+def _scoring_errors(ticker: str, operation: str):
+    """Turn anything raised inside into a typed, safe error response.
+
+    This is the single funnel every scoring path goes through, and it exists
+    because the alternative — a per-endpoint ladder of `except` clauses — is
+    exactly how the three scoring endpoints ended up with three different
+    ideas of what a failure means. Now there is one classifier
+    (`classify_scoring_error`), one copy table (`ERROR_SPECS`), and one place
+    that decides how loudly to log.
+
+    Crucially, `str(exc)` never leaves this function. It goes to the log with
+    the ticker and the operation attached; the caller gets the code's own
+    vetted message and nothing else.
+    """
+    try:
+        yield
+    except HTTPException:
+        # Already a deliberate HTTP response (including a ScoringHTTPError
+        # raised further in) — re-raise untouched rather than reclassifying
+        # someone else's considered answer as a calculation failure.
+        raise
+    except Exception as exc:
+        code = classify_scoring_error(exc)
+        message = f"{operation} failed for {ticker} [{code.value}]: {exc}"
+        level = ERROR_SPECS[code].log_level
+        if level == "exception":
+            # Full traceback: CALCULATION_FAILED means we do not yet know what
+            # happened, and this log line is the only record of it — the user
+            # is deliberately told nothing.
+            logger.exception(message)
+        elif level == "warning":
+            # One line, no traceback: an upstream throttle is an expected
+            # operating condition for this deployment (see fetcher.py's module
+            # docstring), and a traceback per request would bury real errors.
+            logger.warning(message)
+        else:
+            logger.info(message)
+        raise ScoringHTTPError(code, ticker=ticker) from exc
 
 
 def _score_ticker(ticker: str, period: str) -> dict:
@@ -382,16 +422,14 @@ def _score_ticker(ticker: str, period: str) -> dict:
     there is exactly one implementation, so a fix here can't miss the other
     route the way editing one copy and forgetting the other did.
 
-    ValueError -> 404 (a user-fixable "no data for this ticker" case);
-    UpstreamUnavailableError -> 503 (the data provider is throttling us and no
-    snapshot could stand in — retryable, and not our bug);
-    anything else -> logged with full traceback, then a generic 500 (detail
-    intentionally doesn't leak internals).
+    Every failure mode is classified and answered by `_scoring_errors` — see
+    stock_risk/errors.py for the taxonomy and api/errors.py for what each code
+    turns into on the wire.
     """
     if MOCK_MODE:
         return _mock_score
 
-    try:
+    with _scoring_errors(ticker, "Scoring"):
         # [R2] Cache-first with single-flight. A cold score is a ~2.7s upstream
         # round trip, so twenty concurrent requests for a popular ticker used
         # to launch twenty identical fetches — the classic stampede, and one
@@ -404,17 +442,6 @@ def _score_ticker(ticker: str, period: str) -> dict:
             f"{ticker.upper()}:{period}",
             lambda: scorer.score(ticker.upper(), period=period),
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except UpstreamUnavailableError as exc:
-        # Not logger.exception: an upstream throttle is an expected operating
-        # condition for this deployment (see fetcher.py's module docstring),
-        # and a full traceback per request would bury the real errors.
-        logger.warning(f"Upstream data unavailable for {ticker}: {exc}")
-        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE_DETAIL)
-    except Exception as exc:
-        logger.exception(f"Error scoring {ticker}: {exc}")
-        raise HTTPException(status_code=500, detail="Internal scoring error")
 
     # Isolated from the try/except above on purpose: a monitoring failure is
     # never allowed to fail a scoring request, so it gets its own try/except
@@ -495,16 +522,8 @@ def api_timeseries(ticker: str, period: str = "6mo"):
     """Return the daily risk score history for the selected period."""
     if MOCK_MODE:
         return _mock_timeseries
-    try:
+    with _scoring_errors(ticker, "Timeseries"):
         return scorer.score_timeseries(ticker.upper(), period=period)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except UpstreamUnavailableError as exc:
-        logger.warning(f"Upstream data unavailable for {ticker} timeseries: {exc}")
-        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE_DETAIL)
-    except Exception as exc:
-        logger.exception(f"Timeseries error for {ticker}: {exc}")
-        raise HTTPException(status_code=500, detail="Internal error")
 
 
 @app.get("/api/score/{ticker}/outcomes")
@@ -517,17 +536,9 @@ def api_outcomes(ticker: str):
     sample sizes are as large as the data allows."""
     if MOCK_MODE:
         return _mock_outcomes
-    try:
+    with _scoring_errors(ticker, "Outcomes"):
         rows = scorer.score_timeseries(ticker.upper(), period="2y")
         return compute_outcome_distribution(rows)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except UpstreamUnavailableError as exc:
-        logger.warning(f"Upstream data unavailable for {ticker} outcomes: {exc}")
-        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE_DETAIL)
-    except Exception as exc:
-        logger.exception(f"Outcomes error for {ticker}: {exc}")
-        raise HTTPException(status_code=500, detail="Internal error")
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────

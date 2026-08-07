@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext'
 import { LanguageProvider } from '../i18n/LanguageContext'
@@ -91,6 +92,7 @@ describe('StockCard', () => {
     // api.js tags this one status with a key precisely so it can be localised.
     const err = new Error('Market data is temporarily unavailable — …')
     err.code = 'errors.upstreamUnavailable'
+    err.retryable = true
     apiScore.mockRejectedValue(err)
     apiTimeseries.mockResolvedValue([])
 
@@ -98,6 +100,59 @@ describe('StockCard', () => {
 
     expect(await screen.findByText(/data provider is limiting requests/)).toBeInTheDocument()
     expect(screen.queryByText(/Internal/)).not.toBeInTheDocument()
+  })
+
+  // One code per failure mode, each with its own sentence — the whole point of
+  // the taxonomy. Before it, all five of these read "Internal scoring error",
+  // which told the user nothing about which of them had happened or whether
+  // anything they could do would help.
+  it.each([
+    ['errors.tickerNotFound', /Ticker not found/],
+    ['errors.insufficientData', /at least 60 trading days/],
+    ['errors.calculationFailed', /Scoring failed for this stock/],
+    ['errors.delisted', /suspended or delisted/],
+  ])('shows the message specific to %s', async (code, expected) => {
+    const err = new Error('english fallback nobody should see')
+    err.code = code
+    err.retryable = false
+    apiScore.mockRejectedValue(err)
+    apiTimeseries.mockResolvedValue([])
+
+    renderCard()
+
+    expect(await screen.findByText(expected)).toBeInTheDocument()
+    expect(screen.queryByText('english fallback nobody should see')).not.toBeInTheDocument()
+  })
+
+  it('offers a retry only for the failure a retry can fix, and it refetches', async () => {
+    const outage = new Error('throttled')
+    outage.code = 'errors.upstreamUnavailable'
+    outage.retryable = true
+    apiScore.mockRejectedValueOnce(outage).mockResolvedValueOnce(scoreTsla)
+    apiTimeseries.mockResolvedValue(timeseriesTsla)
+
+    const user = userEvent.setup()
+    renderCard()
+
+    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+
+    // The retry has to actually re-request — a button that only clears the
+    // error would flash the skeleton and land back on the same message.
+    await waitFor(() => expect(apiScore).toHaveBeenCalledTimes(2))
+    expect(await screen.findByRole('heading', { name: /Tesla/i })).toBeInTheDocument()
+  })
+
+  it('offers no retry for a failure the same request cannot recover from', async () => {
+    const err = new Error('no such ticker')
+    err.code = 'errors.tickerNotFound'
+    err.retryable = false
+    apiScore.mockRejectedValue(err)
+    apiTimeseries.mockResolvedValue([])
+
+    renderCard()
+
+    await screen.findByText(/Ticker not found/)
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   it('does not print the ticker twice when no company name or sector came back', async () => {

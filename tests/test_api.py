@@ -137,11 +137,19 @@ def test_throttled_upstream_is_a_503_not_an_internal_error():
 
 def test_a_real_internal_error_is_still_a_500():
     """The 503 branch must not swallow genuine bugs into a retry-later
-    message — that would hide exactly the failures worth paging on."""
+    message — that would hide exactly the failures worth paging on.
+
+    The body is now the typed one (CALCULATION_FAILED, plus a message the user
+    can read) rather than the old bare "Internal scoring error"; what has not
+    changed, and what this test is here for, is that a bug stays a 500 and
+    never borrows another code's more forgiving status. Full per-code coverage
+    lives in tests/test_scoring_errors.py."""
     with patch.object(RiskScorer, "score", side_effect=RuntimeError("genuine bug")):
         response = client.get("/api/score/REALBUG")
     assert response.status_code == 500
-    assert response.json()["detail"] == "Internal scoring error"
+    body = response.json()
+    assert body["error"] == "CALCULATION_FAILED"
+    assert "genuine bug" not in response.text
 
 
 def _synthetic_raw_ohlcv(n: int = 400, seed: int = 3) -> pd.DataFrame:

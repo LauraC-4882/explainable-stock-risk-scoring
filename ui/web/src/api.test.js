@@ -71,38 +71,71 @@ describe('token refresh plumbing', () => {
   })
 })
 
-// A 503 from /api/score means the upstream market-data provider is throttling
-// this server (app.py: UPSTREAM_UNAVAILABLE_DETAIL) — a known, retryable cause
-// rather than a bug here. The card needs to know that to show translated copy
-// instead of the backend's English sentence.
+// The backend classifies every scoring failure into one of five codes
+// (src/stock_risk/errors.py) and returns it as `error` in the body. apiScore
+// turns that into an i18n key so the card shows translated copy instead of the
+// backend's English sentence, plus a `retryable` flag the card uses to decide
+// whether a retry button could possibly help.
 describe('apiScore error classification', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('tags a 503 with a translation key', async () => {
+  function failWith(status, body) {
     global.fetch = vi.fn(async () => ({
       ok: false,
-      status: 503,
+      status,
       headers: { get: () => null },
-      json: async () => ({ detail: 'Market data is temporarily unavailable — …' }),
+      json: async () => body,
     }))
+  }
 
-    await expect(apiScore('AAPL')).rejects.toMatchObject({
-      code: 'errors.upstreamUnavailable',
-    })
+  it.each([
+    ['TICKER_NOT_FOUND', 404, 'errors.tickerNotFound'],
+    ['INSUFFICIENT_DATA', 422, 'errors.insufficientData'],
+    ['UPSTREAM_UNAVAILABLE', 503, 'errors.upstreamUnavailable'],
+    ['CALCULATION_FAILED', 500, 'errors.calculationFailed'],
+    ['DELISTED', 422, 'errors.delisted'],
+  ])('maps %s to its own translation key', async (code, status, key) => {
+    failWith(status, { error: code, message: 'english copy', status, ticker: 'AAPL' })
+
+    const error = await apiScore('AAPL').catch((e) => e)
+    expect(error.code).toBe(key)
+    expect(error.errorCode).toBe(code)
+    expect(error.status).toBe(status)
   })
 
-  it('leaves other failures untagged so their detail still surfaces verbatim', async () => {
-    global.fetch = vi.fn(async () => ({
-      ok: false,
-      status: 404,
-      headers: { get: () => null },
-      json: async () => ({ detail: "No data returned for ticker 'ZZZZ'" }),
-    }))
+  it('marks only the upstream outage retryable', async () => {
+    // A misspelled symbol, a too-short history and a delisted name fail
+    // identically on the second press — a retry button there would read as
+    // "that was a fluke" and waste the user's time.
+    for (const code of ['TICKER_NOT_FOUND', 'INSUFFICIENT_DATA', 'CALCULATION_FAILED', 'DELISTED']) {
+      failWith(422, { error: code, message: 'x' })
+      const error = await apiScore('AAPL').catch((e) => e)
+      expect(error.retryable, code).toBe(false)
+    }
+
+    failWith(503, { error: 'UPSTREAM_UNAVAILABLE', message: 'x' })
+    const outage = await apiScore('AAPL').catch((e) => e)
+    expect(outage.retryable).toBe(true)
+  })
+
+  it('still recognises a 503 that carries no code', async () => {
+    // A proxy or load balancer in front of this app answers with its own body;
+    // the status alone still means the same thing, and this was the only
+    // inference the pre-taxonomy client made.
+    failWith(503, { detail: 'Service Unavailable' })
+
+    const error = await apiScore('AAPL').catch((e) => e)
+    expect(error.code).toBe('errors.upstreamUnavailable')
+    expect(error.retryable).toBe(true)
+  })
+
+  it('falls back to the server message when there is no code to key off', async () => {
+    failWith(404, { detail: 'Not Found' })
 
     const error = await apiScore('ZZZZ').catch((e) => e)
-    expect(error.code).toBeUndefined()
-    expect(error.message).toBe("No data returned for ticker 'ZZZZ'")
+    expect(error.code).toBeNull()
+    expect(error.message).toBe('Not Found')
   })
 })

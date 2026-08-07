@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 import pandera.pandas as pa
 
+from ..errors import CalculationFailedError
+
 # Must match DataPreprocessor.max_gap_days — this checks that raw fetched
 # data doesn't have gaps too large for _fill_gaps's ffill(limit=...) to
 # safely paper over. 8, not 5: measured live against real CN A-share data
@@ -28,13 +30,17 @@ import pandera.pandas as pa
 MAX_GAP_TRADING_DAYS = 8
 
 
-class DataValidationError(ValueError):
+class DataValidationError(CalculationFailedError, ValueError):
     """Raised when fetched OHLCV data violates the data contract.
 
-    Subclasses ValueError so it flows through the same
-    `except ValueError -> 404` handling every other "no valid data for this
-    ticker" case already uses (see api/app.py's _score_ticker) — a data
-    contract violation is a data problem, not a server bug.
+    Classified as CALCULATION_FAILED, not TICKER_NOT_FOUND: high < low or a
+    negative price means the symbol is fine and the *data* is unusable, so
+    telling the user to check their spelling would be a lie. It also earns a
+    full server-side traceback — a contract violation means either upstream
+    changed shape or our contract is wrong, and both are worth looking at.
+
+    Still subclasses ValueError so the `except ValueError` clauses elsewhere
+    (portfolio aggregation, the backtest endpoint) catch it exactly as before.
     """
 
 

@@ -336,7 +336,12 @@
     "error": "Couldn’t load the historical outcome distribution right now. Close and reopen this section to try again."
   },
   "errors": {
-    "upstreamUnavailable": "Market data is temporarily unavailable — the data provider is limiting requests from this server. Nothing is wrong with this stock; try again in a few minutes."
+    "upstreamUnavailable": "Market data is temporarily unavailable — the data provider is limiting requests from this server. Nothing is wrong with this stock; try again in a few minutes.",
+    "tickerNotFound": "Ticker not found — check the symbol.",
+    "insufficientData": "Not enough listing history — this stock needs at least 60 trading days.",
+    "calculationFailed": "Scoring failed for this stock.",
+    "delisted": "This stock may be suspended or delisted.",
+    "retry": "Try again"
   },
   "auth": {
     "signIn": "Sign in",

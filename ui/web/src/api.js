@@ -78,6 +78,42 @@ export async function apiSearch(query) {
   return res.ok ? res.json() : []
 }
 
+// ── Scoring errors ───────────────────────────────────────────────────────────
+// The backend classifies every scoring failure into one of five codes
+// (src/stock_risk/errors.py) and returns it as `error` in the response body.
+// That code is the contract; `message` is English prose meant for direct API
+// callers and will be reworded, so nothing here ever switches on the text.
+const SCORE_ERROR_KEYS = {
+  TICKER_NOT_FOUND: 'errors.tickerNotFound',
+  INSUFFICIENT_DATA: 'errors.insufficientData',
+  UPSTREAM_UNAVAILABLE: 'errors.upstreamUnavailable',
+  CALCULATION_FAILED: 'errors.calculationFailed',
+  DELISTED: 'errors.delisted',
+}
+
+// Only a throttled/failed upstream can plausibly succeed on the same request a
+// minute later. Offering "retry" for a misspelled symbol, a three-week-old IPO
+// or a delisted name would just invite the user to fail again identically —
+// which is worse than no button, because it implies the failure was a fluke.
+const RETRYABLE_ERROR_KEYS = new Set([SCORE_ERROR_KEYS.UPSTREAM_UNAVAILABLE])
+
+function scoringError(body, status, fallback) {
+  const error = new Error(body.message || body.detail || fallback)
+  // Machine code, for anything that needs to branch on the specific failure.
+  error.errorCode = body.error ?? null
+  // i18n key — the card renders `t(code)` so a language switch while the error
+  // is on screen moves it too. Null means "no key, show the message as-is".
+  error.code =
+    SCORE_ERROR_KEYS[body.error] ??
+    // A 503 with no code is either a pre-taxonomy backend or a proxy/load
+    // balancer in front of this app; it still means the same thing, so keep
+    // the one status inference that was already load-bearing here.
+    (status === 503 ? SCORE_ERROR_KEYS.UPSTREAM_UNAVAILABLE : null)
+  error.status = status
+  error.retryable = RETRYABLE_ERROR_KEYS.has(error.code)
+  return error
+}
+
 // Deliberately takes no `period`: the composite is a percentile rank against
 // a fixed ~2y baseline (scoring/scorer.py floors it), so the card's score is
 // the same answer for every timeframe. Passing one would cost a full
@@ -87,15 +123,8 @@ export async function apiSearch(query) {
 export async function apiScore(ticker) {
   const res = await fetch(`/api/score/${ticker}`)
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const error = new Error(err.detail || 'Failed to fetch score')
-    // 503 means the upstream market-data provider is throttling this server
-    // (app.py: UPSTREAM_UNAVAILABLE_DETAIL) — a known, retryable cause, not a
-    // bug here. The card renders `detail` verbatim, which would put an English
-    // sentence on a Chinese screen, so hand it a translation key for the one
-    // status whose cause we actually know.
-    if (res.status === 503) error.code = 'errors.upstreamUnavailable'
-    throw error
+    const body = await res.json().catch(() => ({}))
+    throw scoringError(body, res.status, 'Failed to fetch score')
   }
   return res.json()
 }
