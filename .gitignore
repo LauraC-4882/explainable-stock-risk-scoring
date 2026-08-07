@@ -37,3 +37,10 @@ simulation_reports/
 # A stray npx run from the repo root creates a root node_modules —
 # ui/web has its own ignore; this keeps the root immune too.
 node_modules/
+# A working clone of this same repo, nested inside the checkout. Its contents
+# are already out of reach of `git add -A` (git will not descend into a
+# directory that has its own .git, and its own .gitignore covers the .env it
+# carries) — this line is belt-and-braces so the directory also stops showing
+# up as untracked, and so the protection does not depend on the inner repo
+# keeping its .gitignore.
+explainable-stock-risk-scoring/
