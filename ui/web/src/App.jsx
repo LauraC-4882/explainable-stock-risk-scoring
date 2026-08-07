@@ -21,7 +21,7 @@ import EmptyState from './components/EmptyState'
 import Footer from './components/Footer'
 import Header from './components/Header'
 import MarketSwitcher from './components/MarketSwitcher'
-import SearchBar from './components/SearchBar'
+import SearchBar, { marketForTicker } from './components/SearchBar'
 import Starfield from './components/Starfield'
 import StockCard from './components/StockCard'
 import TimeframeSelector from './components/TimeframeSelector'
@@ -42,6 +42,15 @@ export default function App() {
   function addStock(rawTicker) {
     const ticker = rawTicker.toUpperCase().trim()
     if (!ticker) return
+    // The symbol decides the bucket, not whatever the switcher happened to be
+    // left on. Opening a Shanghai listing while it still reads "US" leaves the
+    // search placeholder advertising the wrong market and the next query read
+    // against the wrong one — and since "US" is the state every visit starts
+    // in, that was the common case, not the corner case. Only ever moved *to*
+    // a market the symbol actually names, so a US ticker never drags a
+    // deliberately-set "China" switcher back.
+    const detected = marketForTicker(ticker)
+    if (detected && detected !== market) setMarket(detected)
     // Newest first: a freshly searched stock lands at the top of the stack
     // rather than below however many dashboards are already open, which on a
     // full-height bento card meant scrolling past everything to reach the one

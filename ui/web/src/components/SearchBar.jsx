@@ -3,8 +3,8 @@ import { apiSearch } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'
 import { debounce } from '../utils'
 
-// An A-share code entered while in the "China" market bucket is normalized to
-// its Yahoo-style ticker, which is the only form the backend recognises:
+// An A-share code is normalized to its Yahoo-style ticker, which is the only
+// form the backend recognises:
 // data/fetcher.py's _is_cn_ticker() tests for a .SS/.SZ *suffix*, so anything
 // else is routed to yfinance and fails as an unknown symbol. The three shapes
 // a user actually types are all accepted — bare `301189`, exchange-prefixed
@@ -20,18 +20,50 @@ import { debounce } from '../utils'
 // A-share reading — Hong Kong listings are out of scope — so it passes
 // through unchanged and is allowed to fail as the invalid ticker it is,
 // rather than being silently rewritten into an unsupported market.
+//
+// Deliberately not gated on the market switcher. Keying this on
+// `market === 'cn'` meant that typing SZ301189 while the switcher sat on its
+// "US" default — the state every visitor starts in — skipped normalization
+// entirely and sent the raw string to the backend, which is exactly how a user
+// hits "no price data available for 'SZ301189'" while nothing on screen says
+// the switcher was the problem. Nothing here can misfire on a US symbol: US
+// listings are alphabetic, so no 6-digit numeric code has a US reading to lose.
 const CN_CODE = /^(?:S[HZ])?(\d{6})(?:\.S[HZS])?$/
 
-export function normalizeTicker(raw, market) {
-  const v = raw.trim().toUpperCase()
-  if (market === 'cn') {
-    const match = v.match(CN_CODE)
-    if (match) {
-      const code = match[1]
-      return code + (code.startsWith('6') ? '.SS' : '.SZ')
-    }
+// Exchange qualifiers people paste in from other terminals: Bloomberg writes
+// "GOOGL US", Wind/Choice and several screeners write "GOOGL.US". Both mean
+// the plain US symbol, which is the only form Twelve Data and yfinance accept
+// — left alone, they reach the backend as unknown symbols. Anchored to the end
+// and requiring a separator, so real tickers containing "US" (USB, USO) and
+// the symbol "US" itself are untouched.
+const US_QUALIFIER = /[.\s]US$/
+
+export function normalizeTicker(raw) {
+  // NFKC first, before anything inspects the characters: a Chinese keyboard
+  // defaults to a full-width IME, so "ＡＡＰＬ" and "３０１１８９" are ordinary
+  // typing here, not an edge case, and neither matches any pattern below in
+  // its raw form. (Full-width spaces need no special handling — JS trim()
+  // already treats U+3000 as whitespace.)
+  const v = raw.normalize('NFKC').trim().toUpperCase()
+  // Internal spaces stripped so "SZ 301189" reads the same as "SZ301189";
+  // no A-share code has a meaningful space in it. Tried before the US
+  // qualifier because a 6-digit code can never carry one.
+  const match = v.replace(/\s+/g, '').match(CN_CODE)
+  if (match) {
+    const code = match[1]
+    return code + (code.startsWith('6') ? '.SS' : '.SZ')
   }
-  return v
+  return v.replace(/\s+/g, ' ').replace(US_QUALIFIER, '')
+}
+
+// Which market bucket an already-normalized ticker belongs to, or null when
+// the symbol says nothing about it. Read by App.addStock rather than by this
+// component, so every entry point that opens a card — the watchlist, the
+// header's quick-open, the empty state — moves the switcher too, not just the
+// search box. A switcher stuck on "US" above a Shanghai card is its own bug:
+// it drives the placeholder copy and what the *next* search is read against.
+export function marketForTicker(ticker) {
+  return /\.S[SZ]$/.test(ticker.trim().toUpperCase()) ? 'cn' : null
 }
 
 export default function SearchBar({ market, onAdd }) {
@@ -98,7 +130,7 @@ export default function SearchBar({ market, onAdd }) {
         pick(results[highlight >= 0 ? highlight : 0].symbol)
         return
       }
-      const v = normalizeTicker(query, market)
+      const v = normalizeTicker(query)
       if (v) {
         onAdd(v)
         setQuery('')
