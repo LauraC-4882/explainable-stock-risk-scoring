@@ -3,18 +3,33 @@ import { apiSearch } from '../api'
 import { useLanguage } from '../i18n/LanguageContext'
 import { debounce } from '../utils'
 
-// A bare numeric code entered while in the "China" market bucket is
-// normalized to its Yahoo-style A-share ticker; anything already carrying a
-// suffix (or entered in US mode) passes through untouched. A-share codes are
-// always exactly 6 digits (6xxxxx on Shanghai/.SS, 0xxxxx/3xxxxx on
-// Shenzhen/.SZ). Any other digit count has no A-share reading — Hong Kong
-// listings are out of scope — so it passes through unchanged and is allowed
-// to fail as the invalid ticker it is, rather than being silently rewritten
-// into an unsupported market.
-function normalizeTicker(raw, market) {
+// An A-share code entered while in the "China" market bucket is normalized to
+// its Yahoo-style ticker, which is the only form the backend recognises:
+// data/fetcher.py's _is_cn_ticker() tests for a .SS/.SZ *suffix*, so anything
+// else is routed to yfinance and fails as an unknown symbol. The three shapes
+// a user actually types are all accepted — bare `301189`, exchange-prefixed
+// `SZ301189` (what Eastmoney/Futu display), and suffixed `301189.SZ` — plus
+// `.SH` for Shanghai, which is the common way to write what Yahoo spells .SS.
+//
+// The exchange is derived from the code, not from whatever the user wrote:
+// 6xxxxx is Shanghai (600/601/603 main board, 688 STAR) and everything else
+// in the 6-digit space is Shenzhen (000 main board, 300/301 ChiNext), so a
+// wrong prefix/suffix is corrected rather than trusted.
+//
+// A-share codes are always exactly 6 digits. Any other digit count has no
+// A-share reading — Hong Kong listings are out of scope — so it passes
+// through unchanged and is allowed to fail as the invalid ticker it is,
+// rather than being silently rewritten into an unsupported market.
+const CN_CODE = /^(?:S[HZ])?(\d{6})(?:\.S[HZS])?$/
+
+export function normalizeTicker(raw, market) {
   const v = raw.trim().toUpperCase()
-  if (market === 'cn' && /^\d{6}$/.test(v)) {
-    return v + (v.startsWith('6') ? '.SS' : '.SZ')
+  if (market === 'cn') {
+    const match = v.match(CN_CODE)
+    if (match) {
+      const code = match[1]
+      return code + (code.startsWith('6') ? '.SS' : '.SZ')
+    }
   }
   return v
 }
