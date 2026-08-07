@@ -44,6 +44,7 @@ from cachetools import TTLCache
 from loguru import logger
 
 from ..config import settings
+from .cn_names import cn_name
 from .validation import validate_ohlcv
 
 # Market data (price history, VIX, options IV) moves within a trading day —
@@ -425,21 +426,57 @@ class MarketDataFetcher:
         return df
 
     def fetch_info(self, ticker: str) -> dict:
-        """Return key fundamentals/metadata for *ticker*."""
+        """Return key fundamentals/metadata for *ticker*.
+
+        Still yfinance-only. For A-shares the company *name* alone has an
+        offline fallback (data/cn_names.py), because Yahoo covers A-shares
+        poorly even when it isn't throttling and returns nothing at all when
+        it is — leaving the scorecard to echo the ticker as its own company
+        name. Nothing else here falls back: every other key is a live
+        fundamental that would be wrong to serve from a static file.
+        """
         key = ("info", ticker)
+        keys = [
+            "shortName", "sector", "industry", "marketCap", "beta",
+            "trailingPE", "forwardPE", "dividendYield", "52WeekChange",
+            "sharesOutstanding", "floatShares",
+        ]
 
         def _do() -> dict:
             logger.info(f"Fetching info for {ticker}")
             tk = yf.Ticker(ticker, session=self._session)
-            info = tk.info or {}
-            keys = [
-                "shortName", "sector", "industry", "marketCap", "beta",
-                "trailingPE", "forwardPE", "dividendYield", "52WeekChange",
-                "sharesOutstanding", "floatShares",
-            ]
-            return {k: info.get(k) for k in keys}
+            try:
+                info = tk.info or {}
+            except Exception as exc:
+                # Throttled Yahoo *raises* here rather than returning {} (
+                # YFRateLimitError), so this is the path a real throttle takes.
+                # Swallow it only when the offline table can still answer the
+                # name — otherwise this call has nothing to contribute and the
+                # existing behaviour (propagate; scorer.py logs and degrades to
+                # {}) is the honest one.
+                if not (_is_cn_ticker(ticker) and cn_name(ticker)):
+                    raise
+                logger.warning(
+                    f"Info fetch for {ticker} failed ({exc}) — serving the offline "
+                    f"company name, no live fundamentals"
+                )
+                info = {}
+            result = {k: info.get(k) for k in keys}
+            if result.get("shortName") is None and _is_cn_ticker(ticker):
+                result["shortName"] = cn_name(ticker)
+            return result
 
-        return self._cached(self._slow_cache, key, _do, is_empty=lambda r: not r)
+        def _is_degraded(result: dict) -> bool:
+            """A name-only result is a degraded answer, not a real one.
+
+            Caching it would pin every live fundamental (sector, beta, market
+            cap) as None for a full slow-cache TTL, long after Yahoo recovers —
+            precisely the "false empty result" _cached's is_empty exists to
+            avoid. Not cached ⇒ retried on the next request.
+            """
+            return not result or all(v is None for k, v in result.items() if k != "shortName")
+
+        return self._cached(self._slow_cache, key, _do, is_empty=_is_degraded)
 
     def fetch_news(self, ticker: str, limit: int = 8) -> list[dict]:
         """Return recent news headlines for *ticker* via yfinance (no API key required)."""

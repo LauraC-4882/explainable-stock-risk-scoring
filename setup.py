@@ -6,6 +6,12 @@ setup(
     license="MIT",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    # data/cn_names.json is a committed data file the package reads at runtime
+    # (data/cn_names.py). Both this project's own installs are editable
+    # (`pip install -e .`, locally and in CI), which reads it straight from the
+    # source tree — but without this declaration a plain `pip install .` would
+    # silently ship a package whose A-share company names are all missing.
+    package_data={"stock_risk.data": ["*.json"]},
     python_requires=">=3.10",
     install_requires=[
         "yfinance>=0.2.40",  # kept: options chain/news + index symbols + US fallback w/o a Twelve Data key
