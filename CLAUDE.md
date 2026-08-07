@@ -49,7 +49,7 @@ the file in the same PR that breaks it.
 
 | Command | Status | What it checks |
 |---|---|---|
-| `.venv/bin/python -m pytest tests/ -q` | **live** — 104 passed, 0 failed as of 2026-07-17 | Full test suite |
+| `.venv/bin/python -m pytest tests/ -q` | **live** — 558 passed, 0 failed as of 2026-08-06 (was 104 on 2026-07-17) | Full test suite |
 | `.venv/bin/python -m ruff check src/ tests/` | **live** — clean as of 2026-07-17 | Lint |
 | `bash scripts/ui_shot.sh` | **live** — [D2] landed 2026-07-17; ~15-20s locally, exit 0 | Frontend screenshot round-trip: build, serve (mock data, no network — see below), Playwright-screenshot a real card at 1280px + 375px to `$UI_SHOT_OUT_DIR` (default `/tmp`) |
 | `make restore-drill` | **live** — [R1] landed 2026-07-22; ~2s locally, exit 0 | Restores the newest backup into a scratch database and asserts tables/row counts/revision. Caught a real ordering bug in `latest_backup()` on its first run |
