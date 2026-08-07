@@ -39,6 +39,22 @@ _ENTRIES: list[tuple[str, str, str, tuple[str, ...]]] = [
 ]
 
 
+_NAMES_BY_SYMBOL: dict[str, str] = {symbol.upper(): name for symbol, name, _, _ in _ENTRIES}
+
+
+def known_symbol_name(symbol: str) -> str | None:
+    """Display name for *symbol* from this app's own universe, or None.
+
+    Second use of the same table: `fetch_info` is yfinance-only and returns {}
+    while Yahoo is throttling, which left the scorecard falling back to the
+    ticker for its display name — so the card read "GOOGL / GOOGL" instead of
+    "GOOGL / Alphabet Inc." for exactly the quick-pick symbols a first-time
+    visitor clicks. Static names for a fixed universe don't go stale the way
+    prices do, so this is a safe fallback, not a guess.
+    """
+    return _NAMES_BY_SYMBOL.get(symbol.strip().upper())
+
+
 def search_known_symbols(query: str, limit: int = 6) -> list[dict]:
     """Case-insensitive substring match against symbol, display name, and
     aliases. Returns the same shape /api/search's primary yf.Search path

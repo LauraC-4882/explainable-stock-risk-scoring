@@ -98,6 +98,19 @@ def _akshare_hk_symbol(ticker: str) -> str:
     return ticker.upper().removesuffix(".HK").zfill(5)
 
 
+class UpstreamUnavailableError(RuntimeError):
+    """Every price source for this ticker failed and no snapshot could stand
+    in for them.
+
+    Subclasses RuntimeError so existing callers that catch RuntimeError keep
+    working; it exists so the API layer can tell "the upstream provider is
+    throttling us right now" (a 503 the user can retry) apart from a genuine
+    bug in our own code (a 500), instead of collapsing both into
+    "Internal scoring error" — which is what a first-time visitor saw on the
+    card when Yahoo rate-limited a ticker with no snapshot.
+    """
+
+
 class _TimeoutSession(requests.Session):
     """Injects a default timeout into every request yfinance makes through
     this session. history() takes an explicit timeout= kwarg of its own, but
@@ -204,14 +217,24 @@ class MarketDataFetcher:
                 # nobody. Fall back to the last persisted snapshot (validated
                 # at save time, refreshed daily by CI) and say so loudly; only
                 # fail when there is no snapshot either.
-                snap = self._load_snapshot(ticker, period, interval)
-                if snap is not None and not (start or end):
+                snap = None if (start or end) else self._load_best_snapshot(
+                    ticker, period, interval
+                )
+                if snap is not None and not snap.empty:
                     logger.warning(
                         f"{ticker}: live fetch failed ({exc}) — serving snapshot "
                         f"through {snap.index[-1].date()}"
                     )
                     return snap
-                raise
+                if isinstance(exc, ValueError):
+                    # An empty result or a failed OHLCV validation means the
+                    # symbol itself is wrong/unsupported — a 404, not an
+                    # upstream outage. Keep that distinction intact.
+                    raise
+                raise UpstreamUnavailableError(
+                    f"No price data available for '{ticker}': every source failed "
+                    f"({exc}) and no snapshot could stand in."
+                ) from exc
             self._save_snapshot(ticker, period, interval, df)
             return df
 
@@ -319,9 +342,13 @@ class MarketDataFetcher:
         return df[df.index >= cutoff]
 
     @staticmethod
-    def _snapshot_path(ticker: str, period: str, interval: str) -> Path:
-        safe = ticker.replace("^", "_").replace(".", "_").replace("/", "_")
-        return settings.snapshot_dir / f"{safe}_{period}_{interval}.parquet"
+    def _safe_name(ticker: str) -> str:
+        """Filename-safe ticker: "600519.SS" -> "600519_SS", "^VIX" -> "_VIX"."""
+        return ticker.replace("^", "_").replace(".", "_").replace("/", "_")
+
+    @classmethod
+    def _snapshot_path(cls, ticker: str, period: str, interval: str) -> Path:
+        return settings.snapshot_dir / f"{cls._safe_name(ticker)}_{period}_{interval}.parquet"
 
     def _save_snapshot(self, ticker: str, period: str, interval: str, df: pd.DataFrame) -> None:
         try:
@@ -342,6 +369,60 @@ class MarketDataFetcher:
         except Exception as exc:
             logger.warning(f"Snapshot for {ticker} unreadable: {exc}")
             return None
+
+    def _snapshot_periods(self, ticker: str, interval: str) -> list[str]:
+        """Period strings this ticker actually has a snapshot file for."""
+        safe = self._safe_name(ticker)
+        try:
+            paths = sorted(settings.snapshot_dir.glob(f"{safe}_*_{interval}.parquet"))
+        except Exception as exc:
+            logger.warning(f"Could not list snapshots for {ticker}: {exc}")
+            return []
+        periods = []
+        for path in paths:
+            middle = path.stem[len(safe) + 1 :].rsplit("_", 1)[0]  # strip ticker + interval
+            if middle in _PERIOD_TO_DAYS:
+                periods.append(middle)
+        return periods
+
+    def _load_best_snapshot(
+        self, ticker: str, period: str, interval: str
+    ) -> Optional[pd.DataFrame]:
+        """The snapshot that best serves a *period* request, exact or not.
+
+        The daily refresh cron only persists "2y" (scripts/refresh_snapshots.py),
+        but score_timeseries asks for "5y" — so keying the fallback on an exact
+        period match meant /api/score/AAPL/outcomes 500'd under throttling even
+        though a perfectly usable AAPL snapshot sat right there on disk. Prefer
+        an exact match, then the shortest snapshot that still covers the window,
+        then the longest short one; a shorter-than-asked baseline is degraded
+        (fewer observations behind each percentile) but it is a real answer,
+        which an error page is not.
+        """
+        exact = self._load_snapshot(ticker, period, interval)
+        if exact is not None:
+            return exact
+
+        wanted_days = _PERIOD_TO_DAYS.get(period)
+        available = [p for p in self._snapshot_periods(ticker, interval) if p != period]
+        if wanted_days is None or not available:
+            return None
+
+        covering = sorted(
+            (p for p in available if _PERIOD_TO_DAYS[p] >= wanted_days),
+            key=lambda p: _PERIOD_TO_DAYS[p],
+        )
+        chosen = covering[0] if covering else max(available, key=lambda p: _PERIOD_TO_DAYS[p])
+        df = self._load_snapshot(ticker, chosen, interval)
+        if df is None or df.empty:
+            return None
+        logger.warning(
+            f"{ticker}: no '{period}' snapshot — serving the '{chosen}' one "
+            f"({'trimmed' if _PERIOD_TO_DAYS[chosen] > wanted_days else 'shorter than requested'})"
+        )
+        if _PERIOD_TO_DAYS[chosen] > wanted_days:
+            df = df[df.index >= df.index.max() - pd.Timedelta(days=wanted_days)]
+        return df
 
     def fetch_info(self, ticker: str) -> dict:
         """Return key fundamentals/metadata for *ticker*."""

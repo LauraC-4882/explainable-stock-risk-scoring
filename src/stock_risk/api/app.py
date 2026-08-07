@@ -38,6 +38,7 @@ from ..auth.security import (
     verify_password,
 )
 from ..config import settings
+from ..data.fetcher import UpstreamUnavailableError
 from ..db import engine, get_session, init_db
 from ..moderation import check_post_body
 from ..monitoring.metrics import ModelMonitor
@@ -361,6 +362,17 @@ def api_search(q: str = Query(..., min_length=1, description="Ticker or company 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
+# StockCard renders the backend's `detail` verbatim, so this string is UI copy,
+# not a log line: it has to say what happened and what to do about it. The
+# frontend replaces it with a translated equivalent on 503 (see api.js), but
+# this remains the honest answer for anyone hitting the API directly.
+UPSTREAM_UNAVAILABLE_DETAIL = (
+    "Market data is temporarily unavailable — the upstream data provider is "
+    "rate-limiting this server and no cached snapshot covers this symbol. "
+    "Please try again in a few minutes."
+)
+
+
 def _score_ticker(ticker: str, period: str) -> dict:
     """Shared implementation for /api/score/{ticker} and the legacy
     /score/{ticker} (kept for Streamlit/Prometheus compat — see the legacy
@@ -371,6 +383,8 @@ def _score_ticker(ticker: str, period: str) -> dict:
     route the way editing one copy and forgetting the other did.
 
     ValueError -> 404 (a user-fixable "no data for this ticker" case);
+    UpstreamUnavailableError -> 503 (the data provider is throttling us and no
+    snapshot could stand in — retryable, and not our bug);
     anything else -> logged with full traceback, then a generic 500 (detail
     intentionally doesn't leak internals).
     """
@@ -392,6 +406,12 @@ def _score_ticker(ticker: str, period: str) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except UpstreamUnavailableError as exc:
+        # Not logger.exception: an upstream throttle is an expected operating
+        # condition for this deployment (see fetcher.py's module docstring),
+        # and a full traceback per request would bury the real errors.
+        logger.warning(f"Upstream data unavailable for {ticker}: {exc}")
+        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE_DETAIL)
     except Exception as exc:
         logger.exception(f"Error scoring {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal scoring error")
@@ -479,6 +499,9 @@ def api_timeseries(ticker: str, period: str = "6mo"):
         return scorer.score_timeseries(ticker.upper(), period=period)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except UpstreamUnavailableError as exc:
+        logger.warning(f"Upstream data unavailable for {ticker} timeseries: {exc}")
+        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE_DETAIL)
     except Exception as exc:
         logger.exception(f"Timeseries error for {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal error")
@@ -499,6 +522,9 @@ def api_outcomes(ticker: str):
         return compute_outcome_distribution(rows)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    except UpstreamUnavailableError as exc:
+        logger.warning(f"Upstream data unavailable for {ticker} outcomes: {exc}")
+        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE_DETAIL)
     except Exception as exc:
         logger.exception(f"Outcomes error for {ticker}: {exc}")
         raise HTTPException(status_code=500, detail="Internal error")

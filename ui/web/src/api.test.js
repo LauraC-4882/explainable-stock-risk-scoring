@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { apiGetWatchlist, onTokenRefreshed } from './api'
+import { apiGetWatchlist, apiScore, onTokenRefreshed } from './api'
 
 // [R2] The backend cut JWT lifetime to 12 hours and re-issues a token in
 // X-Refreshed-Token as expiry nears. If the frontend ignores that header, an
@@ -68,5 +68,41 @@ describe('token refresh plumbing', () => {
     await apiGetWatchlist('old-token')
 
     expect(seen).toEqual([])
+  })
+})
+
+// A 503 from /api/score means the upstream market-data provider is throttling
+// this server (app.py: UPSTREAM_UNAVAILABLE_DETAIL) — a known, retryable cause
+// rather than a bug here. The card needs to know that to show translated copy
+// instead of the backend's English sentence.
+describe('apiScore error classification', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('tags a 503 with a translation key', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 503,
+      headers: { get: () => null },
+      json: async () => ({ detail: 'Market data is temporarily unavailable — …' }),
+    }))
+
+    await expect(apiScore('AAPL')).rejects.toMatchObject({
+      code: 'errors.upstreamUnavailable',
+    })
+  })
+
+  it('leaves other failures untagged so their detail still surfaces verbatim', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      headers: { get: () => null },
+      json: async () => ({ detail: "No data returned for ticker 'ZZZZ'" }),
+    }))
+
+    const error = await apiScore('ZZZZ').catch((e) => e)
+    expect(error.code).toBeUndefined()
+    expect(error.message).toBe("No data returned for ticker 'ZZZZ'")
   })
 })

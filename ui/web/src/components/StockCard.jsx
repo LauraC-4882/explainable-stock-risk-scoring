@@ -51,7 +51,10 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
         if (!cancelled) setScore(sc)
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message)
+        // Kept as {message, code} rather than a rendered string so the copy is
+        // translated at render time — a language switch while the error is on
+        // screen has to move it too.
+        if (!cancelled) setError({ message: err.message, code: err.code })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -181,7 +184,8 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
           {loading && <CardSkeleton />}
           {error && !loading && (
             <div className="animate-fade-in flex items-center justify-center gap-1.5 px-8 py-12 text-sm text-down">
-              <CircleAlert aria-hidden="true" size={16} color="currentColor" /> {error}
+              <CircleAlert aria-hidden="true" size={16} color="currentColor" />{' '}
+              {error.code ? t(error.code) : error.message}
             </div>
           )}
         </div>
@@ -192,10 +196,15 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
   // In the hero the company name carries the heading (the mockup's
   // "Apple Inc." treatment) with ticker · sector as the eyebrow line.
   const heroTitle = score.name && score.name !== ticker ? score.name : ticker
-  const heroSub =
+  const heroSubRaw =
     score.name && score.name !== ticker
       ? `${ticker}${score.fundamentals?.sector ? ` · ${score.fundamentals.sector}` : ''}`
       : score.fundamentals?.sector || ticker
+  // With no company name AND no sector (both come from the same throttled
+  // fetch_info call) this line fell back to the ticker the heading already
+  // shows, rendering "GOOGL" twice — which reads like a bug to a first-time
+  // user. Nothing beats a repeat here.
+  const heroSub = heroSubRaw === heroTitle ? '' : heroSubRaw
 
   return (
     <div
@@ -229,9 +238,11 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
                   <h2 className="font-display text-3xl font-bold tracking-tight text-slate-100 max-sm:text-2xl sm:truncate">
                     {heroTitle}
                   </h2>
-                  <div className="mt-1 text-sm uppercase tracking-widest text-muted max-sm:text-[0.8rem] max-sm:tracking-wide">
-                    {heroSub}
-                  </div>
+                  {heroSub && (
+                    <div className="mt-1 text-sm uppercase tracking-widest text-muted max-sm:text-[0.8rem] max-sm:tracking-wide">
+                      {heroSub}
+                    </div>
+                  )}
                 </div>
                 {headerButtons}
               </div>

@@ -259,3 +259,66 @@ def test_score_timeseries_last_point_matches_the_gauge(enable_ml):
         f"chart right edge {timeseries[-1]['risk_score']} != gauge {gauge} "
         f"(enable_ml={enable_ml})"
     )
+
+
+# ── Company name fallback ────────────────────────────────────────────────────
+
+
+def _score_with_empty_info(ticker: str) -> dict:
+    """score() with fetch_info degraded to {} — the throttled-Yahoo state that
+    every one of these assertions is about."""
+    with (
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
+            return_value=_synthetic_ohlcv(300),
+        ),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=15.0),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix3m", return_value=None),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_info", return_value={}),
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_options_signals",
+            return_value={
+                "atm_iv": None, "put_skew": None, "iv_hv_ratio": None,
+                "vix_term_structure": None,
+            },
+        ),
+    ):
+        return RiskScorer().score(ticker, period="2y")
+
+
+def test_score_name_falls_back_to_the_known_universe_when_info_is_empty():
+    """Observed live: with fetch_info throttled to {}, the card rendered
+    "GOOGL" as both the heading and the company name. The static universe
+    already knows this symbol's name, so echoing the ticker was a self-
+    inflicted blank."""
+    assert _score_with_empty_info("GOOGL")["name"] == "Alphabet Inc."
+
+
+def test_score_name_still_echoes_the_ticker_for_symbols_we_have_no_name_for():
+    """The fallback must not invent a name for anything outside the table."""
+    assert _score_with_empty_info("ZZZZ")["name"] == "ZZZZ"
+
+
+def test_score_name_prefers_live_fundamentals_over_the_static_table():
+    """The table is a fallback, never an override — a live shortName wins."""
+    with (
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_history",
+            return_value=_synthetic_ohlcv(300),
+        ),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix", return_value=15.0),
+        patch("stock_risk.scoring.scorer.MarketDataFetcher.fetch_vix3m", return_value=None),
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_info",
+            return_value={"shortName": "Alphabet Inc. (Class A)"},
+        ),
+        patch(
+            "stock_risk.scoring.scorer.MarketDataFetcher.fetch_options_signals",
+            return_value={
+                "atm_iv": None, "put_skew": None, "iv_hv_ratio": None,
+                "vix_term_structure": None,
+            },
+        ),
+    ):
+        result = RiskScorer().score("GOOGL", period="2y")
+    assert result["name"] == "Alphabet Inc. (Class A)"

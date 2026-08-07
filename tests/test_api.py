@@ -10,7 +10,7 @@ from loguru import logger
 
 from stock_risk.api import app as app_module
 from stock_risk.api.app import app
-from stock_risk.data.fetcher import MarketDataFetcher
+from stock_risk.data.fetcher import MarketDataFetcher, UpstreamUnavailableError
 from stock_risk.models.downside_risk import DownsideRiskModel
 from stock_risk.models.feature_sets import build_dataset
 from stock_risk.monitoring.metrics import ModelMonitor
@@ -113,6 +113,35 @@ def test_legacy_and_new_score_endpoints_behave_identically():
         assert r_new.json() == r_old.json() == fake
     finally:
         logger.remove(handler_id)
+
+
+def test_throttled_upstream_is_a_503_not_an_internal_error():
+    """A rate-limited data provider is not a bug in this app, and telling the
+    user "Internal scoring error" both misattributes the fault and gives them
+    nothing to act on. Distinct tickers per endpoint so [R2]'s score cache
+    (which serves stale on failure) can't answer from another test's fixture.
+    """
+    exc = UpstreamUnavailableError("every source failed for THROTTLED")
+    with patch.object(RiskScorer, "score", side_effect=exc):
+        card = client.get("/api/score/THROTTLED")
+    with patch.object(RiskScorer, "score_timeseries", side_effect=exc):
+        chart = client.get("/api/score/THROTTLED2/timeseries")
+        outcomes = client.get("/api/score/THROTTLED3/outcomes")
+
+    for response in (card, chart, outcomes):
+        assert response.status_code == 503, response.text
+        detail = response.json()["detail"]
+        assert "temporarily unavailable" in detail
+        assert "Internal" not in detail
+
+
+def test_a_real_internal_error_is_still_a_500():
+    """The 503 branch must not swallow genuine bugs into a retry-later
+    message — that would hide exactly the failures worth paging on."""
+    with patch.object(RiskScorer, "score", side_effect=RuntimeError("genuine bug")):
+        response = client.get("/api/score/REALBUG")
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Internal scoring error"
 
 
 def _synthetic_raw_ohlcv(n: int = 400, seed: int = 3) -> pd.DataFrame:

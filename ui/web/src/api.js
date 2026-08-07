@@ -88,7 +88,14 @@ export async function apiScore(ticker) {
   const res = await fetch(`/api/score/${ticker}`)
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Failed to fetch score')
+    const error = new Error(err.detail || 'Failed to fetch score')
+    // 503 means the upstream market-data provider is throttling this server
+    // (app.py: UPSTREAM_UNAVAILABLE_DETAIL) — a known, retryable cause, not a
+    // bug here. The card renders `detail` verbatim, which would put an English
+    // sentence on a Chinese screen, so hand it a translation key for the one
+    // status whose cause we actually know.
+    if (res.status === 503) error.code = 'errors.upstreamUnavailable'
+    throw error
   }
   return res.json()
 }

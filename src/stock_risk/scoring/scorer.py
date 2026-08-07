@@ -12,6 +12,7 @@ from loguru import logger
 
 from ..config import settings
 from ..data.fetcher import MarketDataFetcher
+from ..data.known_symbols import known_symbol_name
 from ..data.preprocessor import DataPreprocessor
 from ..features.risk_metrics import RiskMetrics
 from ..features.technical import TechnicalFeatures
@@ -328,7 +329,11 @@ class RiskScorer:
             "max_drawdown_90d": round(float(latest.get("max_drawdown_63d", np.nan)), 4),
             "beta": _resolve_beta(info.get("beta"), latest.get("beta_63d")),
             "implied_volatility": round(iv, 4) if iv else None,
-            "name": info.get("shortName") or ticker.upper(),
+            # info is {} whenever fetch_info was throttled (see its try/except
+            # above), and repeating the ticker as the company name tells a new
+            # user nothing — check this app's own static universe before giving
+            # up and echoing the symbol.
+            "name": info.get("shortName") or known_symbol_name(ticker) or ticker.upper(),
             "indicators": {
                 "rsi_14": round(float(latest.get("rsi_14", np.nan)), 2),
                 "bb_pct": round(float(latest.get("bb_pct", np.nan)), 4),

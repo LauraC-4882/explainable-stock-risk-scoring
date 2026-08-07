@@ -88,3 +88,27 @@ def test_known_symbols_universe_excludes_hong_kong():
         haystack = " ".join([symbol, name, exchange, *aliases]).lower()
         for token in forbidden:
             assert token not in haystack, f"{symbol}: forbidden scope token {token!r}"
+
+
+# ── known_symbol_name: the same table, used as a display-name fallback ───────
+
+
+def test_known_symbol_name_resolves_a_symbol_in_the_universe():
+    from stock_risk.data.known_symbols import known_symbol_name
+
+    assert known_symbol_name("GOOGL") == "Alphabet Inc."
+
+
+def test_known_symbol_name_is_case_and_whitespace_insensitive():
+    from stock_risk.data.known_symbols import known_symbol_name
+
+    assert known_symbol_name(" googl ") == "Alphabet Inc."
+
+
+def test_known_symbol_name_returns_none_outside_the_universe():
+    """It must stay a lookup, never a guess — an unknown symbol gets nothing,
+    so the scorer falls through to echoing the ticker rather than labelling a
+    stock with someone else's name."""
+    from stock_risk.data.known_symbols import known_symbol_name
+
+    assert known_symbol_name("ZZZZ") is None

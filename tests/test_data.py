@@ -9,7 +9,7 @@ import pytest
 import requests
 from cachetools import TTLCache
 
-from stock_risk.data.fetcher import MarketDataFetcher, _TimeoutSession
+from stock_risk.data.fetcher import MarketDataFetcher, UpstreamUnavailableError, _TimeoutSession
 from stock_risk.data.preprocessor import DataPreprocessor
 from stock_risk.data.validation import DataValidationError, validate_ohlcv
 
@@ -435,8 +435,69 @@ def test_fetch_history_still_raises_without_snapshot():
         "stock_risk.data.fetcher.yf.Ticker",
         side_effect=RuntimeError("Too Many Requests. Rate limited."),
     ):
-        with pytest.raises(RuntimeError, match="Rate limited"):
+        with pytest.raises(UpstreamUnavailableError, match="Rate limited"):
             fetcher.fetch_history("NOSNAP", period="1y")
+
+
+def test_fetch_history_serves_a_different_period_snapshot_when_the_exact_one_is_missing():
+    """The AAPL /outcomes 500: the refresh cron only ever persists "2y"
+    (scripts/refresh_snapshots.py), but score_timeseries asks for "5y", so an
+    exact-period-keyed fallback found nothing and the endpoint failed with a
+    usable snapshot sitting right there on disk."""
+    df = _make_ohlcv(400)
+    fetcher = MarketDataFetcher()
+    fetcher._save_snapshot("AAPL", "2y", "1d", df)
+
+    with patch(
+        "stock_risk.data.fetcher.yf.Ticker",
+        side_effect=RuntimeError("Too Many Requests. Rate limited."),
+    ):
+        result = fetcher.fetch_history("AAPL", period="5y")
+    pd.testing.assert_frame_equal(result, df, check_freq=False)
+
+
+def test_fetch_history_trims_a_longer_snapshot_to_the_requested_window():
+    """Serving 5y of history to a 1y request would rank today's metrics
+    against a materially longer baseline than the live path uses — the
+    fallback has to match the window it stands in for, not just any window."""
+    df = _make_ohlcv(1200)  # ~4.6 calendar years of business days
+    fetcher = MarketDataFetcher()
+    fetcher._save_snapshot("AAPL", "5y", "1d", df)
+
+    with patch(
+        "stock_risk.data.fetcher.yf.Ticker",
+        side_effect=RuntimeError("Too Many Requests. Rate limited."),
+    ):
+        result = fetcher.fetch_history("AAPL", period="1y")
+
+    assert len(result) < len(df)
+    assert (result.index.max() - result.index.min()).days <= 370
+    assert result.index.max() == df.index.max()  # newest data kept, not the oldest
+
+
+def test_snapshot_fallback_ignores_other_tickers():
+    """The cross-period lookup globs the snapshot dir — a neighbouring
+    ticker's file must never be served under this ticker's name."""
+    fetcher = MarketDataFetcher()
+    fetcher._save_snapshot("MSFT", "2y", "1d", _make_ohlcv(400))
+
+    with patch(
+        "stock_risk.data.fetcher.yf.Ticker",
+        side_effect=RuntimeError("Too Many Requests. Rate limited."),
+    ):
+        with pytest.raises(UpstreamUnavailableError):
+            fetcher.fetch_history("AAPL", period="5y")
+
+
+def test_fetch_history_still_raises_valueerror_for_a_symbol_with_no_data():
+    """An empty upstream result means the symbol is wrong — that has to stay a
+    ValueError (404 at the API layer), not get rebranded as an outage (503)."""
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = pd.DataFrame()
+    fetcher = MarketDataFetcher()
+    with patch("stock_risk.data.fetcher.yf.Ticker", return_value=mock_ticker):
+        with pytest.raises(ValueError, match="No data returned"):
+            fetcher.fetch_history("NOTAREALTICKER", period="1y")
 
 
 # ── [Data-source migration] per-market dispatch ──────────────────────────────

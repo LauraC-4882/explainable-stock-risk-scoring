@@ -85,6 +85,39 @@ describe('StockCard', () => {
     expect(container.querySelector('.animate-pulse')).not.toBeInTheDocument()
   })
 
+  it('translates a throttled-upstream failure instead of echoing the backend copy', async () => {
+    // The card renders `detail` verbatim, so a 503 used to put an English
+    // sentence (or, before that, "Internal scoring error") on every screen.
+    // api.js tags this one status with a key precisely so it can be localised.
+    const err = new Error('Market data is temporarily unavailable — …')
+    err.code = 'errors.upstreamUnavailable'
+    apiScore.mockRejectedValue(err)
+    apiTimeseries.mockResolvedValue([])
+
+    renderCard()
+
+    expect(await screen.findByText(/data provider is limiting requests/)).toBeInTheDocument()
+    expect(screen.queryByText(/Internal/)).not.toBeInTheDocument()
+  })
+
+  it('does not print the ticker twice when no company name or sector came back', async () => {
+    // Throttled fetch_info degrades name and sector together; the eyebrow used
+    // to fall back to the ticker the heading already shows, so the card read
+    // "TSLA" over "TSLA" — which looks like a rendering bug to a new user.
+    apiScore.mockResolvedValue({
+      ...scoreTsla,
+      name: 'TSLA',
+      fundamentals: { ...scoreTsla.fundamentals, sector: null },
+    })
+    apiTimeseries.mockResolvedValue(timeseriesTsla)
+
+    renderCard()
+
+    const heading = await screen.findByRole('heading', { name: 'TSLA' })
+    expect(heading).toBeInTheDocument()
+    expect(heading.parentElement.textContent).toBe('TSLA')
+  })
+
   it('renders the populated dashboard once both requests resolve', async () => {
     apiScore.mockResolvedValue(scoreTsla)
     apiTimeseries.mockResolvedValue(timeseriesTsla)
