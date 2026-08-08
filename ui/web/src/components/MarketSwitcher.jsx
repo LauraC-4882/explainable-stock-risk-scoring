@@ -23,6 +23,13 @@ export default function MarketSwitcher({ market, onChange }) {
           <button
             key={o.code}
             onClick={() => onChange(o.code)}
+            // Selection lived only in the `btn-cta` fill, which a screen reader
+            // cannot see — so the control announced two identical buttons with
+            // no indication of which market was live. That matters more since
+            // App.addStock moves this on its own when a CN symbol is opened:
+            // the one user who cannot see the fill change is also the one
+            // getting no other signal that the market just changed under them.
+            aria-pressed={active}
             className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-200 ease-out active:scale-95 ${
               active ? 'btn-cta' : 'text-muted hover:text-white'
             }`}
