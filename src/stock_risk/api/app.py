@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
+import numpy as np
 import yfinance as yf
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +21,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, func, select
 
+from ..alerts import check_and_send_alerts, decode_unsubscribe_token
 from ..auth.admin import ensure_admin_user, require_admin
 from ..auth.dependencies import get_current_user, get_current_user_optional
 from ..auth.models import (
@@ -313,6 +316,19 @@ if MOCK_MODE:
 if (_DIST_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=_DIST_DIR / "assets"), name="assets")
 
+# Self-hosted webfonts. Vite copies public/ to the dist ROOT, not into assets/,
+# so /assets alone does not cover them and every font 404'd — the page still
+# rendered, in fallback system faces, which is precisely the silent failure the
+# CSP regression test was written about. Caught here by checking
+# `document.fonts` rather than by looking at a screenshot, because a fallback
+# sans-serif at a glance looks like a font, just the wrong one.
+#
+# Not hashed like /assets, so a long immutable cache is not safe; StaticFiles
+# sends ETag/Last-Modified and these files change roughly never. If a face is
+# ever re-cut, rename the file rather than replacing it in place.
+if (_DIST_DIR / "fonts").exists():
+    app.mount("/fonts", StaticFiles(directory=_DIST_DIR / "fonts"), name="fonts")
+
 
 @app.get("/", include_in_schema=False)
 def index():
@@ -502,6 +518,14 @@ def _record_score_snapshot(result: dict) -> None:
             )
         session.commit()
 
+    # After the upsert, so today's reading is stored before anyone is told about
+    # it — an email that references a score the database does not yet have would
+    # point at a page showing something else. Self-guarding and a no-op when
+    # RESEND_API_KEY is unset; see alerts/checker.py.
+    check_and_send_alerts(
+        ticker, float(risk_score), str(result.get("risk_label", ""))
+    )
+
 
 @app.get("/api/score/{ticker}", response_model=ScoreResponse)
 def api_score(ticker: str, period: str = "2y"):
@@ -573,6 +597,10 @@ class UserResponse(BaseModel):
     created_at: datetime
     is_admin: bool = False
     nickname: Optional[str] = None
+    # So the watchlist can show "email alerts are off for your account" instead
+    # of letting a user set a threshold that will never fire because they
+    # unsubscribed weeks ago from a different device.
+    email_alerts_enabled: bool = True
 
 
 @app.post("/api/auth/register", response_model=TokenResponse)
@@ -676,15 +704,30 @@ def login(payload: LoginRequest, request: Request, session: Session = Depends(ge
     return TokenResponse(access_token=create_access_token(user.email))
 
 
-@app.get("/api/auth/me", response_model=UserResponse)
-def me(user: User = Depends(get_current_user)):
+def _user_response(user: User) -> UserResponse:
+    """One place that maps a User row onto the wire.
+
+    Was inlined in /api/auth/me, which is how `email_alerts_enabled` shipped
+    broken for one commit: the hand-written constructor silently omitted the
+    new field, so the response fell back to the Pydantic default (True) and
+    reported every unsubscribed account as still subscribed — a field whose
+    whole job is to record that someone opted out. A single mapper means the
+    next field added to UserResponse is either passed here or is a visible
+    TypeError, instead of a plausible-looking default.
+    """
     return UserResponse(
         id=user.id,
         email=user.email,
         created_at=user.created_at,
         is_admin=user.is_admin,
         nickname=user.nickname,
+        email_alerts_enabled=user.email_alerts_enabled,
     )
+
+
+@app.get("/api/auth/me", response_model=UserResponse)
+def me(user: User = Depends(get_current_user)):
+    return _user_response(user)
 
 
 # ── Watchlist (requires auth) ───────────────────────────────────────────────────
@@ -731,6 +774,122 @@ def remove_watchlist_item(
     session.delete(item)
     session.commit()
     return Response(status_code=204)
+
+
+class AlertSettingsRequest(BaseModel):
+    # Both nullable, and null means "turn this trigger off" rather than "leave
+    # it alone" — a settings PATCH that cannot express "off" would make the
+    # checkbox one-way. Absent keys are also treated as off, so the request
+    # body is the complete desired state, not a diff.
+    threshold: Optional[int] = None
+    spike_points: Optional[int] = None
+
+
+@app.patch("/api/watchlist/{ticker}/alerts", response_model=WatchlistItem)
+def update_alert_settings(
+    ticker: str,
+    payload: AlertSettingsRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Set (or clear) the email alert triggers for one watchlisted stock.
+
+    Keyed by ticker rather than by watchlist row id: the frontend that renders
+    these controls is the watchlist board, which is keyed by ticker, and making
+    it carry a row id around only to name a stock it already knows would be a
+    lookup for nothing.
+    """
+    tkr = ticker.upper().strip()
+    item = session.exec(
+        select(WatchlistItem).where(
+            WatchlistItem.user_id == user.id, WatchlistItem.ticker == tkr
+        )
+    ).first()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Not on your watchlist")
+
+    # A risk score is 0-100 by construction, so a threshold outside it can never
+    # fire (or fires always) — rejected rather than stored as a setting that
+    # silently does nothing. Spike is 1-100: 0 would alert on every reading.
+    if payload.threshold is not None and not 0 <= payload.threshold <= 100:
+        raise HTTPException(status_code=422, detail="Threshold must be between 0 and 100")
+    if payload.spike_points is not None and not 1 <= payload.spike_points <= 100:
+        raise HTTPException(status_code=422, detail="Spike points must be between 1 and 100")
+
+    item.alert_threshold = payload.threshold
+    item.alert_spike_points = payload.spike_points
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item
+
+
+def _unsubscribe(token: str, session: Session) -> Response:
+    """Shared by the GET link and the RFC 8058 POST. Always 200.
+
+    A 404 for an unknown token would confirm which tokens are real, and there is
+    nothing useful a person clicking an old link can do with an error anyway.
+    Idempotent: unsubscribing twice is a success both times.
+    """
+    user_id = decode_unsubscribe_token(token)
+    if user_id is not None:
+        user = session.get(User, user_id)
+        if user is not None and user.email_alerts_enabled:
+            user.email_alerts_enabled = False
+            session.add(user)
+            session.commit()
+            logger.info(f"[alerts] user {user_id} unsubscribed from email alerts")
+    return Response(
+        content=(
+            "<!doctype html><meta charset=utf-8>"
+            "<title>Unsubscribed · Riscore</title>"
+            "<div style=\"font-family:system-ui;max-width:32rem;margin:4rem auto;"
+            "padding:0 1rem;color:#0f172a\">"
+            "<h1 style=\"font-size:1.25rem\">Unsubscribed</h1>"
+            "<p>You will no longer receive Riscore email alerts. Your watchlist "
+            "and the in-app alerts bell are unchanged.</p>"
+            "<p>You can turn email alerts back on from your watchlist at any time.</p>"
+            "</div>"
+        ),
+        media_type="text/html",
+        status_code=200,
+    )
+
+
+@app.get("/api/alerts/unsubscribe")
+def unsubscribe_link(token: str, session: Session = Depends(get_session)):
+    """The footer link. Unauthenticated by design — the token IS the
+    authorisation, and requiring a login to stop unwanted email is exactly the
+    friction the one-click rules exist to remove."""
+    return _unsubscribe(token, session)
+
+
+@app.post("/api/alerts/resubscribe", response_model=UserResponse)
+def resubscribe(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """Turn email alerts back on for the signed-in account.
+
+    Required, not optional: the unsubscribe page tells the user they can
+    re-enable alerts, and a product that can only ever be turned off makes the
+    unsubscribe decision permanent by accident. Authenticated, unlike
+    unsubscribing — opting IN to email must prove account ownership, opting out
+    must not.
+    """
+    user.email_alerts_enabled = True
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return _user_response(user)
+
+
+@app.post("/api/alerts/unsubscribe")
+def unsubscribe_one_click(token: str, session: Session = Depends(get_session)):
+    """RFC 8058 One-Click target, hit by the mail client rather than a person.
+
+    Gmail/Outlook POST here directly when the user presses their built-in
+    unsubscribe button; without a POST route that button silently fails and the
+    user's next move is the spam button.
+    """
+    return _unsubscribe(token, session)
 
 
 class WatchlistOverviewEntry(BaseModel):
@@ -1770,26 +1929,48 @@ def var_backtest(ticker: str):
             ) from exc
 
     returns = df["log_return"].dropna()
-    # Same construction as features/risk_metrics var_95_21d, shifted so day t
-    # is tested against a forecast built from days < t.
+    # Same construction as features/risk_metrics var_95_21d / cvar_95_21d,
+    # shifted so day t is tested against forecasts built from days < t.
     var_forecast = returns.rolling(21).quantile(0.05).shift(1)
+    es_forecast = (
+        returns.rolling(21)
+        .apply(
+            lambda x: x[x <= np.quantile(x, 0.05)].mean() if len(x) > 5 else np.nan,
+            raw=True,
+        )
+        .shift(1)
+    )
     aligned = returns[var_forecast.notna()]
     var_aligned = var_forecast[var_forecast.notna()]
+    es_aligned = es_forecast.reindex(aligned.index)
     if len(aligned) < 60:
         raise HTTPException(status_code=422, detail="Not enough history to backtest")
 
     from ..validation.tail_tests import run_full_suite
 
-    suite = run_full_suite(aligned, var_aligned, alpha=0.05)["tests"]
+    suite = run_full_suite(aligned, var_aligned, es=es_aligned, alpha=0.05)["tests"]
+
+    def _num(v):
+        """NaN/inf out of a test is a real outcome (e.g. Z2 with no breach days
+        to condition on), but `json.dumps` emits a bare `NaN` token that is not
+        valid JSON and that `JSON.parse` rejects in the browser. Null instead,
+        and the panel skips the row."""
+        f = float(v)
+        return round(f, 4) if math.isfinite(f) else None
 
     def _test(name):
-        t = suite[name]
+        t = suite.get(name)
+        if t is None:
+            return None
+        stat, p = _num(t.statistic), _num(t.p_value)
+        if stat is None or p is None:
+            return None
         return {
-            "statistic": round(float(t.statistic), 4),
-            "p_value": round(float(t.p_value), 4),
+            "statistic": stat,
+            "p_value": p,
             "reject": bool(t.reject),
             "detail": {
-                k: (round(float(v), 4) if isinstance(v, (int, float)) else v)
+                k: (_num(v) if isinstance(v, (int, float)) else v)
                 for k, v in t.detail.items()
             },
         }
@@ -1806,6 +1987,9 @@ def var_backtest(ticker: str):
         "kupiec": _test("kupiec_pof"),
         "independence": _test("christoffersen_independence"),
         "conditional_coverage": _test("christoffersen_conditional_coverage"),
+        # ES, not VaR: null when Z2 had no breach days to condition on, which is
+        # a real "untested" answer and renders as such rather than as a pass.
+        "acerbi_szekely": _test("acerbi_szekely_z2"),
     }
 
 
@@ -1873,6 +2057,64 @@ def portfolio_risk(payload: PortfolioRequest):
     result = _asdict(risk)
     result["tickers"] = tickers
     return result
+
+
+# ── Model governance ─────────────────────────────────────────────────────────
+
+_governance_cache: dict = {"at": 0.0, "data": None}
+# Long TTL: every field in the response is fixed at deploy time (the registry
+# file, the artefact and its hash all ship in the image), so this recomputes
+# roughly never. The TTL exists to bound a `git log` subprocess and a file hash,
+# not because the data goes stale.
+_GOVERNANCE_TTL = 900.0
+
+
+@app.get("/api/governance/model")
+def model_governance():
+    """The registry + the deployed artefact, read back out for the [R4] page.
+
+    Public and read-only. It exposes model metadata — versions, lifecycle
+    history, thresholds, feature importances — all of which the product already
+    reveals in some form (SHAP attributions per score, the published AUC), and
+    nothing that identifies a user or authorises an action. Gating it behind
+    admin would make the governance story invisible to exactly the people it is
+    written for.
+
+    Returns 200 with `registry_present: false` — never 404 — when no registry
+    file exists. "No governance record" is a real, reportable state of the
+    system and the page renders it as such; a 404 would read as a broken
+    endpoint and get retried.
+    """
+    import time as _time
+
+    if (
+        _governance_cache["data"] is not None
+        and _time.time() - _governance_cache["at"] < _GOVERNANCE_TTL
+    ):
+        return _governance_cache["data"]
+
+    from ..governance.snapshot import governance_snapshot
+
+    repo_root = Path(__file__).resolve().parents[3]
+    # The directory the scorer actually loaded from (settings.model_dir), not a
+    # hardcoded path — otherwise a MODEL_DIR override would leave this page
+    # describing an artefact nobody is serving.
+    artefact_path = Path(settings.model_dir).resolve() / "downside_risk_xgb.joblib"
+    try:
+        data = governance_snapshot(
+            # None when ENABLE_ML=0 or no artefact was found. That is a real
+            # deployment state, and the snapshot reports it rather than 500ing.
+            model=scorer._dr_model,
+            registry_path=repo_root / "models" / "registry.json",
+            artefact_path=artefact_path,
+            repo_root=repo_root,
+        )
+    except Exception as exc:
+        logger.exception(f"governance snapshot failed: {exc}")
+        raise HTTPException(status_code=500, detail="Could not read governance state") from exc
+
+    _governance_cache.update({"at": _time.time(), "data": data})
+    return data
 
 
 # ── Public usage stats ───────────────────────────────────────────────────────

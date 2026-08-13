@@ -38,6 +38,13 @@ class User(SQLModel, table=True):
     # than this are 'unread'. NULL (never opened the bell) means every
     # qualifying move is unread, which is the right first-run behavior.
     alerts_seen_at: Optional[datetime] = None
+    # Master switch for OUTBOUND email. The in-app bell is unaffected — it
+    # reads data the user came to the site to look at, which is not the thing
+    # CAN-SPAM/GDPR give a right to opt out of. Defaults true because a user
+    # who sets a per-stock alert threshold has asked to be emailed; the
+    # unsubscribe link in every message flips this to false, and no email is
+    # sent while it is false regardless of per-stock settings.
+    email_alerts_enabled: bool = True
 
 
 class WatchlistItem(SQLModel, table=True):
@@ -51,6 +58,18 @@ class WatchlistItem(SQLModel, table=True):
     market: str
     notes: Optional[str] = None
     added_at: datetime = Field(default_factory=_utc_now)
+    # ── Email alert settings, per user per stock ─────────────────────────────
+    # NULL means that trigger is off, which is why these are nullable ints and
+    # not "0 = disabled": 0 is a legitimate threshold (alert on any score at
+    # all), and conflating it with "off" would silently disable an alert the
+    # user deliberately set to the most sensitive value.
+    alert_threshold: Optional[int] = None
+    alert_spike_points: Optional[int] = None
+    # Last email actually SENT for this row, used for the once-per-day cap.
+    # Stored per watchlist row rather than per user: two stocks crossing on the
+    # same day are two different pieces of news, and a per-user cap would
+    # silently drop the second one.
+    alert_sent_at: Optional[datetime] = None
 
 
 class AnalystPost(SQLModel, table=True):

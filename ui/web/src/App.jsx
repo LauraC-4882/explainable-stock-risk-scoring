@@ -4,6 +4,7 @@ import AdminPanel from './auth/AdminPanel'
 import AboutPanel from './components/AboutPanel'
 import ColdStartBanner from './components/ColdStartBanner'
 import LearnPanel from './components/LearnPanel'
+import GovernancePanel from './components/GovernancePanel'
 import PortfolioPanel from './components/PortfolioPanel'
 import MobileNav from './components/MobileNav'
 import TechStackPanel from './components/TechStackPanel'
@@ -240,6 +241,7 @@ export default function App() {
                   <AboutPanel />
                   <LearnPanel />
                   <PortfolioPanel />
+                  <GovernancePanel />
                   <TechStackPanel />
                   <ReplayViewer />
                   <OnboardingTour />

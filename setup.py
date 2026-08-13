@@ -38,6 +38,7 @@ setup(
         "alembic>=1.13",  # versioned migrations — replaces db.py's hand-rolled ensure_columns()
         "pyjwt>=2.8",
         "bcrypt>=4.0",
+        "resend>=2.0",  # email risk alerts; runtime-optional (see requirements.txt)
         "prometheus-client>=0.20",
         "scipy>=1.13",
         "joblib>=1.4",

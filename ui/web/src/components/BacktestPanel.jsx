@@ -8,6 +8,13 @@ import { useLanguage } from '../i18n/LanguageContext'
 // validation/tail_tests, on the same rolling 95% VaR the metric tile shows,
 // shifted one day so no forecast is graded on data it had seen.
 //
+// The fourth row is the Acerbi-Szekely Z2 ES test, which grades a different
+// forecast (cvar_95_21d, not var_95_21d) and asks a different question: given
+// that VaR broke, was the loss as deep as ES said? It is one-sided — only an ES
+// that UNDERSTATES the tail rejects — and the backend sends null for it when
+// there were no breach days to condition on, in which case the row is dropped
+// rather than rendered as a pass.
+//
 // There is deliberately no site-wide "our VaR is N% accurate" headline
 // anywhere: a global average would hide exactly the per-name failures a
 // backtest exists to expose. What renders here is this ticker's own breach
@@ -43,8 +50,10 @@ export default function BacktestPanel({ ticker }) {
         ['kupiec', data.kupiec],
         ['independence', data.independence],
         ['conditionalCoverage', data.conditional_coverage],
-      ]
+        ['acerbiSzekely', data.acerbi_szekely],
+      ].filter(([, test]) => test)
     : []
+  const hasEs = rows.some(([key]) => key === 'acerbiSzekely')
 
   return (
     <div className="border-b border-border">
@@ -107,6 +116,7 @@ export default function BacktestPanel({ ticker }) {
                           {t(`backtest.tests.${key}`)}
                         </div>
                         <div className="font-mono text-[0.64rem] text-muted">
+                          {key === 'acerbiSzekely' && `Z2 = ${test.statistic.toFixed(3)} · `}
                           p = {test.p_value.toFixed(4)}
                         </div>
                       </div>
@@ -123,6 +133,10 @@ export default function BacktestPanel({ ticker }) {
                     </div>
                   ))}
                 </div>
+
+                {hasEs && (
+                  <p className="text-[0.64rem] leading-relaxed text-muted">{t('backtest.esNote')}</p>
+                )}
 
                 <p className="text-[0.64rem] italic leading-relaxed text-muted">
                   {t('backtest.note')}

@@ -283,17 +283,36 @@ def test_security_headers_present_on_responses(client):
 
 
 def test_csp_permits_the_webfonts_the_page_actually_loads(client):
-    """Regression: the first CSP silently blocked every Google font.
+    """The fonts are self-hosted, so 'self' is the whole permission needed.
 
-    The page still rendered — in fallback system fonts — which is the kind of
-    breakage that passes review and fails in production. ui_shot.sh caught it
-    by failing on console errors; this pins it so it can't come back.
+    This test used to assert the OPPOSITE — that the CSP named
+    fonts.googleapis.com and fonts.gstatic.com — because it was written when
+    index.html loaded the fonts from Google. It was correct then and is a
+    regression now: those origins are blocked in mainland China, which is half
+    this product's intended audience, so the fonts moved to /fonts and the
+    exceptions came out. The invariant that survives the move is the one the
+    old test was really protecting: whatever the page loads its fonts from must
+    be permitted, or every visitor silently gets fallback faces.
     """
     csp = client.get("/health").headers["Content-Security-Policy"]
-    style_src = next(p for p in csp.split("; ") if p.startswith("style-src"))
     font_src = next(p for p in csp.split("; ") if p.startswith("font-src"))
-    assert "https://fonts.googleapis.com" in style_src
-    assert "https://fonts.gstatic.com" in font_src
+    assert "'self'" in font_src
+
+
+def test_csp_no_longer_reaches_out_to_google_fonts(client):
+    """A third-party origin must not creep back in without this failing.
+
+    Not just tidiness: re-adding fonts.gstatic.com would restore a request that
+    cannot complete from mainland China, and would do it invisibly — the page
+    still renders, in the wrong typeface, for the users least likely to report
+    it.
+    """
+    csp = client.get("/health").headers["Content-Security-Policy"]
+    assert "fonts.googleapis.com" not in csp
+    assert "fonts.gstatic.com" not in csp
+    for directive in ("style-src", "font-src"):
+        value = next(p for p in csp.split("; ") if p.startswith(directive))
+        assert "https://" not in value, f"{directive} gained a third-party origin: {value}"
 
 
 def test_csp_does_not_allow_inline_script(client):

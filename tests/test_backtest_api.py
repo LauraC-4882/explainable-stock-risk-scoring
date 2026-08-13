@@ -54,6 +54,41 @@ def test_backtest_reports_real_counts_and_all_three_tests():
         assert isinstance(block["reject"], bool)
 
 
+def test_backtest_exposes_the_es_test_it_advertises():
+    """The endpoint used to compute the Acerbi-Szekely ES check (its docstring
+    promised it, TechStackPanel claimed it) and then drop it on the floor: it
+    called run_full_suite without an `es` series, so the test never ran and no
+    ES result reached the response. Assert the ES leg is actually there and is
+    graded against the ES forecast, not the VaR one."""
+    with _patched():
+        res = TestClient(app).get("/api/score/AAPL/backtest")
+    block = res.json()["acerbi_szekely"]
+    assert block is not None
+    assert set(block) == {"statistic", "p_value", "reject", "detail"}
+    assert 0.0 <= block["p_value"] <= 1.0
+    # Conditioned on the breach set, and grading ES (a deeper loss than VaR),
+    # so the mean predicted ES must sit below the mean breach it is judged on
+    # only when ES is adequate — what must always hold is that both are real
+    # negative losses over a non-empty breach set.
+    assert block["detail"]["breaches"] > 0
+    assert block["detail"]["mean_predicted_es"] < 0
+    assert block["detail"]["mean_breach_return"] < 0
+
+
+def test_backtest_response_is_strict_json_with_no_nan_tokens():
+    """Z2 returns NaN when there is nothing to condition on, and `json.dumps`
+    would emit a bare `NaN` — invalid JSON that `JSON.parse` rejects, blanking
+    the whole panel rather than one row. Non-finite values must serialise as
+    null instead."""
+    import json
+
+    with _patched():
+        res = TestClient(app).get("/api/score/AAPL/backtest")
+    # allow_nan=False raises ValueError on any NaN/Infinity leaf.
+    json.dumps(res.json(), allow_nan=False)
+    assert "NaN" not in res.text and "Infinity" not in res.text
+
+
 def test_backtest_rejects_thin_history():
     with _patched(n=40):
         res = TestClient(app).get("/api/score/AAPL/backtest")
