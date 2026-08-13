@@ -30,6 +30,12 @@ def train(
     label_mode: str = "fixed",
     label_k: float = 1.5,
     version: str = "0.1.0",
+    # 0.8, not 1.0: one or two names legitimately drop out of a large universe
+    # (delisting, a a symbol change, a genuinely short history), and failing the
+    # whole run for that would make the guard something people disable. A
+    # majority going missing is a different event entirely — see
+    # _require_universe_coverage.
+    min_coverage: float = 0.8,
 ):
     fetcher = MarketDataFetcher()
     preprocessor = DataPreprocessor()
@@ -51,6 +57,8 @@ def train(
 
     if not per_ticker_dfs:
         raise RuntimeError("No valid data to train on")
+
+    _require_universe_coverage(tickers, per_ticker_dfs, min_coverage=min_coverage)
 
     logger.info(f"Total training rows: {sum(len(df) for df in per_ticker_dfs.values())}")
 
@@ -118,6 +126,57 @@ def train(
     )
 
     logger.info("Training complete")
+
+
+class InsufficientUniverseError(RuntimeError):
+    """Too much of the requested universe failed to fetch to train on."""
+
+
+def _require_universe_coverage(
+    requested: list[str], usable: dict, *, min_coverage: float
+) -> None:
+    """Abort BEFORE fitting when most of the universe failed to fetch.
+
+    Added after a real incident, not as a precaution. A run of
+
+        python scripts/train.py --tickers-file scripts/tickers_universe.txt \\
+            --lookback 1825 --version 1.0.0
+
+    hit Yahoo's rate limiter on ticker 2 of 56. Every subsequent fetch failed,
+    one name was served from a committed 2-year snapshot, and training carried
+    on and *succeeded*: it fit a model on ONE stock, overwrote the deployed
+    56-ticker champion with it, scored 0.609 mean walk-forward AUC — and then
+    cleared the registry's 0.60 gate and was recorded as `validated`.
+
+    Nothing in the pipeline was in a position to catch that. The validation
+    thresholds check whether the metrics are good enough; they say nothing
+    about whether the DATA was adequate, and a single-ticker model can post a
+    mediocre-but-passing AUC. `excluded_tickers` in the manifest recorded all 55
+    failures faithfully, but only after the artefact had already been replaced.
+
+    So the check belongs here — before `fit`, before `save`, before anything
+    touches models/artefacts — and it raises rather than warns: a warning in a
+    long training log is exactly what a rate-limited run buries.
+    """
+    have, want = len(usable), len(requested)
+    coverage = have / want if want else 0.0
+    if coverage >= min_coverage:
+        if have < want:
+            logger.warning(
+                f"[coverage] training on {have}/{want} requested tickers "
+                f"({coverage:.0%}); missing: {sorted(set(requested) - set(usable))}"
+            )
+        return
+
+    missing = sorted(set(requested) - set(usable))
+    raise InsufficientUniverseError(
+        f"only {have}/{want} requested tickers ({coverage:.0%}) had usable data — "
+        f"below the {min_coverage:.0%} floor, so training would silently produce a "
+        f"model narrower than the one it replaces. Nothing was written.\n"
+        f"Missing: {missing}\n"
+        f"This is usually upstream rate limiting (see README 'Deployment'); retry "
+        f"later, or pass --min-coverage to train deliberately on a smaller universe."
+    )
 
 
 def _summarise_backtest(backtest) -> dict:
@@ -211,7 +270,7 @@ def _record_governance(
                 out_of_scope_uses=[
                     "Trading signals or position sizing",
                     "Any use as a probability of loss for an individual investor",
-                    "Markets outside the trained universe (US/CN/HK large caps)",
+                    "Markets outside the trained universe (US/CN large caps)",
                 ],
                 training_data=(
                     f"{len(dataset)} tickers, {len(features)} labelled rows, "
@@ -278,9 +337,16 @@ if __name__ == "__main__":
         help="Model version to register ([R4]). Registry records are immutable, so "
              "re-running with an existing version logs a warning instead of overwriting.",
     )
+    parser.add_argument(
+        "--min-coverage", type=float, default=0.8,
+        help="Minimum fraction of the requested tickers that must have usable data before "
+             "anything is fitted or written. Guards against a rate-limited run silently "
+             "replacing the deployed model with one trained on whatever it could reach.",
+    )
     args = parser.parse_args()
     tickers = _load_tickers_file(args.tickers_file) if args.tickers_file else args.tickers
     train(
         tickers, args.lookback, args.model_dir,
         label_mode=args.label_mode, label_k=args.label_k, version=args.version,
+        min_coverage=args.min_coverage,
     )
