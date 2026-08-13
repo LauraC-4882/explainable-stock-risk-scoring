@@ -151,6 +151,103 @@ see `shoot_admin` in `scripts/ui_shot.py`)
       or the page's right edge, and all text is legible against its
       background — same bar as the desktop/mobile checks above.
 
+## Model governance panel (`ui-governance.png`, `ui-governance-features.png`,
+`ui-governance-lifecycle.png` at 1280px and `ui-governance-mobile.png` at
+375px; see `shoot_governance` in `scripts/ui_shot.py`)
+
+Three desktop frames because the panel is taller than the viewport and the
+part below the fold is the part worth reviewing. Captured with `full_page=False`
+on purpose: it is a `position: fixed` overlay, and a full-page capture
+re-lays-out the modal and photographs an empty header.
+
+- [ ] `ui-governance.png`: with no `models/registry.json`, the Champion
+      section shows the gold-tinted "No governance record for the deployed
+      model" card — a visible, readable statement, not blank space and not a
+      green tick. It names `models/registry.json` (repo-relative, forward
+      slashes — an absolute `C:\Users\...` path is a fail) and shows the
+      `python scripts/train.py --version …` command in a code block.
+- [ ] Same screenshot: NO metric appears anywhere in the Champion section.
+      In particular the repo's published 0.671 walk-forward AUC must not be
+      rendered as this model's measured value — substituting a documented
+      number for an absent record is the exact failure this panel exists to
+      avoid. (`≥ 0.6` under Validation gate is a threshold, not a
+      measurement, and is expected.)
+- [ ] Same screenshot: the Deployed artefact rows show a real repo-relative
+      path, a 10-char commit hash with a real date (not "Invalid Date"), a
+      truncated SHA-256, and "Loaded and answering requests" in green. The
+      Hyperparameters row wraps at the `·` separators — a value broken
+      mid-token (`learning_rate=0.0` / `5`) is a fail.
+- [ ] `ui-governance-features.png`: the feature ranking shows numbered rows
+      with full feature names, a filled bar per row, and a printed importance
+      that DECREASES down the list. Bars are scaled to the top feature, so
+      rank 1's bar is full width — a list where every bar is a sliver means
+      the scaling regressed to absolute.
+- [ ] `ui-governance-lifecycle.png`: the `DEVELOPMENT` row's chips are
+      `retired` and `validated` only, and the `DEGRADED` row's are `retired`
+      and `validated` only. Neither offers `active`. `APPROVED` and `SHADOW`
+      do offer `active`. `RETIRED` shows the italic terminal note with no
+      chips. These absent edges are the governance claim — if `active`
+      appears on the development or degraded row, the page is describing a
+      control the registry does not enforce.
+- [ ] Same screenshot: the ACTIVE badge is green, DEGRADED is red, and each
+      still carries its state name as text — colour is never the only
+      signal.
+- [ ] `ui-governance-mobile.png` (375px): nothing extends past the right
+      edge, the label/value rows have stacked (label above value) rather
+      than crushing the value into a ~150px column, and feature names read
+      in full rather than truncating to `volatility__vol_6…`. The importance
+      bars are intentionally hidden at this width — their absence is correct,
+      a 6px sliver is not.
+
+## VaR backtest panel — the ES leg (visible on any expanded card)
+
+- [ ] The panel lists FOUR tests, not three: Kupiec, Christoffersen
+      independence, conditional coverage, and "Acerbi–Székely Z2 (were
+      breaches as deep as ES said?)". The fourth was computed but never
+      returned before this landed, so its absence is a regression.
+- [ ] The Acerbi–Székely row shows `Z2 = <signed number> · p = <number>` —
+      the other three rows show `p =` only, because Z2 is the sign-carrying
+      statistic and a bare p-value hides which direction ES was wrong in.
+- [ ] When that row is present, the one-sided explanation paragraph is
+      rendered beneath the list ("Z2 below 0 means breaches ran deeper than
+      ES predicted…"). A REJECTED ES verdict with no explanation of the
+      direction is a fail.
+
+## Email alert settings (`ui-alert-settings.png` at 1280px,
+`ui-alert-settings-mobile.png` at 375px; see `shoot_email_alerts` in
+`scripts/ui_shot.py`)
+
+Captured logged-in with TSLA armed (threshold 70, spike 15) and AAPL untouched,
+so both the configured and the unconfigured state are in one frame.
+
+- [ ] TSLA's row shows two CHECKED boxes, each followed by a number input
+      containing 70 and 15 respectively. AAPL's shows the same two labels with
+      boxes UNCHECKED and **no** number inputs — the field only exists once the
+      trigger is on, so an empty box can't look like a threshold of 0.
+- [ ] Under TSLA: "No email sent yet". That line must be absent under AAPL —
+      a stock with no trigger armed has nothing to report about sending.
+- [ ] The spike label reads "rises by (or more)", not "rises by more than".
+      The trigger fires at exactly N (`>=`), and a label that promises `>`
+      would be lying about the boundary.
+- [ ] Mobile: nothing extends past the right edge, both checkbox rows stay on
+      one line each, and the number inputs are still tappable (not shrunk to a
+      sliver by the label text).
+
+## The alert email itself (render it, don't reason about it)
+
+`.venv/bin/python -c "from stock_risk.alerts.email import render_alert; ..."`
+writes the HTML; open it at 375px.
+
+- [ ] The disclaimer ("not investment advice… does not predict future price
+      movements") is visible without scrolling past the fold of the footer, in
+      readable grey — not fine print.
+- [ ] An unsubscribe link is present and legible.
+- [ ] The body states only the two scores, the band, and which trigger fired.
+      No sentence tells the reader to do anything, and no price appears
+      anywhere. `advice_language_violations()` returning `[]` is the automated
+      half of this; the visual half is checking the email doesn't *read* like
+      a recommendation even when each sentence passes.
+
 ## Cross-check: do the two score displays on the same card agree?
 
 - [ ] The gauge/large-number score at the top of the card and the

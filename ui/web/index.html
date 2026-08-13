@@ -8,11 +8,24 @@
       name="description"
       content="Riscore: explainable stock risk scoring. Invest smarter, risk safer."
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Webfonts are self-hosted from /fonts (see the @font-face block at the
+         top of src/index.css for why). Preloading the two files that are on
+         the critical path — the body face and the one the risk number is set
+         in — because they are now same-origin and discoverable only after the
+         CSS parses, which is a round trip later than the old <link> was. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/manrope-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/space-grotesk-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <link
       rel="icon"

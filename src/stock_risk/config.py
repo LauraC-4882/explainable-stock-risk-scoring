@@ -133,6 +133,28 @@ class Settings(BaseSettings):
     # akshare (free, no key) regardless of this setting; see fetcher.py.
     twelve_data_key: str | None = None
 
+    # ── Email risk alerts ────────────────────────────────────────────────────
+    # Unset by default and the service starts normally without it: the alert
+    # checks still run and simply skip sending, so a deploy that forgets the
+    # key degrades to "no emails" rather than to 500s on the scoring path. See
+    # alerts/email.py::alerts_enabled.
+    resend_api_key: str | None = None
+    # Resend refuses to send from a domain you haven't verified. Their shared
+    # onboarding sender works without any DNS setup but can ONLY deliver to the
+    # address that owns the Resend account — fine for the first end-to-end test,
+    # useless for real users. Set ALERT_FROM_EMAIL to an address on a verified
+    # domain before pointing this at anyone else.
+    alert_from_email: str = "Riscore <onboarding@resend.dev>"
+    # Absolute origin for links inside emails. An email has no page to be
+    # relative to, so this cannot be derived from the request.
+    public_base_url: str = "https://explainable-stock-risk-scoring.onrender.com"
+    # How long an unsubscribe link stays valid. Long, because the link lives in
+    # an email the user may open weeks later; scoped to unsubscribing only, so
+    # a leaked one cannot read or change anything else (see UNSUBSCRIBE_CLAIM).
+    unsubscribe_token_days: int = 30
+    # Default spike sensitivity offered in the UI when a user enables it.
+    alert_default_spike_points: int = 15
+
     def model_post_init(self, __context):
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.monitoring_log_dir.mkdir(parents=True, exist_ok=True)

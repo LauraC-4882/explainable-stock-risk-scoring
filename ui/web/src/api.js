@@ -73,6 +73,42 @@ export async function apiBacktest(ticker) {
   return res.json()
 }
 
+// Per-stock email alert triggers. `threshold`/`spikePoints` of null turn that
+// trigger OFF — the body is the complete desired state, not a partial diff, so
+// omitting a key disables it rather than leaving it untouched.
+export async function apiSetAlertSettings(token, ticker, { threshold, spikePoints }) {
+  const res = await fetch(`/api/watchlist/${encodeURIComponent(ticker)}/alerts`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ threshold: threshold ?? null, spike_points: spikePoints ?? null }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+// Re-enable email alerts after an unsubscribe. There is no matching
+// apiUnsubscribe: unsubscribing happens from the email's own tokenised link,
+// deliberately without a session (see the endpoint).
+export async function apiResubscribeAlerts(token) {
+  const res = await fetch('/api/alerts/resubscribe', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+// Model governance ([R4] registry + the deployed artefact). Null on failure
+// rather than a throw: the page is informational, and a governance panel that
+// error-toasts on a cold backend is worse than one that says "unavailable".
+export async function apiGovernance() {
+  const res = await fetch('/api/governance/model')
+  return res.ok ? res.json() : null
+}
+
 export async function apiSearch(query) {
   const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
   return res.ok ? res.json() : []

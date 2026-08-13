@@ -8,6 +8,8 @@ import {
   apiMe,
   apiRegister,
   apiRemoveWatchlist,
+  apiResubscribeAlerts,
+  apiSetAlertSettings,
   onTokenRefreshed,
 } from '../api'
 
@@ -36,6 +38,7 @@ export function AuthProvider({ children }) {
   const [learnPanelOpen, setLearnPanelOpen] = useState(false)
   const [portfolioPanelOpen, setPortfolioPanelOpen] = useState(false)
   const [techPanelOpen, setTechPanelOpen] = useState(false)
+  const [governancePanelOpen, setGovernancePanelOpen] = useState(false)
 
   // [R2] Adopt a token the backend silently re-issued. Access tokens now live
   // 12 hours instead of a week, so an active session would otherwise expire
@@ -130,6 +133,21 @@ export function AuthProvider({ children }) {
     setWatchlist((prev) => prev.filter((w) => w.id !== itemId))
   }
 
+  // The server's echo replaces the row rather than the values that were sent:
+  // it validates and clamps, so trusting the local values would let the UI show
+  // a setting the backend rejected.
+  async function setAlertSettings(ticker, settings) {
+    const updated = await apiSetAlertSettings(token, ticker, settings)
+    setWatchlist((prev) => prev.map((w) => (w.id === updated.id ? updated : w)))
+    return updated
+  }
+
+  async function resubscribeAlerts() {
+    const updated = await apiResubscribeAlerts(token)
+    setUser(updated)
+    return updated
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -143,6 +161,8 @@ export function AuthProvider({ children }) {
         isFavorited,
         toggleFavorite,
         removeFromWatchlist,
+        setAlertSettings,
+        resubscribeAlerts,
         authModalOpen,
         authModalMode,
         openAuthModal: (mode = 'signIn') => {
@@ -181,6 +201,9 @@ export function AuthProvider({ children }) {
         techPanelOpen,
         openTechPanel: () => setTechPanelOpen(true),
         closeTechPanel: () => setTechPanelOpen(false),
+        governancePanelOpen,
+        openGovernancePanel: () => setGovernancePanelOpen(true),
+        closeGovernancePanel: () => setGovernancePanelOpen(false),
       }}
     >
       {children}

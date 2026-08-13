@@ -18,18 +18,20 @@ from __future__ import annotations
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# ui/web/index.html loads DM Serif Display / Manrope / Space Grotesk from Google
-# Fonts, so the stylesheet origin and the font-file origin both need allowing.
-# The first version of this CSP omitted them and silently blocked every webfont
-# — the page still rendered, in fallback system fonts, which is exactly the kind
-# of breakage nobody notices in review but everybody notices in production.
-# Caught by scripts/ui_shot.sh, which fails on console errors.
+# The two Google Fonts exceptions that used to live here are GONE, because the
+# fonts they existed for are gone: DM Serif Display / Manrope / Space Grotesk
+# are served from /fonts now (see the @font-face block in ui/web/src/index.css).
 #
-# Named origins rather than a blanket https:. Self-hosting the font files would
-# be tighter still (and drop the third-party request entirely) — worth doing,
-# but it's a separate change from turning a CSP on.
-_GOOGLE_FONTS_CSS = "https://fonts.googleapis.com"
-_GOOGLE_FONTS_FILES = "https://fonts.gstatic.com"
+# That was worth doing for a reason beyond CSP tightness. fonts.googleapis.com
+# and fonts.gstatic.com are blocked in mainland China, and this product's scope
+# is US + China A-shares — so every Chinese visitor was blocking on a request
+# that could not succeed and then falling back to system fonts. Removing the
+# origins here is the smaller half of that fix; not making the request at all is
+# the point.
+#
+# Consequence worth keeping in mind: `style-src`/`font-src` are now 'self'-only,
+# so re-adding any third-party font, icon set or stylesheet means editing this
+# list. That friction is deliberate.
 
 CSP = "; ".join(
     [
@@ -39,8 +41,9 @@ CSP = "; ".join(
         "script-src 'self'",
         # 'unsafe-inline' required — see module docstring: computed inline
         # styles on the gauge and chart panels.
-        f"style-src 'self' 'unsafe-inline' {_GOOGLE_FONTS_CSS}",
-        f"font-src 'self' data: {_GOOGLE_FONTS_FILES}",
+        "style-src 'self' 'unsafe-inline'",
+        # data: retained for the inline SVG favicon, not for fonts.
+        "font-src 'self' data:",
         "img-src 'self' data:",
         "connect-src 'self'",
         "frame-ancestors 'none'",  # clickjacking; supersedes X-Frame-Options

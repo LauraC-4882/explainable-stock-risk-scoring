@@ -20,6 +20,27 @@ from playwright.sync_api import sync_playwright
 DESKTOP_VIEWPORT = {"width": 1280, "height": 900}
 MOBILE_VIEWPORT = {"width": 375, "height": 812}
 
+def _watch(page, errors: list[str]) -> None:
+    """Record console/page errors WITH the URL that caused them.
+
+    The first version logged only `msg.text`, so a failing capture reported
+    three identical "Failed to load resource: the server responded with a
+    status of 404 ()" lines with nothing to attribute them to — which is a
+    failure you cannot act on, and cost a full harness run to chase down.
+    msg.location() carries the request URL; including it turns the same failure
+    into a name.
+    """
+
+    def on_console(msg):
+        if msg.type != "error":
+            return
+        where = (msg.location or {}).get("url") or ""
+        errors.append(f"console: {msg.text}" + (f"  <- {where}" if where else ""))
+
+    page.on("console", on_console)
+    page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+
+
 
 def shoot(
     base_url: str,
@@ -32,11 +53,7 @@ def shoot(
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=viewport)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
 
@@ -102,11 +119,7 @@ def shoot_learn(base_url: str, out_dir: Path, errors: list[str]) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=DESKTOP_VIEWPORT)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
         page.wait_for_selector("text=Skip", timeout=5000)
@@ -131,6 +144,83 @@ def shoot_learn(base_url: str, out_dir: Path, errors: list[str]) -> None:
             errors.append("learn screenshot is empty")
 
 
+def shoot_governance(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """The [R4] governance panel, in its UNPOPULATED state.
+
+    This is the capture that matters most for this panel, and it is the reason
+    it is worth a separate shot rather than a build check: with no
+    models/registry.json the page has no champion, no version and no recorded
+    metrics, and the whole design rests on that absence rendering as a stated
+    finding instead of as blank space. A screenshot is the only thing that shows
+    whether it does. The rest of the panel — deployed artefact, feature
+    importance, lifecycle graph — is populated from the real artefact even here,
+    so one shot covers both halves."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        _watch(page, errors)
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+
+        page.click('button:has-text("Governance")')
+        page.wait_for_selector('[role="dialog"]', timeout=5000)
+        # Wait for the fetch to land, not a fixed timeout: the panel renders a
+        # shimmer until /api/governance/model resolves, and screenshotting the
+        # shimmer would pass this harness while showing nothing.
+        page.wait_for_selector("text=Deployed artefact", timeout=10000)
+        page.wait_for_timeout(300)
+
+        # Viewport, not full_page: this panel is a `position: fixed` overlay,
+        # and full_page expands the viewport to the document height, which
+        # re-lays-out the modal (max-h-[88vh]) and captured it as an empty
+        # header with the body scrolled out of frame. The first version of this
+        # shot did exactly that and "passed" while showing nothing.
+        path = out_dir / "ui-governance.png"
+        page.screenshot(path=str(path), full_page=False)
+        print(f"[ui_shot] governance -> {path} ({path.stat().st_size} bytes)")
+
+        # The panel is three viewports tall, and everything below the first one
+        # — the feature ranking, the lifecycle graph, the validation gate — is
+        # exactly the part a reviewer is meant to check. One shot of the top
+        # would make "I looked at the screenshot" mean "I looked at a third of
+        # it", so scroll its own container and capture the rest.
+        for name, fraction in (("features", 0.5), ("lifecycle", 1.0)):
+            page.eval_on_selector(
+                '[role="dialog"] .overflow-y-auto',
+                f"el => el.scrollTo(0, el.scrollHeight * {fraction})",
+            )
+            page.wait_for_timeout(300)
+            frame = out_dir / f"ui-governance-{name}.png"
+            page.screenshot(path=str(frame), full_page=False)
+            print(f"[ui_shot] governance-{name} -> {frame} ({frame.stat().st_size} bytes)")
+
+        # 375px: the panel's densest rows are two-column (label left, value
+        # right) and the feature ranking is a four-column grid, both of which
+        # are exactly the layouts that collapse on a narrow screen.
+        mobile = browser.new_page(viewport=MOBILE_VIEWPORT)
+        _watch(mobile, errors)
+        mobile.goto(base_url, wait_until="networkidle", timeout=30000)
+        mobile.wait_for_selector("text=Skip", timeout=5000)
+        mobile.wait_for_timeout(300)
+        mobile.click("text=Skip")
+        mobile.wait_for_timeout(200)
+        mobile.click('button:has-text("Governance")')
+        mobile.wait_for_selector("text=Deployed artefact", timeout=10000)
+        mobile.wait_for_timeout(300)
+        mobile_path = out_dir / "ui-governance-mobile.png"
+        mobile.screenshot(path=str(mobile_path), full_page=False)
+        print(f"[ui_shot] governance-mobile -> {mobile_path} ({mobile_path.stat().st_size} bytes)")
+
+        browser.close()
+
+        if path.stat().st_size == 0:
+            errors.append("governance screenshot is empty")
+
+
 def shoot_about(base_url: str, out_dir: Path, errors: list[str]) -> None:
     """The About panel, scrolled to the "what actually runs here" matrix.
 
@@ -142,11 +232,7 @@ def shoot_about(base_url: str, out_dir: Path, errors: list[str]) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=DESKTOP_VIEWPORT)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
         page.wait_for_selector("text=Skip", timeout=5000)
@@ -180,11 +266,7 @@ def shoot_replay(base_url: str, out_dir: Path, errors: list[str]) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=DESKTOP_VIEWPORT)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
         page.wait_for_selector("text=Skip", timeout=5000)
@@ -215,11 +297,7 @@ def shoot_signup(base_url: str, out_dir: Path, errors: list[str]) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=DESKTOP_VIEWPORT)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         page.goto(base_url, wait_until="networkidle", timeout=30000)
         page.wait_for_selector("text=Skip", timeout=5000)
@@ -258,6 +336,91 @@ def shoot_signup(base_url: str, out_dir: Path, errors: list[str]) -> None:
                 raise SystemExit(1)
 
 
+def shoot_email_alerts(base_url: str, out_dir: Path, errors: list[str]) -> None:
+    """The per-stock email alert controls in the watchlist panel.
+
+    Needs a logged-in account with a watchlisted stock, so it registers a
+    throwaway user and seeds the watchlist through the API (same approach as
+    shoot_community) rather than clicking through sign-up.
+
+    Two frames, because the second one is a state the UI must not get wrong: an
+    account that has unsubscribed still sees its per-stock settings, and has to
+    be told plainly that they cannot fire. Silently rendering the controls as
+    if they worked would be the failure mode worth catching in pixels."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=DESKTOP_VIEWPORT)
+        _watch(page, errors)
+
+        stamp = str(int(time.time()))
+        token = page.request.post(
+            f"{base_url}/api/auth/register",
+            data={
+                "email": f"ui-shot-alerts-{stamp}@example.com",
+                "password": "ui-shot-pass1",
+                "nickname": f"alerts-{stamp}",
+                "consent": True,
+            },
+        ).json()["access_token"]
+        auth = {"Authorization": f"Bearer {token}"}
+        page.request.post(
+            f"{base_url}/api/watchlist", data={"ticker": "TSLA", "market": "us"}, headers=auth
+        )
+        page.request.post(
+            f"{base_url}/api/watchlist", data={"ticker": "AAPL", "market": "us"}, headers=auth
+        )
+        # One stock armed, one untouched, so the capture shows both the
+        # configured and the unconfigured control in the same frame.
+        page.request.patch(
+            f"{base_url}/api/watchlist/TSLA/alerts",
+            data={"threshold": 70, "spike_points": 15},
+            headers=auth,
+        )
+
+        page.goto(base_url, wait_until="networkidle", timeout=30000)
+        page.wait_for_selector("text=Skip", timeout=5000)
+        page.wait_for_timeout(300)
+        page.click("text=Skip")
+        page.wait_for_timeout(200)
+        page.evaluate("(t) => localStorage.setItem('stock-risk-token', t)", token)
+        page.reload(wait_until="networkidle")
+
+        page.click('button:has-text("Watchlist")')
+        page.wait_for_selector("text=Email me when the score goes above", timeout=5000)
+        page.wait_for_timeout(300)
+        path = out_dir / "ui-alert-settings.png"
+        page.screenshot(path=str(path), full_page=False)
+        print(f"[ui_shot] alert-settings -> {path} ({path.stat().st_size} bytes)")
+
+        # The unsubscribed-account banner is NOT captured here. Reaching that
+        # state needs an unsubscribe token, which is only mintable server-side
+        # (deliberately — a route that hands them out would be a way to
+        # unsubscribe someone else). Covered by
+        # AlertSettings.test.jsx::"warns when the account has unsubscribed"
+        # instead, which drives the same component with the same flag.
+        mobile = browser.new_page(viewport=MOBILE_VIEWPORT)
+        mobile.goto(base_url, wait_until="networkidle", timeout=30000)
+        mobile.wait_for_selector("text=Skip", timeout=5000)
+        mobile.wait_for_timeout(300)
+        mobile.click("text=Skip")
+        mobile.evaluate("(t) => localStorage.setItem('stock-risk-token', t)", token)
+        mobile.reload(wait_until="networkidle")
+        mobile.click('button:has-text("Watchlist")')
+        mobile.wait_for_selector("text=Email me when the score goes above", timeout=5000)
+        mobile.wait_for_timeout(300)
+        mobile_path = out_dir / "ui-alert-settings-mobile.png"
+        mobile.screenshot(path=str(mobile_path), full_page=False)
+        print(
+            f"[ui_shot] alert-settings-mobile -> {mobile_path} "
+            f"({mobile_path.stat().st_size} bytes)"
+        )
+
+        browser.close()
+        for shot in (path, mobile_path):
+            if shot.stat().st_size == 0:
+                errors.append(f"{shot.name} is empty")
+
+
 def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
     """Community platform states, reached the same "fast/deterministic via
     direct API access" way STOCK_RISK_MOCK avoids a real yfinance call:
@@ -270,11 +433,7 @@ def shoot_community(base_url: str, out_dir: Path, errors: list[str]) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=DESKTOP_VIEWPORT)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         stamp = str(int(time.time()))
         author_email = f"ui-shot-author-{stamp}@example.com"
@@ -403,11 +562,7 @@ def shoot_admin(base_url: str, out_dir: Path, errors: list[str]) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=DESKTOP_VIEWPORT)
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console: {msg.text}") if msg.type == "error" else None,
-        )
-        page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
+        _watch(page, errors)
 
         admin_token = page.request.post(
             f"{base_url}/api/auth/login",
@@ -526,6 +681,8 @@ def main() -> int:
 
     shoot_about(args.base_url, out_dir, errors)
     shoot_learn(args.base_url, out_dir, errors)
+    shoot_governance(args.base_url, out_dir, errors)
+    shoot_email_alerts(args.base_url, out_dir, errors)
     shoot_replay(args.base_url, out_dir, errors)
     shoot_signup(args.base_url, out_dir, errors)
     shoot_community(args.base_url, out_dir, errors)

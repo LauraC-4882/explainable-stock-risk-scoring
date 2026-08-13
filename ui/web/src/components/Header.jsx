@@ -3,6 +3,7 @@ import {
   ChartPie,
   Clapperboard,
   Cpu,
+  FileCheck2,
   Info,
   MessagesSquare,
   ShieldCheck,
@@ -31,6 +32,7 @@ export default function Header({ onHome, onOpenTicker }) {
     openLearnPanel,
     openPortfolioPanel,
     openTechPanel,
+    openGovernancePanel,
   } = useAuth()
   const { openTour } = useOnboarding()
 
@@ -80,6 +82,9 @@ export default function Header({ onHome, onOpenTicker }) {
           </button>
           <button onClick={openTechPanel} className={pill}>
             <Cpu aria-hidden="true" size={16} /> {t('tech.nav')}
+          </button>
+          <button onClick={openGovernancePanel} className={pill}>
+            <FileCheck2 aria-hidden="true" size={16} /> {t('governance.nav')}
           </button>
           <button onClick={openReplayPanel} className={pill}>
             <Clapperboard aria-hidden="true" size={16} /> {t('replay.open')}
