@@ -58,8 +58,7 @@ export default function StockCard({ ticker, period, onRemove, index = 0 }) {
         // Kept as {message, code, retryable} rather than a rendered string so
         // the copy is translated at render time — a language switch while the
         // error is on screen has to move it too.
-        if (!cancelled)
-          setError({ message: err.message, code: err.code, retryable: err.retryable })
+        if (!cancelled) setError({ message: err.message, code: err.code, retryable: err.retryable })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

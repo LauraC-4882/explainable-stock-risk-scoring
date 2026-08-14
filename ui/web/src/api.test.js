@@ -109,7 +109,12 @@ describe('apiScore error classification', () => {
     // A misspelled symbol, a too-short history and a delisted name fail
     // identically on the second press — a retry button there would read as
     // "that was a fluke" and waste the user's time.
-    for (const code of ['TICKER_NOT_FOUND', 'INSUFFICIENT_DATA', 'CALCULATION_FAILED', 'DELISTED']) {
+    for (const code of [
+      'TICKER_NOT_FOUND',
+      'INSUFFICIENT_DATA',
+      'CALCULATION_FAILED',
+      'DELISTED',
+    ]) {
       failWith(422, { error: code, message: 'x' })
       const error = await apiScore('AAPL').catch((e) => e)
       expect(error.retryable, code).toBe(false)

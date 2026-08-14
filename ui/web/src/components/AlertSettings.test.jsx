@@ -27,9 +27,7 @@ function mockApi({ patchStatus = 200 } = {}) {
           status: patchStatus,
           json: () =>
             Promise.resolve(
-              patchStatus === 200
-                ? { ...item(), ...JSON.parse(opts.body) }
-                : { detail: 'nope' }
+              patchStatus === 200 ? { ...item(), ...JSON.parse(opts.body) } : { detail: 'nope' }
             ),
         })
       }
