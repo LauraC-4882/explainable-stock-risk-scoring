@@ -116,8 +116,8 @@ export default function BacktestPanel({ ticker }) {
                           {t(`backtest.tests.${key}`)}
                         </div>
                         <div className="font-mono text-[0.64rem] text-muted">
-                          {key === 'acerbiSzekely' && `Z2 = ${test.statistic.toFixed(3)} · `}
-                          p = {test.p_value.toFixed(4)}
+                          {key === 'acerbiSzekely' && `Z2 = ${test.statistic.toFixed(3)} · `}p ={' '}
+                          {test.p_value.toFixed(4)}
                         </div>
                       </div>
                       {/* Verdict is text + colour, never colour alone. */}
@@ -135,7 +135,9 @@ export default function BacktestPanel({ ticker }) {
                 </div>
 
                 {hasEs && (
-                  <p className="text-[0.64rem] leading-relaxed text-muted">{t('backtest.esNote')}</p>
+                  <p className="text-[0.64rem] leading-relaxed text-muted">
+                    {t('backtest.esNote')}
+                  </p>
                 )}
 
                 <p className="text-[0.64rem] italic leading-relaxed text-muted">

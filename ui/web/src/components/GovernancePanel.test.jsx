@@ -229,7 +229,10 @@ describe('GovernancePanel', () => {
   })
 
   it('reports an unreadable governance state instead of an empty page', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: false, status: 500 }))
+    )
     renderOpen()
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not be read/i)
   })

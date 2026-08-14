@@ -42,28 +42,28 @@ export default function WatchlistPanel({ onAdd }) {
                 className="border-b border-border px-5 py-3 transition-colors duration-150 last:border-b-0 hover:bg-surface2/50"
               >
                 <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-100">{item.ticker}</div>
-                  {item.notes && (
-                    <div className="truncate text-xs text-muted" title={item.notes}>
-                      {item.notes}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-shrink-0 items-center gap-2">
-                  <button
-                    onClick={() => onAdd(item.ticker)}
-                    className="rounded-full border border-accent px-3 py-1 text-xs font-semibold text-accent transition-all duration-150 hover:bg-accent/10 active:scale-95"
-                  >
-                    {t('watchlist.add')}
-                  </button>
-                  <button
-                    onClick={() => removeFromWatchlist(item.id)}
-                    className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted transition-all duration-150 hover:border-down hover:text-down active:scale-95"
-                  >
-                    {t('watchlist.remove')}
-                  </button>
-                </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-100">{item.ticker}</div>
+                    {item.notes && (
+                      <div className="truncate text-xs text-muted" title={item.notes}>
+                        {item.notes}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => onAdd(item.ticker)}
+                      className="rounded-full border border-accent px-3 py-1 text-xs font-semibold text-accent transition-all duration-150 hover:bg-accent/10 active:scale-95"
+                    >
+                      {t('watchlist.add')}
+                    </button>
+                    <button
+                      onClick={() => removeFromWatchlist(item.id)}
+                      className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted transition-all duration-150 hover:border-down hover:text-down active:scale-95"
+                    >
+                      {t('watchlist.remove')}
+                    </button>
+                  </div>
                 </div>
                 <AlertSettings item={item} />
               </div>
