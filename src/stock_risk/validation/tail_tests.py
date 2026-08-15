@@ -1,10 +1,23 @@
 """[R6] Tail-risk backtesting beyond unconditional coverage.
 
 The existing Kupiec POF test (scripts/validate_score.py) answers one question:
-does `var_95_21d` breach 5% of the time? It found that it doesn't — 9.25%
-against a 5% target, LR 1160.9, p ~ 0. That is a real finding, but it is only
-the *unconditional* half of VaR validation, and a VaR model can pass it while
-still being unusable.
+does the reported VaR breach 5% of the time?
+
+For a long time this file said it didn't — 9.25% against a 5% target, LR
+1160.9, p ~ 0 — and read that as evidence of fat tails the model failed to
+capture. **That reading was wrong, and the number was an artefact.** It was
+measured on `var_95_21d`, which is `rolling(21).quantile(0.05)`; the
+interpolation position lands exactly on index 1, so the estimate is the second
+smallest of 21 returns, and the next return falls below the k-th order
+statistic of n with probability k/(n+1) = 2/22 = 9.09% — for ANY return
+distribution. Simulated iid normal gives 9.11% and iid t(5) gives 9.08%.
+Every ticker "failing" by the same margin was the tell.
+
+The reported VaR is now `var_95_100d` (100-day window, Weibull plotting
+position, which makes the nominal and actual exceedance rates agree). Kupiec
+passes on it. What survives the fix is the genuinely informative part: breaches
+still CLUSTER, which is what the independence test below is for and which no
+amount of re-specifying an unconditional quantile fixes.
 
 Three further tests, each catching something Kupiec structurally cannot:
 

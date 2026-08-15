@@ -78,11 +78,18 @@ QUESTION_BANK: tuple[Question, ...] = (
         prompt_zh="历史表现是否保证未来的走势？",
         misconception_if_wrong=Misconception.HISTORY_GUARANTEES_FUTURE,
     ),
+    # correct_answer flipped to False, and the question rewritten, because the
+    # old one taught the wrong lesson: it presented "9.25% breaches vs a 5%
+    # target => the model underestimates tail risk" as the CORRECT answer. That
+    # breach rate came from a 21-observation quantile estimator whose second
+    # order statistic is exceeded 2/22 = 9.09% of the time regardless of tail
+    # thickness — so the honest answer is that a breach rate alone cannot tell
+    # you, without knowing how the quantile was estimated.
     Question(
-        "q_breach_rate", Concept.VAR, correct_answer=True, difficulty=0.8,
-        prompt_en="A 9.25% realised breach rate versus a 5% target indicates the model "
-                  "underestimates tail risk. True?",
-        prompt_zh="实际突破率 9.25% 对比 5% 的目标，说明模型低估了尾部风险。对吗？",
+        "q_breach_rate", Concept.VAR, correct_answer=False, difficulty=0.8,
+        prompt_en="A realised breach rate above the target always means the market's "
+                  "tails are fatter than the model assumed. True?",
+        prompt_zh="实际突破率高于目标，就一定说明市场尾部比模型假设的更厚。对吗？",
     ),
     Question(
         "q_illiquid_unreliable", Concept.LIQUIDITY, correct_answer=True, difficulty=0.55,

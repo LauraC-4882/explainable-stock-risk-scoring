@@ -59,16 +59,23 @@ def _load_live(tickers: list[str]) -> dict[str, pd.DataFrame]:
 def _prepare(raw: pd.DataFrame) -> pd.DataFrame:
     """Compute the risk metrics whose tail calibration is under test.
 
-    Note the one-day shift below: `var_95_21d` on day t is computed from
-    returns up to and including day t, so comparing it against day t's OWN
-    return would be scoring a forecast against data it already saw. The test
-    has to ask whether *yesterday's* VaR contained *today's* loss.
+    Grades `var_95_100d`/`cvar_95_100d` — the pair the scorecard reports — NOT
+    the 21-day `var_95_21d` features this used to read. The 21-day series is a
+    second-order-statistic estimator that breaches 2/22 = 9.09% by construction
+    at any tail thickness (see the comment block in features/risk_metrics.py);
+    testing it against a 5% target measured the estimator's window, not the
+    market's tails, and every ticker failed for the same arithmetic reason.
+
+    Note the one-day shift below: the VaR on day t is computed from returns up
+    to and including day t, so comparing it against day t's OWN return would be
+    scoring a forecast against data it already saw. The test has to ask whether
+    *yesterday's* VaR contained *today's* loss.
     """
     df = RiskMetrics().compute(DataPreprocessor().process(raw))
     out = pd.DataFrame(index=df.index)
     out["return"] = df["pct_return"]
-    out["var"] = df["var_95_21d"].shift(1)
-    out["es"] = df["cvar_95_21d"].shift(1)
+    out["var"] = df["var_95_100d"].shift(1)
+    out["es"] = df["cvar_95_100d"].shift(1)
     return out.dropna()
 
 

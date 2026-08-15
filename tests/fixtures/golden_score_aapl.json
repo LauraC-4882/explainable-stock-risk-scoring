@@ -11,7 +11,7 @@
     }
   },
   "beta": 1.2,
-  "cvar_95": -0.0251,
+  "cvar_95": -0.027,
   "fundamentals": {
     "market_cap": 3000000000000.0,
     "sector": "Technology",
@@ -380,6 +380,6 @@
     }
   },
   "ticker": "AAPL",
-  "var_95": -0.0213,
+  "var_95": -0.0202,
   "volatility_30d": 0.1918
 }

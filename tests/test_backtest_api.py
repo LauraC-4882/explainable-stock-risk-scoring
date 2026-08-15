@@ -89,6 +89,31 @@ def test_backtest_response_is_strict_json_with_no_nan_tokens():
     assert "NaN" not in res.text and "Infinity" not in res.text
 
 
+def test_backtest_grades_the_same_series_the_card_shows():
+    """The panel's whole claim is "we backtest the VaR you are looking at".
+
+    That held only by convention while the endpoint rebuilt the series inline —
+    and it silently stopped holding when the tile moved to the 100-day
+    estimator and this still built a 21-day one. Pinned structurally: the
+    endpoint's breach count must equal what you get by counting breaches of the
+    scorecard's own var_95 column.
+    """
+    from stock_risk.data.preprocessor import DataPreprocessor
+    from stock_risk.features.risk_metrics import RiskMetrics
+
+    with _patched():
+        res = TestClient(app).get("/api/score/AAPL/backtest")
+    data = res.json()
+
+    metrics = RiskMetrics().compute(DataPreprocessor().process(_ohlcv(300)))
+    forecast = metrics["var_95_100d"].shift(1)
+    usable = forecast.notna() & metrics["log_return"].notna()
+    expected = int((metrics["log_return"][usable] < forecast[usable]).sum())
+
+    assert data["days"] == int(usable.sum())
+    assert data["breaches"] == expected
+
+
 def test_backtest_rejects_thin_history():
     with _patched(n=40):
         res = TestClient(app).get("/api/score/AAPL/backtest")
