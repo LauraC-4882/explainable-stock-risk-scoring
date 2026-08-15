@@ -30,8 +30,10 @@ class PercentileCompositeProducer(RiskProducer):
         "method": "quintile backtest + Kupiec POF test (36 tickers, 5y, 37,869 obs)",
         "result": (
             "forward 20d max-drawdown and realized vol both monotonic across "
-            "score quintiles; var_95_21d breach rate 9.25% vs claimed 5% "
-            "(documented miscalibration, see README)"
+            "score quintiles; var_95_21d breaches 9.25% because it is the 2nd "
+            "order statistic of 21 returns (2/22 = 9.09% at any tail thickness) "
+            "— an estimator artefact, not miscalibration of the score. The "
+            "REPORTED VaR is var_95_100d; see README 'Score Validation'"
         ),
         "date": "2026-07-17",
         "reference": "scripts/validate_score.py; README 'Score Validation'",

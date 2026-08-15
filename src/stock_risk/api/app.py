@@ -10,7 +10,6 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
-import numpy as np
 import yfinance as yf
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -1897,10 +1896,13 @@ def var_backtest(ticker: str):
     coverage, and the Acerbi-Szekely ES check, via validation/tail_tests.
 
     Honesty constraints, both structural:
-    * The forecast series is the same 21-day rolling empirical quantile the
-      scorecard's var_95 tile uses, SHIFTED one day — each day is judged by a
-      VaR computed strictly from data before it. No lookahead, or the
-      backtest would grade the model on answers it was shown.
+    * The forecast series is the same one the scorecard's var_95 tile shows —
+      the 100-day, Weibull-position empirical quantile from
+      features/risk_metrics — SHIFTED one day, so each day is judged by a VaR
+      computed strictly from data before it. No lookahead, or the backtest
+      would grade the model on answers it was shown. Testing a series the user
+      is not shown would be the same evasion by a different route, which is why
+      this construction is pinned by a test.
     * Results are per-ticker and computed live from that ticker's history.
       There is deliberately no site-wide "our VaR is N% accurate" headline —
       a single global number would average away exactly the per-name failures
@@ -1928,21 +1930,25 @@ def var_backtest(ticker: str):
                 status_code=404, detail=f"No usable history for {tkr}"
             ) from exc
 
-    returns = df["log_return"].dropna()
-    # Same construction as features/risk_metrics var_95_21d / cvar_95_21d,
-    # shifted so day t is tested against forecasts built from days < t.
-    var_forecast = returns.rolling(21).quantile(0.05).shift(1)
-    es_forecast = (
-        returns.rolling(21)
-        .apply(
-            lambda x: x[x <= np.quantile(x, 0.05)].mean() if len(x) > 5 else np.nan,
-            raw=True,
-        )
-        .shift(1)
-    )
-    aligned = returns[var_forecast.notna()]
-    var_aligned = var_forecast[var_forecast.notna()]
-    es_aligned = es_forecast.reindex(aligned.index)
+    # Read the reported VaR/ES columns off RiskMetrics rather than recomputing
+    # them here. The previous version rebuilt the series inline, which meant the
+    # promise in the docstring — "the VaR the product actually shows" — held
+    # only as long as two separate expressions stayed in sync. They did not:
+    # the tile moved to the 100-day Weibull estimator while this still built a
+    # 21-day one, and nothing would have failed. One source, one construction.
+    from ..features.risk_metrics import RiskMetrics
+
+    metrics = RiskMetrics().compute(df)
+    returns = metrics["log_return"]
+    var_forecast = metrics["var_95_100d"].shift(1)
+    es_forecast = metrics["cvar_95_100d"].shift(1)
+
+    usable = var_forecast.notna() & returns.notna()
+    aligned = returns[usable]
+    var_aligned = var_forecast[usable]
+    es_aligned = es_forecast[usable]
+    # 60 tested days is the floor for the tests to say anything; with a 100-day
+    # estimation window that needs ~160 sessions of history, up from ~80.
     if len(aligned) < 60:
         raise HTTPException(status_code=422, detail="Not enough history to backtest")
 

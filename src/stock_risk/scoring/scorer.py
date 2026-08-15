@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -112,6 +113,25 @@ def _label(score: float) -> str:
         if lo <= score < hi:
             return label
     return "EXTREME"
+
+
+def _round_or_none(value, digits: int = 4) -> Optional[float]:
+    """Round a metric, or return None when it isn't a real number.
+
+    `round(float('nan'), 4)` is NaN, and NaN survives all the way into the
+    response where `json.dumps` writes a bare `NaN` token — invalid JSON that
+    `JSON.parse` rejects, blanking the whole card rather than one tile. The
+    reported VaR/ES needs 100 sessions of history (see RiskMetrics.VAR_WINDOW),
+    so a newly-listed stock genuinely has no answer yet; None says that, and the
+    tile already renders a null metric as an em dash.
+    """
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(number, digits) if math.isfinite(number) else None
 
 
 def _resolve_beta(fundamental_beta, computed_beta) -> Optional[float]:
@@ -330,9 +350,14 @@ class RiskScorer:
             },
             "stress_test": stress_test,
             "volatility_30d": round(float(latest.get("vol_63d", np.nan)), 4),
-            "var_95": round(float(latest.get("var_95_21d", np.nan)), 4),
-            "cvar_95": round(float(latest.get("cvar_95_21d", np.nan)), 4),
-            "max_drawdown_90d": round(float(latest.get("max_drawdown_63d", np.nan)), 4),
+            # The REPORTED VaR/ES — the 100-day, Weibull-position pair, not the
+            # 21-day features of the same name. The 21-day series stays a
+            # scoring input (risk_categories, feature_sets); it breaches ~9.1%
+            # by construction and must not be shown as a 95% VaR. See the
+            # comment block in features/risk_metrics.py.
+            "var_95": _round_or_none(latest.get("var_95_100d")),
+            "cvar_95": _round_or_none(latest.get("cvar_95_100d")),
+                        "max_drawdown_90d": round(float(latest.get("max_drawdown_63d", np.nan)), 4),
             "beta": _resolve_beta(info.get("beta"), latest.get("beta_63d")),
             "implied_volatility": round(iv, 4) if iv else None,
             # info is {} whenever fetch_info was throttled (see its try/except
