@@ -44,6 +44,32 @@ def reset_security_state():
         _clear()
 
 
+@pytest.fixture(autouse=True)
+def hermetic_data_source_config():
+    """Neutralise the developer's real .env for the duration of every test.
+
+    Found the hard way: CLAUDE.md tells you to put TWELVE_DATA_KEY in .env (the
+    US cross-sectional build and training both want it), and the moment you do,
+    ten fetcher/scoring-error tests fail locally — they assert the unset-key
+    routing (US tickers -> yfinance, throttle -> snapshot fallback) that CI
+    sees, while your shell sees Twelve Data routing instead. A suite whose
+    result depends on whether you followed the project's own setup instructions
+    trains people to ignore red.
+
+    Same design as reset_security_state above: force the neutral default here,
+    and let a test that wants a key set it explicitly (test_data.py already
+    does, via monkeypatch, which overrides this and restores itself).
+    """
+    from stock_risk.config import settings
+
+    original = settings.twelve_data_key
+    settings.twelve_data_key = None
+    try:
+        yield
+    finally:
+        settings.twelve_data_key = original
+
+
 @pytest.fixture()
 def rate_limited():
     """Opt back into rate limiting for a test that's exercising it."""
