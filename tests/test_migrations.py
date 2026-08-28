@@ -30,7 +30,12 @@ from sqlmodel import SQLModel
 from alembic import command
 from stock_risk import backup as backup_mod
 from stock_risk.auth import models as auth_models  # noqa: F401  (registers metadata)
-from stock_risk.db import alembic_config, run_migrations
+from stock_risk.db import (
+    _BASELINE_TABLES,
+    IncompleteSchemaError,
+    alembic_config,
+    run_migrations,
+)
 
 
 @pytest.fixture()
@@ -263,6 +268,111 @@ def test_preexisting_unversioned_database_is_stamped_not_recreated(engine, db_ur
     with engine.connect() as conn:
         assert conn.execute(text('SELECT count(*) FROM "user"')).scalar_one() == 1
         assert conn.execute(text("SELECT count(*) FROM analystpost")).scalar_one() == 1
+
+
+def _make_interrupted_baseline(engine, db_url, drop: str = "scoresnapshot") -> None:
+    """Build the database a process killed part-way through the baseline leaves.
+
+    **Construction matters more than it looks.** This has to be the baseline-era
+    schema MINUS a table. Do not reach for `SQLModel.metadata.create_all()` and
+    drop a table from that — the reason is the same one recorded in
+    `_make_legacy_database` above, and it silently destroys what this test
+    covers: create_all() builds *today's* metadata, which includes `auditlog`
+    (added by [R2], and not in _BASELINE_TABLES). A database carrying auditlog
+    sends run_migrations down the replay path, where the second revision's
+    `CREATE TABLE auditlog` collides with the existing one and raises "table
+    auditlog already exists" — a LOUD crash.
+
+    That loud crash is not the bug under test. The bug is the SILENT shape: the
+    replay succeeds, alembic_version reaches head, and a table is simply gone.
+    Swapping this helper for create_all() leaves both tests passing while
+    testing the wrong failure, so the silent shape loses its only coverage.
+
+    `scoresnapshot` is the default because no revision after the baseline
+    touches it — see run_migrations' docstring on why that property belongs to
+    the current migration chain rather than to the table, and why the fix keys
+    on completeness instead of on any table's name.
+    """
+    _make_legacy_database(engine, db_url)  # baseline-era schema, no version row
+    with engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE {drop}"))
+
+
+def test_interrupted_baseline_is_refused_not_stamped(engine, db_url):
+    """A half-built schema must stop startup, not be adopted as complete.
+
+    Before this check, run_migrations saw "some baseline table exists", stamped
+    at the baseline, replayed the later revisions successfully (none of them
+    touch scoresnapshot), and left alembic_version reading head. The app then
+    started, /health returned 200, and the watchlist overview 500'd with
+    "no such table: scoresnapshot" — three green signals over a broken schema.
+    """
+    _make_interrupted_baseline(engine, db_url)
+
+    with pytest.raises(IncompleteSchemaError) as excinfo:
+        run_migrations(engine)
+
+    # The operator's first question is "which tables?", so the answer is in the
+    # message, not only in the attribute.
+    assert excinfo.value.missing == ["scoresnapshot"]
+    assert "scoresnapshot" in str(excinfo.value)
+    # And the second is "is this my config?" — the message has to preempt it.
+    assert "INTERRUPTED UPGRADE" in str(excinfo.value)
+    assert "not a configuration error" in str(excinfo.value)
+
+    # Nothing may be recorded: a version row here is exactly the false claim
+    # that made the failure silent.
+    assert _revision(engine) is None
+    # And nothing may be dropped — recovery is the operator's call.
+    assert "user" in set(inspect(engine).get_table_names())
+
+
+@pytest.mark.parametrize("dropped", sorted(_BASELINE_TABLES))
+def test_any_missing_baseline_table_is_refused(engine, db_url, dropped):
+    """The guard is on the invariant, not on a list of known-risky tables.
+
+    Parametrised over every baseline table because which one is *dangerous*
+    drifts with the migration chain: today a missing `user` crashes loudly on
+    replay while a missing `scoresnapshot` passes silently, and adding one
+    revision reverses that. A check that only caught today's silent table would
+    pass this file's other test and still regress the moment the chain changed.
+    """
+    _make_interrupted_baseline(engine, db_url, drop=dropped)
+
+    with pytest.raises(IncompleteSchemaError) as excinfo:
+        run_migrations(engine)
+
+    assert excinfo.value.missing == [dropped]
+    assert _revision(engine) is None
+
+
+def test_complete_pre_alembic_database_is_still_stamped(engine, db_url):
+    """The control: the fix must not make adoption stricter than it was.
+
+    Same construction as the interrupted case minus the damage — every baseline
+    table present, no version row. This is a genuine pre-Alembic database and
+    must still be stamped and upgraded, exactly as before.
+    """
+    _make_legacy_database(engine, db_url)
+    assert _BASELINE_TABLES <= set(inspect(engine).get_table_names())
+
+    run_migrations(engine)
+
+    assert _revision(engine) == _head()
+
+
+def test_empty_database_is_still_built_from_scratch(engine, db_url):
+    """The other control: no tables at all is not "incomplete", it is new.
+
+    The three-way split has an easy off-by-one — treating an empty database as
+    a partial baseline would refuse to start every fresh deployment.
+    """
+    assert not set(inspect(engine).get_table_names()) & _BASELINE_TABLES
+
+    run_migrations(engine)
+
+    assert _revision(engine) == _head()
+    assert _BASELINE_TABLES <= set(inspect(engine).get_table_names())
 
 
 def test_adopted_legacy_database_still_receives_later_migrations(engine, db_url):
