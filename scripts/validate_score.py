@@ -8,10 +8,27 @@ history:
    realized max drawdown and realized volatility are monotonically worse
    for higher-scored quintiles. Monotonicity itself is the evidence of
    predictive power (or its absence).
-2. Kupiec POF (proportion of failures) test on var_95_21d — it claims "5%
-   of days breach this line," so count actual breaches and run a
-   likelihood-ratio test on whether the observed breach rate is
-   statistically consistent with 5%.
+2. Kupiec POF (proportion of failures) test on var_95_21d — count actual
+   breaches and run a likelihood-ratio test on the observed rate.
+
+   var_95_21d is NOT the reported 95% VaR (that is var_95_100d; see
+   features/risk_metrics.py). It is a SCORING FEATURE, and at a 21-day
+   window it is the 2nd order statistic of 21 returns, so it is exceeded
+   2/22 = 9.09% of the time regardless of the return distribution. This
+   test therefore measures the feature's empirical breach rate as a
+   record of feature behaviour; it is not evidence about the calibration
+   of anything the product reports, and a rejection here is expected.
+
+   The feature is kept at that window deliberately. Its bias is not a
+   constant offset — as an order statistic of 21 observations its gap
+   from the true 5% quantile scales with local volatility — but it is
+   MONOTONE in local tail risk, and both consumers (gradient boosting,
+   which splits on rank, and risk_categories, which percentile-ranks
+   against the stock's own history) use only ordering. A monotone
+   transform is absorbed by both. What is NOT absorbed is the estimation
+   noise, and that costs statistical power rather than introducing
+   directional bias. The calibration requirement lives on var_95_100d,
+   which is specified for it.
 
 No-lookahead by construction: composite_score(df.iloc[:i+1]) is called at
 every step, so _historical_percentile only ever sees data up to and

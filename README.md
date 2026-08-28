@@ -8,7 +8,7 @@ A production-style system that predicts **downside risk** and **volatility** for
 
 - **Validated & live**: percentile composite score (quintile backtest + Kupiec POF, see *Score Validation*); ML drawdown leg (walk-forward AUC 0.671 on 56 tickers × 5y) — **fusion gate opened 2026-07-19**: risk_score now blends percentile (85%) + ML crash probability (15%), with per-response composition reporting; producer-layer architecture with typed validation-gated fusion weights ([G1]); TTL-cached fetcher with real timeouts + snapshot fallback against Yahoo's datacenter-IP throttling ([C3]+); end-to-end smoke + visual-regression harnesses ([D1]/[D2]); Render deploy (full pipeline).
 - **Landed, experiments pending a data window**: [G2] label engineering (vol-scaled dynamic thresholds + triple-barrier first-touch labels, unit-tested; the three-way walk-forward comparison needs a fresh 56×5y fetch, currently blocked by the Yahoo datacenter-IP throttling documented under *Deployment*) and [G3] Alpha158-style factor grid + IC/FDR screen (89 factors implemented and golden-tested; screening + feature-surface comparison queued behind the same data fetch).
-- **Known limits, documented not hidden**: `var_95_21d` under-states risk ~2× (Kupiec-rejected — measured, unpatched); ML recall is low (0.11); scores are not comparable across stocks (by construction); yfinance has no SLA and throttles datacenter IPs for extended windows.
+- **Known limits, documented not hidden**: the reported 95% VaR/ES uses a 100-day Weibull-position quantile after an estimator defect — the 21-day series it replaced was the 2nd order statistic of 21 returns and breached 9.09% by construction, which this project had misread as fat tails (fixed in `93b5871`); breaches still **cluster** (Christoffersen-rejected on AAPL — measured, unpatched); ML recall is low (0.11); scores are not comparable across stocks (by construction); yfinance has no SLA and throttles datacenter IPs for extended windows.
 
 ## Architecture
 
@@ -349,24 +349,80 @@ Both monotonic: drawdown gets worse and realized volatility rises cleanly
 from Q1 to Q5. At this scale, the composite score does what a risk score
 is supposed to do — higher score, worse subsequent outcomes, in order.
 
-**2. Kupiec POF test on `var_95_21d`** — it claims "5% of days breach this
-line"; count actual breaches and run the likelihood-ratio test on whether
-the observed rate is statistically consistent with 5%:
+**2. Kupiec POF test on the reported VaR** — it claims "5% of days breach this
+line"; count actual breaches and run the likelihood-ratio test on whether the
+observed rate is statistically consistent with 5%.
 
-| n | breaches | breach rate | LR statistic | p-value | reject H₀ (5%) |
-|---|---|---|---|---|---|
-| 37,833 | 3,498 | 9.25% | 1160.9 | ~0 | **Yes** |
+**The estimator has to be specified before the test means anything.** For `n`
+i.i.d. observations the `k`-th order statistic satisfies `E[F(X₍ₖ₎)] = k/(n+1)`,
+so the plotting position that makes an empirical quantile's *exceedance rate*
+unbiased for the nominal level is `h = p(n+1) − 1` — the Weibull position.
+pandas' default (`h = p(n−1)`, "linear") is unbiased for something else: the
+quantile's *position* under a uniform distribution. Those are different targets,
+and a VaR backtest measures the first one. So Weibull is the correct choice
+before any backtest is run; passing Kupiec is a consequence of that, not the
+reason for it.
 
-This is the honest negative result: **`var_95_21d` under-states risk by
-roughly 2x** — actual breaches happen at ~9.25%, not the claimed 5%, and
-the p-value leaves no ambiguity about whether that's noise. The rolling
-21-day empirical quantile is doing what it's defined to do (a historical
-quantile, not a distributional forecast); it just isn't a calibrated VaR
-estimate at the 95% level, and this README previously had no way of
-knowing that. Not fixed as part of this validation pass — this is a
-measurement, not a patch — but it's real ammunition for [A3]'s weight/
-threshold-calibration review, and any UI copy that implies "5% chance of
-breaching this line" should be corrected or caveated until it's addressed.
+**What the old estimator was.** The reported VaR used to be `var_95_21d` =
+`rolling(21).quantile(0.05)`. At that window the default position lands on
+`0.05 × (21−1) = 1.0` — an integer index — so no interpolation happens and the
+"5% quantile" is simply the **second smallest of the last 21 returns**. All five
+of pandas' interpolation modes return the identical value there, which is the
+tell. By the identity above its exceedance rate is fixed at
+
+    2 / 22 = 9.09%
+
+**for any return distribution.** Simulated i.i.d. normal breaches 9.11%; i.i.d.
+t(5) breaches 9.08% — indistinguishable, because the effect is a property of the
+estimator's order statistics, not of the tail. Every ticker in the snapshot set
+landing in the same 9–10% band, across A-share single names, an ETF and AAPL
+alike, was the clue: that uniformity is not what fat tails look like.
+
+**This README previously attributed that result to fat tails the model failed to
+capture. That attribution was wrong.** It was an artefact of the estimation
+window, and the "under-states risk by roughly 2×" claim it supported has been
+withdrawn. See `93b5871`; the reported VaR/ES is now `var_95_100d` /
+`cvar_95_100d`.
+
+**What survives the fix**, and is therefore a real finding rather than a
+measurement artefact:
+
+- Kupiec goes from rejecting on **every** ticker under the old estimator to
+  rejecting on **at most one** — coverage is no longer the problem.
+- **AAPL still fails Christoffersen independence.** Breaches cluster. The fix
+  did not paper over this and no test was dropped to make the table look
+  better; a repaired unconditional quantile has nothing to say about *when*
+  breaches arrive.
+
+**Current numbers are not reproduced here, deliberately.** Run them:
+
+```bash
+make validate-tail        # scripts/validate_tail.py, offline from snapshots/
+```
+
+This is the permanent form of this section, not a placeholder. The inputs to
+that table are not fixed: the ticker set is whatever `snapshots/` happens to
+contain (see `SESSION_LEDGER.md` — the script globs the directory rather than
+taking a declared list), the snapshots themselves are refreshed daily by
+`.github/workflows/refresh-snapshot.yml`, and the harness's return convention is
+itself under review. Any number hard-coded here would come detached from the
+conditions that produced it — which is precisely the class of defect this
+section exists to document, so fixing it with another instance of it would be
+the wrong direction. What this document commits to is the **method and the
+direction of the findings**; the digits belong to the command.
+
+For the record, the run behind the narrative above used the six tracked
+snapshots with set digest `aca8fc0e4089d916`. That digest pins what was on this
+machine at the time; it cannot pin CI, and it will only become a meaningful
+check once the ticker set is declared explicitly rather than globbed.
+
+<!-- historical-record: legacy-21d-estimator -->
+> **Superseded measurement, kept as evidence.** Before `93b5871` this section
+> reported a 36-ticker Kupiec run on `var_95_21d`: n = 37,833, breaches = 3,498,
+> rate 9.25%, LR 1160.9, p ≈ 0, reject. The arithmetic was correct; the
+> interpretation was not, for the reason given above. Retained so the claim and
+> its retraction are both visible.
+<!-- /historical-record -->
 
 ### Are the five categories actually independent? (`make analyze-categories` / `scripts/analyze_categories.py`)
 
@@ -651,29 +707,48 @@ flag drift that isn't there.
 
 ## Tail-Risk Validation Beyond Coverage ([R6])
 
-`make validate` already ran a Kupiec POF test and found `var_95_21d` breaching
-9.25% against its 5% claim. That is the *unconditional* half of VaR validation,
-and a VaR model can pass it while still being unusable.
+Kupiec answers the *unconditional* half of VaR validation — is the breach rate
+right? — and a VaR model can pass it while still being unusable.
 
 `make validate-tail` (`scripts/validate_tail.py`, offline from the committed
-snapshots so the numbers reproduce) adds three tests Kupiec structurally cannot
-perform. Results across 9 tickers, 4,613 ticker-days:
+snapshots) adds three tests Kupiec structurally cannot perform: Christoffersen
+independence, Christoffersen conditional coverage, and the Acerbi–Székely Z2 ES
+check.
 
-| Test | Result | Reading |
-|---|---|---|
-| Kupiec POF | LR 144.85, p≈0, **reject** | 9.30% breach rate vs 5% claimed — independently reproduces the earlier 36-ticker finding on different data |
-| Christoffersen independence | LR 4.90, p=0.027, **reject** | Breaches **cluster**: 12.4% chance of a breach the day after a breach vs 9.0% otherwise (ratio 1.38) |
-| Conditional coverage | LR 149.76, p≈0, **reject** | Fails jointly, as expected once both components fail |
-| Acerbi–Szekely Z2 (ES) | −1.78, p≈0, **reject** | Breaches averaged −2.79% against a predicted ES of −2.26% — ES **understates** tail severity by ~23% |
+**Run it for current results; they are not reproduced here.** The reasoning is
+the same as in the Kupiec section above and is deliberate rather than lazy: this
+table's inputs are not fixed. The ticker set is whatever `snapshots/` contains
+at the time (globbed, not declared), those snapshots are refreshed daily, and
+the harness's return convention is under review — so any hard-coded figure would
+detach from the conditions that produced it. The method and the direction of the
+findings are what this document stands behind.
+
+What that run shows, stably enough to state in words:
+
+- **Coverage is no longer the finding.** Under the old `var_95_21d` estimator —
+  now retained only as a scoring feature — Kupiec rejected on every ticker;
+  under the reported `var_95_100d` it rejects on at most one, and the pooled
+  rate sits near 5%.
+- **Breaches still cluster, and AAPL still fails Christoffersen independence.**
+  This is the finding the fix did **not** dissolve, and it is the one worth
+  keeping: repairing an unconditional quantile says nothing about *when*
+  breaches arrive. It is also the evidence that no test was quietly dropped to
+  make the table look better.
+- **Z2 still flags a mild ES understatement.** The severity ratio (mean breach
+  return ÷ mean predicted ES) is now near 1.0, against ~1.26 under the old
+  estimator — which is the measurement that separates "ES is genuinely too
+  shallow" from "ES looks bad because there are twice as many breaches as
+  expected in its denominator". Most of the old Z2 signal was the latter.
 
 The independence result is the one Kupiec was blind to. Counting breaches
 cannot see *when* they arrive, and clustered breaches are exactly when losses
-compound. Longest observed run: 4 consecutive days; 22.6% of all breaches
-occurred inside multi-day runs; worst month February 2025 with 32.
+compound; the run-length and worst-month figures come out of the same command.
 
 Two honest caveats. Breaches cluster partly because volatility clusters and a
-21-day rolling window adapts slowly — this measures the deployed estimator, not
-a claim that no VaR model could do better. And Z2's p-value is bootstrapped
+rolling empirical window adapts slowly — this measures the deployed estimator,
+not a claim that no VaR model could do better, and a longer window trades
+adaptation speed for estimation stability rather than removing the effect. And
+Z2's p-value is bootstrapped
 over the breach set (seeded, so it's reproducible); the first implementation
 resampled the full return series against the same ES path, which is circular —
 the null inherited the very error under test and reported p≈0.5 for an ES
