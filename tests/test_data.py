@@ -608,11 +608,19 @@ def test_fetch_history_routes_hsi_benchmark_to_akshare():
     assert list(df.columns) == ["open", "high", "low", "close", "volume"]
 
 
-def test_fetch_history_us_ticker_uses_yfinance_without_a_twelve_data_key():
+def test_fetch_history_us_ticker_uses_yfinance_without_a_twelve_data_key(monkeypatch):
     """Default (no TWELVE_DATA_KEY configured) — unchanged local-dev/CI
-    behavior, not a silent dependency on an external paid-ish service."""
+    behavior, not a silent dependency on an external paid-ish service.
+
+    The no-key precondition is ARRANGED (monkeypatch), not asserted: the old
+    bare `assert settings.twelve_data_key is None` tested the developer's
+    ambient environment instead of establishing the branch under test, which
+    is how this test went red the moment a .env followed CLAUDE.md's own
+    setup instructions. An assertion is not a way to set up a precondition;
+    this test must be self-sufficient whether or not the autouse
+    hermetic_data_source_config fixture is present in conftest."""
     from stock_risk.config import settings
-    assert settings.twelve_data_key is None  # the untouched default
+    monkeypatch.setattr(settings, "twelve_data_key", None)
     mock_ticker = MagicMock()
     mock_ticker.history.return_value = _make_ohlcv(50)
     fetcher = MarketDataFetcher()
