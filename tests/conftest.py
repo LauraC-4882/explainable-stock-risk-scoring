@@ -14,7 +14,55 @@ every test regardless. Tests that actually exercise the limiter opt in with the
 
 from __future__ import annotations
 
+import socket
+
 import pytest
+
+_LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost", "")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def block_external_network():
+    """Structural hermeticity: any external connect() or DNS lookup fails loudly.
+
+    The suite's offline-ness used to be a behavioural side effect — it held
+    only while TWELVE_DATA_KEY happened to be unset. Probed 2026-08-24: with
+    a key in .env and no neutralising fixture, two tests issued real HTTPS
+    requests to api.twelvedata.com (and a key-set run also rewrites tracked
+    snapshot files). This guard makes the guarantee structural instead: a
+    future test that reaches for the network raises immediately and locally,
+    rather than passing here and failing intermittently in CI.
+
+    Loopback stays allowed (anyio/TestClient event-loop plumbing needs it on
+    Windows). getaddrinfo is patched alongside connect so DNS itself cannot
+    leak. Adopted with ZERO interceptions across the full suite — current
+    hermeticity is proven, not assumed — so any future trip of this guard is
+    a new network dependency, never a pre-existing one.
+    """
+    real_connect = socket.socket.connect
+    real_getaddrinfo = socket.getaddrinfo
+
+    def _host_of(address):
+        return address[0] if isinstance(address, tuple) else address
+
+    def guarded_connect(self, address, *args, **kwargs):
+        host = _host_of(address)
+        if isinstance(host, str) and host not in _LOOPBACK_HOSTS:
+            raise RuntimeError(f"[socket guard] external connect blocked: {address!r}")
+        return real_connect(self, address, *args, **kwargs)
+
+    def guarded_getaddrinfo(host, *args, **kwargs):
+        if isinstance(host, str) and host not in _LOOPBACK_HOSTS:
+            raise RuntimeError(f"[socket guard] DNS lookup blocked: {host!r}")
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    socket.socket.connect = guarded_connect
+    socket.getaddrinfo = guarded_getaddrinfo
+    try:
+        yield
+    finally:
+        socket.socket.connect = real_connect
+        socket.getaddrinfo = real_getaddrinfo
 
 
 @pytest.fixture(autouse=True)
