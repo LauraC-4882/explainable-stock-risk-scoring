@@ -22,6 +22,27 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      # Build the frontend BEFORE pytest: tests/test_static_fonts.py's two
+      # serving tests need ui/web/dist to exist, and until this step landed
+      # they silently skipped on every CI run — the regression defence for
+      # the fonts-404 bug had never actually executed here. With CI=true
+      # their skip guard is disabled, so removing this step now fails the
+      # job loudly instead of shrinking coverage back to "green by skip".
+      # Built in-job rather than passed from the frontend job as an
+      # artifact: an artifact hand-off serialises the two jobs and couples
+      # this one to frontend-job failures.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/web/package-lock.json
+
+      - name: Build frontend (needed by test_static_fonts.py)
+        working-directory: ui/web
+        run: |
+          npm ci
+          npm run build
+
       - name: Lint
         run: |
           ruff check src/ tests/ alembic/
