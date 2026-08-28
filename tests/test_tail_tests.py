@@ -49,8 +49,15 @@ def test_kupiec_passes_a_correctly_calibrated_var():
 
 
 def test_kupiec_rejects_a_var_that_understates_risk():
-    """The real finding this project already has: var_95_21d breaches 9.25% of
-    the time against a 5% claim. A VaR set too close to zero must be caught."""
+    """A VaR line set too close to zero must be caught.
+
+    Historical note: this docstring used to cite "var_95_21d breaches 9.25%
+    against a 5% claim" as the project's own real-world instance of this. That
+    citation has been withdrawn — the 9.25% was an artefact of the 21-day
+    estimator (2nd order statistic of 21 returns, exceeded 2/22 = 9.09% at any
+    tail thickness), not a miscalibrated VaR. See `93b5871`. The test below is
+    unaffected: it constructs a genuinely too-shallow line and asserts Kupiec
+    rejects it."""
     rng = np.random.default_rng(1)
     returns = pd.Series(rng.normal(0, 0.01, 2000), index=_index(2000))
     too_shallow = pd.Series(-0.008, index=returns.index)  # ~21% breach rate

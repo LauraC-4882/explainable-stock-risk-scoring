@@ -98,7 +98,7 @@
       "label": "Tail Risk",
       "short": "Tail Risk",
       "plainShort": "How much the worst few days lose",
-      "plain": "Left-tail severity. Blends 21-day 95% Conditional VaR (expected shortfall, 35%) and 95% Value at Risk (25%) with 63-day return skewness (20%) and kurtosis (20%) — the shape of the return distribution, not just its width."
+      "plain": "Left-tail severity. Blends the 21-day empirical mean of the worst returns (35%) and the 21-day empirical left-tail quantile (25%) with 63-day return skewness (20%) and kurtosis (20%). These are scoring features, not the reported 95% VaR shown in the metric tile: the scorer consumes only their ordering (each is converted to a percentile against this stock's own two-year history), so a short window costs statistical power but does not bias the ranking. The tile's calibrated 95% figure uses a 100-day window instead."
     },
     "drawdown": {
       "label": "Drawdown",
@@ -127,7 +127,7 @@
   },
   "glossary": {
     "volatility": "Annualised realised volatility: the standard deviation of daily returns over the trailing window, scaled by √252. Direction-agnostic — it measures dispersion, not drift, so a stock trending steadily upward can still read high.",
-    "var95": "Value at Risk (95%), 21-day window: the loss threshold that the worst 5% of daily returns exceed, taken as an empirical quantile rather than assuming a normal distribution. It bounds the typical bad day, not the worst case — Conditional VaR (under Tail Risk) measures what lies beyond it.",
+    "var95": "Value at Risk (95%), 100-day window: the loss threshold that the worst 5% of daily returns exceed, estimated as an empirical quantile at the Weibull plotting position — the position at which the exceedance rate is unbiased for the nominal 5%, rather than assuming a normal distribution. It describes a typical bad day, not the worst possible one.",
     "beta": "Beta over a rolling 63-day window: the covariance of this stock’s returns with its benchmark, divided by the benchmark’s variance. 1.0 = one-for-one with the benchmark; below 1 damped, above 1 amplified. It captures co-movement, not causation.",
     "rsi": "Relative Strength Index (14) — Wilder’s momentum oscillator: 100 − 100/(1 + average gain ÷ average loss) over 14 sessions. Above 70 is conventionally “overbought”, below 30 “oversold”. A description of momentum, not a forecast."
   },
@@ -738,7 +738,7 @@
       "stressTest": "Stress test — replaying historical crisis conditions against current behaviour to see where the score would move. Descriptive, not predictive.",
       "shap": "SHAP — a method for attributing a model’s output across its inputs, showing which features pushed a prediction up or down. It shows association, not causation.",
       "calibration": "Calibration — whether a model’s stated probabilities match observed frequencies. A well-calibrated 20% should happen about 20% of the time.",
-      "breachRate": "Breach rate — how often losses actually exceeded VaR. A 9% realised rate against a 5% target means the model understated tail risk.",
+      "breachRate": "Breach rate — how often losses actually exceeded VaR. A rate above target does NOT by itself prove the market's tails are fatter than assumed: the quantile estimator can be biased on its own. This site once breached 9% because its 21-day window made the estimate the 2nd smallest of 21 returns, which exceeds 9.09% of the time whatever the distribution.",
       "concentration": "Concentration — how much of a portfolio’s risk sits in one position. Holding many names does not guarantee diversification if they move together.",
       "regime": "Market regime — a coarse read of overall conditions (calm / elevated / panic), used to shift how much each factor counts."
     }
