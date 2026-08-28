@@ -78,6 +78,44 @@ def alembic_config(url: str | None = None) -> "Config":
     return cfg
 
 
+class IncompleteSchemaError(RuntimeError):
+    """The database holds part of the baseline schema and no revision record.
+
+    Distinct from an ordinary startup failure on purpose: a missing environment
+    variable or an unreachable database is a *configuration* problem, while this
+    is a *data* problem — the schema is genuinely half-built and no amount of
+    restarting with different settings changes that. The message says so
+    outright, because the traceback is the only context whoever hits this will
+    have.
+    """
+
+    def __init__(self, missing: set[str], present: set[str]) -> None:
+        self.missing = sorted(missing)
+        self.present = sorted(present)
+        super().__init__(
+            "Database schema is incomplete: the baseline tables "
+            f"{self.missing} are missing while {self.present} exist, and no "
+            "Alembic revision is recorded.\n"
+            "\n"
+            "This is an INTERRUPTED UPGRADE, not a configuration error. Alembic "
+            "writes the version row only after the migration finishes, so a "
+            "process killed part-way through the baseline DDL leaves exactly "
+            "this shape. Startup is refused rather than continued because "
+            "stamping this database would record a schema it does not have — "
+            "the app would then start, pass its health check, and fail only "
+            "when a user touched one of the missing tables.\n"
+            "\n"
+            "What to do:\n"
+            "  * Ephemeral SQLite (the Render free tier, where the disk is "
+            "reset on every deploy): redeploy. The database is rebuilt from "
+            "scratch and no data is at risk.\n"
+            "  * A persistent database: DO NOT let anything delete and recreate "
+            "it. Restore from a backup (see backup.py / `make restore-drill`), "
+            "or complete the migration by hand. This tool will not drop tables "
+            "for you."
+        )
+
+
 def _has_application_tables(conn) -> bool:
     """Whether any of the baseline's application tables already exist."""
     return bool(set(inspect(conn).get_table_names()) & _BASELINE_TABLES)
@@ -111,6 +149,40 @@ def run_migrations(target_engine: Engine | None = None) -> None:
     pre-Alembic database and a freshly-migrated one have the same schema. That
     equivalence is not assumed — tests/test_migrations.py asserts it by
     building a database both ways and diffing the two schemas.
+
+    **"Populated" means the COMPLETE baseline, not merely some of it.** Alembic
+    writes the version row only after a migration finishes, so a process killed
+    part-way through the baseline DDL leaves tables but no revision — the same
+    shape a pre-Alembic database has, and previously handled the same way. It is
+    not the same situation: stamping a half-built database records a schema it
+    does not have. A partial baseline therefore raises IncompleteSchemaError
+    instead of being adopted.
+
+    Do not "fix" that by special-casing a particular table. **Which table is
+    dangerous drifts with every migration you add**, and reasoning about the
+    current set will mislead whoever reads it next. Measured on the three
+    revisions that existed when this was written:
+
+      * missing `user` -> the third revision ALTERs it -> loud crash on replay
+      * `auditlog` already present -> the second revision CREATEs it -> loud
+        crash on replay
+      * missing `scoresnapshot` -> no later revision touches it -> replay
+        SUCCEEDS, the version row reaches head, `/health` returns 200, and the
+        watchlist overview 500s on `no such table: scoresnapshot`
+
+    The third case is the reason this check exists, and `scoresnapshot` is in it
+    only by accident of the current chain: give it a column in some future
+    revision and it becomes a loud crash, while whatever new table nobody
+    touches becomes the next silent one. So the check is on the *invariant* —
+    the baseline is either wholly there or wholly absent — never on a list of
+    known-risky tables.
+
+    Automatic repair (dropping the partial database and rebuilding) was
+    considered and deliberately rejected, including as an opt-in flag. On the
+    free tier it would be harmless, but the code would then be sitting in the
+    startup path when a persistent database is attached later, at which point
+    it silently means "delete user data on a schema anomaly". Recovery is the
+    operator's call; the exception says how.
     """
     from alembic.runtime.migration import MigrationContext
     from alembic.script import ScriptDirectory
@@ -125,15 +197,26 @@ def run_migrations(target_engine: Engine | None = None) -> None:
     with target.connect() as conn:
         at_revision = MigrationContext.configure(conn).get_current_revision()
 
-        if at_revision is None and _has_application_tables(conn):
-            base_rev = ScriptDirectory.from_config(cfg).get_base()
-            logger.warning(
-                f"[migration] unversioned database with existing tables — stamping at {base_rev} "
-                "(pre-Alembic schema adopted, no DDL replayed)"
-            )
-            cfg.attributes["connection"] = conn
-            command.stamp(cfg, base_rev)
-            conn.commit()
+        if at_revision is None:
+            present = set(inspect(conn).get_table_names())
+            baseline_present = present & _BASELINE_TABLES
+            missing = _BASELINE_TABLES - present
+
+            if not baseline_present:
+                pass  # empty database — fall through and upgrade from scratch
+            elif not missing:
+                base_rev = ScriptDirectory.from_config(cfg).get_base()
+                logger.warning(
+                    f"[migration] unversioned database with the complete baseline schema — "
+                    f"stamping at {base_rev} (pre-Alembic schema adopted, no DDL replayed)"
+                )
+                cfg.attributes["connection"] = conn
+                command.stamp(cfg, base_rev)
+                conn.commit()
+            else:
+                # Partial baseline. Stamping here would claim a schema this
+                # database does not have; see IncompleteSchemaError.
+                raise IncompleteSchemaError(missing=missing, present=baseline_present)
 
         cfg.attributes["connection"] = conn
         current = MigrationContext.configure(conn).get_current_revision()
