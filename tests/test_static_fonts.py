@@ -12,6 +12,7 @@ loaded that font" are different claims, and only the second one matters.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -27,8 +28,16 @@ _INDEX_CSS = _REPO / "ui" / "web" / "src" / "index.css"
 
 client = TestClient(app)
 
+# Environment-aware gate: locally a missing build is a legitimate state (not
+# every backend change builds the frontend), so the two serving tests skip.
+# In CI a missing build must FAIL, not skip — these two tests are the
+# regression defence for the original fonts-404 bug, and a silent skip there
+# meant they had never actually executed in CI (found 2026-08-28: the python
+# job never built the frontend, so "green" included two tests that never
+# ran). With CI=true the mark evaporates and the tests run against whatever
+# is (or isn't) in dist/, failing loudly when the build step is missing.
 needs_build = pytest.mark.skipif(
-    not _DIST_FONTS.exists(),
+    not _DIST_FONTS.exists() and not os.environ.get("CI"),
     reason="frontend not built (npm run build in ui/web) — nothing to serve",
 )
 
