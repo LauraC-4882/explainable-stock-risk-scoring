@@ -137,7 +137,76 @@ since the latter resets on redeploy and reseeds with the new value by itself.
 
 ---
 
-## Pattern worth naming
+## 6. One of the three M1 edits exists only in the working tree
+
+**Where** `README.md`, the "Effect of the holiday-fill fix" section — which is
+**not in `HEAD`**. That whole section is the parallel session's unpushed work,
+and the edit sits on top of it.
+
+**What** The correction — that `var_95_21d` is a scoring feature and not the
+reported 95% VaR, monotone in local tail risk so its noise costs statistical
+power rather than biasing the ranking — has three landing sites, deliberately
+worded identically: the README's Kupiec section (A2/A4,
+committed), `scripts/validate_score.py`'s docstring (B1, committed), and the
+tail-category locale copy (B3, committed) — plus this one (A3), which could not
+be staged without carrying the parallel session's entire section along with it.
+
+**Risk if it is lost** The README ends up in a state where every *other* place
+carries the "monotone in local tail risk, noise costs power not direction"
+qualification and this one does not — i.e. the single passage that still reads
+as if the project considers the estimator simply broken, sitting inside a
+section about a different fix. That is worse than never having written the
+qualification, because the inconsistency implies the argument was abandoned.
+
+**Backstop, and its limit** `tests/test_docs_consistency.py::
+test_the_21_day_series_is_always_qualified` would catch it — but only once that
+section is committed. Until then the check has nothing to look at. A backstop
+that fires after the risk window has closed is not cover for the window.
+
+**Suggested (not done here)** Copy the edit to `notes/A3_pending_edit.md` so it
+has an anchor independent of one working tree. This is the same move as
+materialising a stash into a branch: the content survives whatever happens to
+the uncommitted state around it.
+
+**Why it is only logged** Creating that file is a write to the main checkout,
+which this round is not doing. The recommendation is recorded so the decision is
+explicit rather than implied by silence.
+
+---
+
+## 7. `git update-ref` on the checked-out branch produced a false health reading
+
+**What happened** After rebasing this session's commit onto `origin/main` inside
+a temporary worktree, the push failed, but the local branch ref had already been
+moved to the rebased commit with `git update-ref`. Moving the ref of the branch
+you are standing on does **not** touch the working tree, so `git status` then
+reported every difference between the old and new tips as a working-tree change.
+The uncommitted-entry count jumped 132 → 137.
+
+**Resolved** The ref was pointed back at the original commit, the count returned
+to 132, and nothing was lost. The branch was then pushed directly instead.
+
+**Why it is worth a ledger entry** Not for blame — for what it did to a signal.
+Throughout this session the count of uncommitted entries has been used as the
+cheap check that the parallel session's work survived a stash round-trip. This
+is the first time that number moved for a reason having nothing to do with file
+contents, which means the check is weaker than it was being relied on to be.
+
+**The rule that follows** A change in the uncommitted-entry count no longer
+licenses the inference "content changed". Confirm `HEAD` and the working tree
+refer to the same base first — e.g. that the branch ref has not been moved
+underneath the tree — and only then read the count. The count answers "how many
+paths differ from HEAD", which is only the intended question while HEAD is where
+you left it.
+
+## Methodology conclusions (candidates for the model card)
+
+The two sections below are not retrospectives on this session. They are claims
+about **where verification effort should go**, which belongs in a model card's
+methodology chapter rather than in a changelog. Marked here, to be lifted when
+`docs/model_card.md` is written; not implemented now.
+
+### Where the correctness pressure actually sits
 
 Entries 1, 2 and the estimator defect already fixed in `93b5871` are three
 instances of one failure: **a number that reads as precise while the inputs
@@ -155,3 +224,38 @@ had it the other way around.
 Entry 2 deserves one further note for anyone presenting this work: its bias
 points in the direction that flatters the product, and it was found and
 disclosed anyway.
+
+### A newly written check is inert until proven otherwise
+
+Seven assertions were added to `tests/test_docs_consistency.py` in the change
+that produced this ledger. All seven passed against the real documents on the
+first run. Two of them could not have failed for **any** input:
+
+- `QUALIFIER` accepted a bare `feature`. That word appears in roughly half
+  the paragraphs of a project README, so the rule "a mention of the short-window
+  series must be qualified" was satisfied by essentially every paragraph in the
+  file.
+- `SHORT_SERIES` was written through a string-rewriting step that turned the
+  intended `` word boundaries into two literal **backspace bytes** (`0x08`).
+  The pattern therefore matched no text at all, and the assertion it fed was
+  vacuously true.
+
+Both looked green, and green was indistinguishable from working. **Inert rate:
+2 of 7, 29%.** They were found by mutating the document to break each rule in
+turn and confirming the corresponding test failed.
+
+**The general rule.** A green result from a new check proves only that it did
+not fire. It says nothing about whether it *can*. Treat every newly written
+assertion as inert until a deliberately broken input has made it fail — and
+note that the two defects here were of different kinds (one semantic, one an
+encoding accident), so neither careful reading of the pattern nor careful
+reading of the code would reliably have caught both.
+
+**Why this is durable rather than advice.** The mutation exercise is itself a
+test (`test_every_assertion_above_can_actually_fire`), asserting that the
+patterns match text that must trip them and do not match text that must not. It
+runs on every CI cycle. The rule therefore does not depend on anyone
+remembering to apply it, which is the property that separates a control from a
+good intention — the same distinction the model registry draws between a
+validation gate and a README section.
+
