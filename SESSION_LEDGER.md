@@ -186,6 +186,33 @@ The uncommitted-entry count jumped 132 → 137.
 **Resolved** The ref was pointed back at the original commit, the count returned
 to 132, and nothing was lost. The branch was then pushed directly instead.
 
+**It happened a second time, and the second time was dangerous.** Preparing the
+very pull request that added this entry, the same sequence ran again: rebase
+onto `origin/main` in a worktree, `update-ref`, count 132 → 137. This time the
+five paths reported as modified were `.github/workflows/ci.yml`,
+`src/stock_risk/db.py`, `tests/conftest.py`, `tests/test_data.py` and
+`tests/test_migrations.py` — files the working tree still held at their
+*pre-`origin/main`* content. **Committing from that state would have reverted
+the contents of two already-merged pull requests.**
+
+**Why that is hard to catch in review, which is the actual severity.** The
+failure does not present as an error. It presents as an ordinary commit whose
+diff says "5 files changed", on a branch whose stated subject is something else
+entirely — so those files read as incidental drive-by edits rather than as a
+revert. Nothing in the diff announces that the "new" content is older than what
+is on the mainline; a reviewer would have to already suspect the problem and go
+looking for it. The first occurrence cost nothing and produced only a confusing
+number. The second could have silently undone merged work, and the only reason
+it did not is that the count anomaly was recognised from having just written
+this entry.
+
+**Root fix, adopted** Push first; move the local ref only after the push
+succeeds. The original ordering was the reverse — `update-ref` then push — so
+when the push failed the ref had already been moved and the tree was left
+inconsistent with no operation having completed. With the corrected ordering a
+failed push leaves everything exactly as it was, and the ref only ever moves to
+a commit that is known to exist on the remote.
+
 **Why it is worth a ledger entry** Not for blame — for what it did to a signal.
 Throughout this session the count of uncommitted entries has been used as the
 cheap check that the parallel session's work survived a stash round-trip. This
@@ -198,6 +225,60 @@ refer to the same base first — e.g. that the branch ref has not been moved
 underneath the tree — and only then read the count. The count answers "how many
 paths differ from HEAD", which is only the intended question while HEAD is where
 you left it.
+
+---
+
+## 8. The docs gate caught its own author three times, and the rule held each time
+
+Three separate occasions in this session, `tests/test_docs_consistency.py`
+failed on text written **in the same change that was adding or relying on the
+gate**:
+
+| # | What tripped it | Assertion | Resolution |
+|---|---|---|---|
+| 1 | `SESSION_LEDGER.md` quoted the retracted Kupiec statistic while explaining why it was retracted | 1 — retracted numbers | Wrapped in a `historical-record` anchor |
+| 2 | A newly written README bullet said "under the old `var_95_21d` estimator" with no qualifier | 3 — the short-window series must be qualified | Added "now retained only as a scoring feature" |
+| 3 | Ledger entry 6 named `var_95_21d` while describing the very correction that qualifies it | 3 — same assertion | Rewrote the sentence to carry the qualification |
+
+**Every one was resolved by changing the text, never by relaxing the
+assertion.** That is the part worth recording, and it is why these belong in one
+entry rather than three footnotes: separately they are three small edits;
+together they are evidence.
+
+**Why the repetition is evidence rather than noise.** A rule bent the first time
+it becomes inconvenient is not a rule; it is a preference with a test attached.
+Three consecutive opportunities to widen a pattern — each with a
+reasonable-sounding justification available ("it is only a ledger", "the bullet
+is obviously about the old estimator", "this sentence is literally explaining
+the distinction") — and the pattern was not widened once. The assertion is as
+strong now as when it was written, which is not true of most checks that
+survive contact with their own authors.
+
+**Why it also validates the coverage.** All three catches landed on text written
+*after* the gate existed, by the person who wrote the gate. A checker built by
+grepping for known-bad historical strings would have gone quiet as soon as the
+old text was cleaned up; this one kept finding new violations in new prose,
+including prose whose subject was the rule itself. Assertion 3 is doing real
+work rather than pattern-matching a fixed corpus.
+
+**A fourth instance, of a different kind — and the gate did not catch this
+one.** The paragraph in this file describing how `SHORT_SERIES` was broken by
+two literal backspace bytes **itself contained two literal backspace bytes**,
+introduced by the same class of string-rewriting step, and was committed and
+merged that way. The docs gate has no control-character assertion, so nothing
+flagged it; it was noticed by reading the rendered file. Recorded because it is
+the strongest available argument for the rule in the methodology section below:
+the author of a defect, writing the account of that defect, immediately after
+fixing it, reproduced it. Careful reading is not a control.
+
+**Suggested (not done in this round, which is documentation-only)** Add an
+eighth assertion to `tests/test_docs_consistency.py`: no tracked text file may
+contain a C0 control character other than tab, LF or CR. It is three lines, it
+has no false-positive surface, and it would have caught this instance and the
+`SHORT_SERIES` one before either reached a commit. Both defects were introduced
+by the same mechanism — a string-rewriting step where an escape sequence was
+interpreted one layer earlier than intended — so the class is worth a check
+even though each instance looks like a one-off.
 
 ## Methodology conclusions (candidates for the model card)
 
@@ -231,12 +312,12 @@ Seven assertions were added to `tests/test_docs_consistency.py` in the change
 that produced this ledger. All seven passed against the real documents on the
 first run. Two of them could not have failed for **any** input:
 
-- `QUALIFIER` accepted a bare `feature`. That word appears in roughly half
+- `QUALIFIER` accepted a bare `feature\b`. That word appears in roughly half
   the paragraphs of a project README, so the rule "a mention of the short-window
   series must be qualified" was satisfied by essentially every paragraph in the
   file.
 - `SHORT_SERIES` was written through a string-rewriting step that turned the
-  intended `` word boundaries into two literal **backspace bytes** (`0x08`).
+  intended `\b` word boundaries into two literal **backspace bytes** (`0x08`).
   The pattern therefore matched no text at all, and the assertion it fed was
   vacuously true.
 
