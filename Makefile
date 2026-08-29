@@ -101,3 +101,9 @@ lint:
 
 format:
 	black src/ tests/ scripts/
+
+# Opt-in git hooks (never installed automatically — .git is shared across
+# worktrees and concurrent sessions, so nothing may mutate it silently).
+install-hooks:
+	git config core.hooksPath scripts/git-hooks
+	@echo "hooks path set to scripts/git-hooks (pre-push: behind-origin warning)"

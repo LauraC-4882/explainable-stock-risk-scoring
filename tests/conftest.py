@@ -118,6 +118,26 @@ def hermetic_data_source_config():
         settings.twelve_data_key = original
 
 
+@pytest.fixture(autouse=True)
+def isolated_snapshot_dir(tmp_path, monkeypatch):
+    """Redirect snapshot persistence to a per-test temp dir, for EVERY test.
+
+    Promoted from a test_data.py module-local fixture: the protection lived
+    only where the danger was first noticed, while `fetch_history` persists
+    every successful fetch into the TRACKED snapshots/ directory from any
+    caller. The failure shape is demonstrated, not hypothetical (2026-08-26,
+    key-set run: AAPL parquet silently modified, SPY created — one
+    `git add -A` from being committed). The socket guard blocks *live*
+    fetches suite-wide, but a mocked-success fetch outside test_data.py
+    would still write tracked files. tests/test_data.py's
+    test_snapshot_persistence_is_redirected_away_from_the_tracked_dir is the
+    canary that goes red if this fixture is ever disabled or skipped.
+    """
+    from stock_risk.config import settings
+
+    monkeypatch.setattr(settings, "snapshot_dir", tmp_path / "snapshots")
+
+
 @pytest.fixture()
 def rate_limited():
     """Opt back into rate limiting for a test that's exercising it."""

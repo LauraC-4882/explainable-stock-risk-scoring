@@ -1,0 +1,31 @@
+#!/bin/sh
+# Warn — never block — when the commits being pushed sit behind origin/main.
+#
+# Why: this repository runs several concurrent sessions, and main has moved
+# mid-task four times in one week (see SESSION_LEDGER.md). A branch pushed
+# from a stale base produces a PR whose CI result answers a question about a
+# main that no longer exists; the cheap fix is knowing you are behind BEFORE
+# the PR exists, not after review starts.
+#
+# Deliberately a warning and exit 0, not a block: pushing from behind is
+# sometimes exactly right (backup pushes, stacked work, CI probes), and a
+# blocking hook trains people to --no-verify, after which it protects nobody.
+#
+# Install (opt-in, never automatic — .git is shared across worktrees and
+# sessions, so nothing here mutates it silently):
+#     make install-hooks        # sets core.hooksPath to scripts/git-hooks
+#
+# Offline behaviour: if origin cannot be fetched, say nothing and allow the
+# push attempt — the network state will fail the push itself if it matters.
+
+git fetch --quiet origin main 2>/dev/null || exit 0
+
+behind=$(git rev-list --count HEAD..origin/main 2>/dev/null) || exit 0
+case "$behind" in
+    ''|*[!0-9]*) exit 0 ;;  # unparseable (detached edge cases) — stay silent
+esac
+
+if [ "$behind" -gt 0 ]; then
+    printf '[pre-push] warning: HEAD is %s commit(s) behind origin/main — consider rebasing before opening a PR.\n' "$behind" >&2
+fi
+exit 0

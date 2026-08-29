@@ -394,12 +394,20 @@ def test_timeout_session_respects_explicit_timeout():
 # ── [IP-block resilience] snapshot fallback ──────────────────────────────────
 
 
-@pytest.fixture(autouse=True)
-def _isolated_snapshot_dir(tmp_path, monkeypatch):
-    """Redirect snapshot persistence to a temp dir so tests never write into
-    the repo's tracked snapshots/ directory."""
+# The snapshot-dir isolation fixture that used to live here module-locally is
+# now a conftest autouse fixture (isolated_snapshot_dir) covering the whole
+# suite; the canary below bites if it ever stops applying.
+
+
+def test_snapshot_persistence_is_redirected_away_from_the_tracked_dir():
+    """Canary for conftest.isolated_snapshot_dir: if that fixture is disabled,
+    skipped, or renamed away, every mocked-success fetch_history call in the
+    suite would silently write into the TRACKED snapshots/ directory again —
+    this assertion turns that silent regression into a red test."""
     from stock_risk.config import settings
-    monkeypatch.setattr(settings, "snapshot_dir", tmp_path / "snapshots")
+
+    repo_snapshots = Path(__file__).resolve().parents[1] / "snapshots"
+    assert Path(settings.snapshot_dir).resolve() != repo_snapshots.resolve()
 
 
 def test_fetch_history_success_persists_snapshot():
