@@ -294,6 +294,64 @@ def test_cited_commit_hashes_are_reachable_from_main():
     )
 
 
+# ── 8. No stray control characters in tracked text ───────────────────────────
+
+# Everything a text file is allowed to contain below U+0020. Anything else in
+# that range arrives by accident rather than by authorship.
+ALLOWED_CONTROL = frozenset({0x09, 0x0A, 0x0D})  # tab, LF, CR
+
+
+def _tracked_files() -> list[str]:
+    """Every tracked path, not only documentation — same `git ls-files`
+    reasoning as `_tracked_docs`, without the suffix filter."""
+    out = subprocess.run(
+        ["git", "ls-files", "-z"], capture_output=True, text=True, check=True
+    ).stdout
+    return [p for p in out.split("\0") if p]
+
+
+def _control_char_offenders(path: str) -> list[str]:
+    """`path:line:col 0xNN` for every disallowed byte; [] for a binary file.
+
+    Binary is decided by the presence of a NUL byte and nothing else. A suffix
+    allowlist would need maintaining, and the first file type nobody remembered
+    to add would be silently exempt — which is the failure mode this file exists
+    to remove.
+    """
+    from pathlib import Path
+
+    data = Path(path).read_bytes()
+    if b"\x00" in data:
+        return []
+
+    offenders, line, col = [], 1, 1
+    for byte in data:
+        if byte < 0x20 and byte not in ALLOWED_CONTROL:
+            offenders.append(f"{path}:{line}:{col} 0x{byte:02x}")
+        if byte == 0x0A:
+            line, col = line + 1, 1
+        else:
+            col += 1
+    return offenders
+
+
+def test_tracked_text_has_no_stray_control_characters():
+    """A control character in prose occupies no visual space, so it survives
+    both the diff and the rendered view and reaches main.
+
+    Line and column are reported because locating one is the entire difficulty:
+    the reader sees text that looks correct, and the byte that makes it wrong is
+    invisible.
+    """
+    offenders = []
+    for path in _tracked_files():
+        offenders.extend(_control_char_offenders(path))
+    assert not offenders, (
+        "Disallowed control characters in tracked text (allowed: tab, LF, CR):\n  "
+        + "\n  ".join(offenders)
+    )
+
+
 # ── The guard's own guard ────────────────────────────────────────────────────
 
 
