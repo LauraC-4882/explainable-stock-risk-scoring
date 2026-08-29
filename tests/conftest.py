@@ -14,9 +14,53 @@ every test regardless. Tests that actually exercise the limiter opt in with the
 
 from __future__ import annotations
 
+import atexit
+import shutil
 import socket
+import tempfile
+from pathlib import Path
 
 import pytest
+
+# ── Database isolation: MODULE-LEVEL on purpose, not a fixture ───────────────
+#
+# api/app.py calls init_db() at module level, so the baseline migration runs
+# the moment any test module does `TestClient(app)` at import — during
+# COLLECTION, before any fixture (session-scoped included) gets a chance to
+# run. A fixture therefore cannot redirect it; only code in this conftest,
+# which pytest imports before every test module, runs early enough. (Moving
+# init_db out of module scope is the deferred "Plan D" architecture item —
+# when that lands, this block can become an ordinary session fixture.)
+#
+# Two problems this solves, both demonstrated before the fix:
+#   * Two concurrent pytest processes shared data/app.db and raced its
+#     import-time migration — reproduced: one process died at collection
+#     with "sqlite3.OperationalError: table pageview already exists".
+#     tempfile.mkdtemp is per-process unique, so each run now migrates its
+#     own file.
+#   * DATABASE_URL from a developer's .env would point the whole suite at a
+#     real external database. Neutralised here exactly like TWELVE_DATA_KEY
+#     in hermetic_data_source_config below, and for the same reason: the
+#     suite's result must not depend on whether you followed the project's
+#     own setup instructions.
+#
+# Rebinding db.engine here is sufficient for every consumer: get_session()
+# and run_migrations() read the module global at call time, and the two
+# `from ..db import engine` sites (api/app.py, alerts/checker.py) are only
+# imported after this conftest has run.
+from stock_risk import db as _db  # noqa: E402
+from stock_risk.config import settings as _settings  # noqa: E402
+
+_TEST_DB_DIR = Path(tempfile.mkdtemp(prefix="stock_risk_test_db_"))
+atexit.register(shutil.rmtree, _TEST_DB_DIR, ignore_errors=True)
+
+_settings.database_url = None
+_settings.db_path = _TEST_DB_DIR / "app.db"
+_db.engine.dispose()
+_test_db_url = _db.resolve_db_url(_settings.database_url, _settings.db_path)
+_db.engine = _db.create_engine(
+    _test_db_url, connect_args=_db.connect_args_for(_test_db_url)
+)
 
 _LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost", "")
 
