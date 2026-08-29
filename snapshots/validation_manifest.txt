@@ -1,0 +1,23 @@
+# Formal sample set for the tail-risk validation suite (scripts/validate_tail.py).
+#
+# The sample used to be whatever `snapshots/*.parquet` happened to contain, which
+# meant the published tail figures depended on the machine that produced them:
+# this checkout tracks 6 snapshots, while a development box that had run the
+# cross-sectional builder had 101 on disk. Two people running the same script
+# measured different populations and neither could tell.
+#
+# So the sample is declared here instead of discovered. Rules:
+#   * one filename per line, relative to snapshots/, sorted;
+#   * a listed file missing from disk is a hard error, never a silent skip —
+#     a shrinking sample must not look like a passing run;
+#   * a parquet on disk that is NOT listed here is ignored, and the script says
+#     so on stderr rather than quietly folding it in;
+#   * adding a snapshot to the suite means adding it here in the same commit.
+#
+# Blank lines and #-comments are ignored.
+000001_SZ_2y_1d.parquet
+301189_SZ_2y_1d.parquet
+510300_SS_2y_1d.parquet
+600519_SS_2y_1d.parquet
+601318_SS_2y_1d.parquet
+AAPL_2y_1d.parquet
