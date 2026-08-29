@@ -30,16 +30,83 @@ from stock_risk.features.risk_metrics import RiskMetrics  # noqa: E402
 from stock_risk.validation import run_full_suite  # noqa: E402
 
 SNAPSHOT_DIR = Path("snapshots")
+MANIFEST_NAME = "validation_manifest.txt"
+
+
+def _read_manifest(snapshot_dir: Path) -> list[str]:
+    """The declared sample set, in manifest order.
+
+    Deliberately not a directory listing. The sample used to come from
+    `snapshot_dir.glob("*.parquet")`, so it was whatever the machine happened to
+    have: 6 files in a fresh checkout, 101 on a box that had run the
+    cross-sectional builder. The published tail figures were therefore not
+    reproducible across machines, and nothing in the output said which
+    population had been measured.
+
+    A missing manifest is an error rather than a fallback to globbing. A silent
+    fallback would restore exactly the behaviour this replaces, and would do it
+    at the moment someone is least likely to notice.
+    """
+    manifest = snapshot_dir / MANIFEST_NAME
+    if not manifest.exists():
+        raise FileNotFoundError(
+            f"No sample manifest at {manifest}. It declares which snapshots the "
+            "tail validation runs against; without it the sample would be "
+            "whatever happens to be on this disk, which is what this file "
+            "exists to prevent. Restore it from version control."
+        )
+    names = []
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        entry = line.split("#", 1)[0].strip()
+        if entry:
+            names.append(entry)
+    return names
 
 
 def _load_snapshots(snapshot_dir: Path) -> dict[str, pd.DataFrame]:
+    """Load exactly the manifest's files — no more, no fewer.
+
+    Two asymmetric rules, and the asymmetry is the point:
+
+    * a manifest entry with no file on disk is fatal. A shrinking sample must
+      never present itself as a passing run, which is what skipping would do.
+    * a parquet on disk that the manifest does not list is skipped, and said
+      out loud on stderr. Failing there would make the script unusable on any
+      machine that has ever cached extra snapshots, but folding them in
+      silently is the original bug.
+    """
+    declared = _read_manifest(snapshot_dir)
+
+    missing = [name for name in declared if not (snapshot_dir / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"{len(missing)} file(s) in {MANIFEST_NAME} are not on disk: "
+            f"{', '.join(missing)}. The declared sample set is incomplete, so "
+            "any result would describe a different population than the manifest "
+            "claims. Restore the snapshots or update the manifest deliberately."
+        )
+
+    on_disk = {p.name for p in snapshot_dir.glob("*.parquet")}
+    ignored = sorted(on_disk - set(declared))
+    if ignored:
+        print(
+            f"IGNORED (not in manifest): {len(ignored)} files — {', '.join(ignored)}",
+            file=sys.stderr,
+        )
+
+    print(f"sample set: {len(declared)} files from manifest")
+
     frames = {}
-    for path in sorted(snapshot_dir.glob("*.parquet")):
+    for name in declared:
+        path = snapshot_dir / name
         ticker = path.stem.replace("_2y_1d", "")
         try:
             frames[ticker] = pd.read_parquet(path)
         except Exception as exc:
-            logger.warning(f"Skipping {path.name}: {exc}")
+            # An unreadable file in the DECLARED set is not a skip either: the
+            # sample would silently shrink. Re-raised with the filename so the
+            # cause is obvious.
+            raise RuntimeError(f"Declared sample file {name} could not be read: {exc}") from exc
     return frames
 
 
