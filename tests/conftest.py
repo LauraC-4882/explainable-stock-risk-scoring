@@ -14,9 +14,48 @@ every test regardless. Tests that actually exercise the limiter opt in with the
 
 from __future__ import annotations
 
+import atexit
+import shutil
 import socket
+import tempfile
+from pathlib import Path
 
 import pytest
+
+# ── Database isolation ───────────────────────────────────────────────────────
+# Runs at conftest MODULE level, deliberately, and before anything imports the
+# app. That ordering is the whole mechanism, so it is worth spelling out.
+#
+# `db.engine` is built at import time (db.py), and `api/app.py` binds it by
+# value (`from ..db import engine`), opens a module-level Session, and calls
+# init_db() — all while being imported. A fixture cannot undo any of that: by
+# the time the earliest fixture runs, the migrations have already executed
+# against the developer's real data/app.db. Rebinding db.engine afterwards
+# would also miss app.py's and alerts/checker.py's own bound references.
+#
+# So the redirect happens here instead, before the first `import stock_risk.*`
+# (verified: no stock_risk module is in sys.modules when this file is
+# imported). The engine is then *created* pointing at the temporary path and
+# every consumer binds the correct object from the start — no rebuild, no
+# rebinding, nothing to keep in sync.
+#
+# What this fixes, concretely: two pytest processes on one checkout used to
+# race on a shared data/app.db. Both read "no revision", both ran the baseline
+# DDL, and the loser died during collection with
+# "sqlite3.OperationalError: table pageview already exists". Per-process temp
+# directories remove the shared resource rather than serialising access to it.
+#
+# Note tests/test_migrations.py is unaffected either way: it builds its own
+# databases in tmp_path and passes explicit engines, which is why the
+# interrupted-baseline coverage added alongside IncompleteSchemaError keeps
+# working. That independence is asserted, not assumed — see
+# test_migrations_still_uses_its_own_database below.
+_TEST_DB_DIR = tempfile.mkdtemp(prefix="stock-risk-tests-")
+atexit.register(shutil.rmtree, _TEST_DB_DIR, ignore_errors=True)
+
+from stock_risk.config import settings as _settings  # noqa: E402
+
+_settings.db_path = Path(_TEST_DB_DIR) / "app.db"
 
 _LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost", "")
 
