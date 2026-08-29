@@ -13,6 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: test_docs_consistency's commit-hash reachability
+          # assertion self-skips (announced) on a shallow clone. Its first
+          # real client — docs citing the pre-rebase `1c1e938` — arrives
+          # with the WIP close-out, so the switch goes on beforehand.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
