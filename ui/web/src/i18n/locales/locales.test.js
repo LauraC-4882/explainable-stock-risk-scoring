@@ -127,7 +127,12 @@ describe('residual English in zh locales', () => {
   // this block leans on it rather than restating the same expectation.
 
   it.each(Object.keys(TRANSLATIONS))('%s has no untranslated English leaves', (code) => {
-    const leftovers = residualEnglishLeaves(en, TRANSLATIONS[code], enPaths, LANGUAGE_NEUTRAL_LEAVES)
+    const leftovers = residualEnglishLeaves(
+      en,
+      TRANSLATIONS[code],
+      enPaths,
+      LANGUAGE_NEUTRAL_LEAVES
+    )
     expect(leftovers).toEqual([])
   })
 
