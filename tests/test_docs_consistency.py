@@ -251,10 +251,55 @@ def test_historical_record_anchors_are_balanced():
 HASH = re.compile(r"`([0-9a-f]{7,12})`")
 
 
+def _hash_citation_offenders(path, text, base, object_type, is_ancestor):
+    """Classify every backticked hex token in *text*; returns offence strings.
+
+    Three ways to offend, and the first is the load-bearing one: a token that
+    does not resolve to ANY object is a FAILURE, not a pass. The original
+    check `continue`d on unresolvable tokens, which read as tolerance for
+    hex-looking non-hashes but was actually a vacuous pass for the exact case
+    the gate exists for — a rebase-orphaned commit is absent from any fresh
+    clone (verified: `1c1e938` exists only in local shared object stores,
+    never on the remote), so CI would have silently passed the very citations
+    this test was written to catch. Unknown ≠ ok.
+
+    The escape hatch for genuinely historical hashes (forensic tables, blob
+    checksums) is the same one every other assertion in this file uses: wrap
+    the block in a historical-record anchor — the caller strips those before
+    scanning. object_type/is_ancestor are injected so the fire-check below
+    can exercise all three branches without a git subprocess.
+    """
+    offenders = []
+    for candidate in sorted(set(HASH.findall(text))):
+        kind = object_type(candidate)
+        if kind is None:
+            offenders.append(
+                f"{path}: `{candidate}` does not resolve to any object in "
+                "this clone — a broken reference (rebase-orphaned commits "
+                "look exactly like this); cite a mainline hash, or wrap a "
+                "genuinely historical one in a historical-record anchor"
+            )
+        elif kind != "commit":
+            offenders.append(
+                f"{path}: `{candidate}` resolves to a {kind}, not a commit — "
+                "cite commits, or wrap forensic object hashes in a "
+                "historical-record anchor"
+            )
+        elif not is_ancestor(candidate):
+            offenders.append(f"{path}: {candidate} not reachable from {base}")
+    return offenders
+
+
 def test_cited_commit_hashes_are_reachable_from_main():
     """A rebase-merge rewrites hashes. This project has already published a
     document citing `1c1e938`, the pre-rebase hash of the very commit these
-    docs describe — unreachable the moment it landed."""
+    docs describe — unreachable the moment it landed.
+
+    Semantics since the vacuous-pass fix: a cited hash must be RESOLVABLE and
+    REACHABLE from the mainline. Unresolvable fails outright — see
+    _hash_citation_offenders. Historical-record blocks are stripped first,
+    same as every other assertion here, so forensic hash tables have an
+    explicit, visible exemption instead of an accidental one."""
     shallow = subprocess.run(
         ["git", "rev-parse", "--is-shallow-repository"],
         capture_output=True, text=True, check=True,
@@ -275,22 +320,26 @@ def test_cited_commit_hashes_are_reachable_from_main():
                       capture_output=True).returncode != 0:
         base = "HEAD"
 
+    def object_type(candidate: str) -> str | None:
+        probe = subprocess.run(
+            ["git", "cat-file", "-t", candidate], capture_output=True, text=True
+        )
+        return probe.stdout.strip() if probe.returncode == 0 else None
+
+    def is_ancestor(candidate: str) -> bool:
+        return subprocess.run(
+            ["git", "merge-base", "--is-ancestor", candidate, base],
+            capture_output=True,
+        ).returncode == 0
+
     offenders = []
     for path in DOCS:
-        for candidate in set(HASH.findall(_read(path))):
-            is_commit = subprocess.run(
-                ["git", "cat-file", "-t", candidate], capture_output=True, text=True
-            )
-            if is_commit.returncode != 0 or is_commit.stdout.strip() != "commit":
-                continue  # a hex-looking token that is not a commit here
-            if subprocess.run(
-                ["git", "merge-base", "--is-ancestor", candidate, base],
-                capture_output=True,
-            ).returncode != 0:
-                offenders.append(f"{path}: {candidate} not reachable from {base}")
+        offenders += _hash_citation_offenders(
+            path, _strip_historical(_read(path)), base, object_type, is_ancestor
+        )
     assert not offenders, (
-        "Documentation cites commits that are not on the mainline (a rebase "
-        "probably rewrote them):\n  " + "\n  ".join(offenders)
+        "Documentation cites hashes that are broken or off the mainline (a "
+        "rebase probably rewrote them):\n  " + "\n  ".join(offenders)
     )
 
 
@@ -341,3 +390,35 @@ def test_every_assertion_above_can_actually_fire():
     assert "9.25%" in _strip_historical(unclosed), (
         "an unbalanced anchor exempted content instead of leaving it scanned"
     )
+
+    # Hash citations: all three offence branches, plus the clean case, via
+    # injected fakes (no subprocess). The unresolvable branch is the one that
+    # was a vacuous pass — the dual of the false-all-red: a gate that checks
+    # "existing X" must define what happens when X does not exist, because
+    # the default is a pass, and the pass lands on the most dangerous case.
+    fake_types = {"aaaaaaa": None, "bbbbbbb": "blob", "ccccccc": "commit", "ddddddd": "commit"}
+    hash_offs = _hash_citation_offenders(
+        "doc.md",
+        "`aaaaaaa` `bbbbbbb` `ccccccc` `ddddddd`",
+        "origin/main",
+        fake_types.get,
+        lambda candidate: candidate == "ccccccc",  # only ccccccc is on main
+    )
+    assert len(hash_offs) == 3, hash_offs
+    assert any("aaaaaaa" in o and "does not resolve" in o for o in hash_offs), (
+        "an unresolvable citation passed — the vacuous-pass hole is back"
+    )
+    assert any("bbbbbbb" in o and "blob" in o for o in hash_offs)
+    assert any("ddddddd" in o and "not reachable" in o for o in hash_offs)
+    assert not any("ccccccc" in o for o in hash_offs), (
+        "a resolvable, reachable commit was flagged"
+    )
+    # And the anchor escape reaches this assertion too: a hash inside a
+    # historical-record block is exempt because the caller strips it.
+    anchored = (
+        "<!-- historical-record: forensic-table -->\n`aaaaaaa`\n"
+        "<!-- /historical-record -->"
+    )
+    assert _hash_citation_offenders(
+        "doc.md", _strip_historical(anchored), "origin/main", fake_types.get, lambda c: False
+    ) == []
