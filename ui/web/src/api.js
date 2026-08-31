@@ -49,7 +49,18 @@ export async function apiGithubStats() {
 }
 
 // Portfolio attribution: positions = [{ticker, weight}] (2-5). Server
-// normalises weights; errors surface with the backend's detail message.
+// normalises weights.
+//
+// Errors go through the same five-code taxonomy as apiScore rather than
+// surfacing the backend's English prose, which is what this used to do. Two
+// differences from the single-name case, both driven by what the body carries:
+//
+//   * `ticker` names the holding that failed, so the copy can say WHICH one —
+//     a five-name book failing with no indication of the culprit is not
+//     something a user can act on;
+//   * `ticker` is null when the failure is a property of the combination
+//     rather than of any holding (no overlapping history), which selects
+//     portfolio-level copy instead.
 export async function apiPortfolioRisk(positions) {
   const res = await fetch('/api/portfolio/risk', {
     method: 'POST',
@@ -58,9 +69,40 @@ export async function apiPortfolioRisk(positions) {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.detail || `HTTP ${res.status}`)
+    throw portfolioError(body, res.status)
   }
   return res.json()
+}
+
+// Portfolio-specific copy for the same five codes. Separate from
+// SCORE_ERROR_KEYS because the single-name strings say "this stock", which
+// reads wrong when the subject is one holding inside a book — and because the
+// no-overlap case has no single-name equivalent at all.
+const PORTFOLIO_ERROR_KEYS = {
+  TICKER_NOT_FOUND: 'portfolio.error.tickerNotFound',
+  INSUFFICIENT_DATA: 'portfolio.error.insufficientData',
+  UPSTREAM_UNAVAILABLE: 'portfolio.error.upstreamUnavailable',
+  CALCULATION_FAILED: 'portfolio.error.calculationFailed',
+  DELISTED: 'portfolio.error.delisted',
+}
+
+export function portfolioError(body, status) {
+  const error = new Error(body.message || body.detail || `HTTP ${status}`)
+  error.errorCode = body.error ?? null
+  error.ticker = body.ticker ?? null
+  // INSUFFICIENT_DATA without a ticker is the whole-book case: the holdings
+  // exist and each has history, they just do not overlap. Same code, different
+  // subject, so it needs its own sentence.
+  error.code =
+    error.errorCode === 'INSUFFICIENT_DATA' && !error.ticker
+      ? 'portfolio.error.noOverlap'
+      : (PORTFOLIO_ERROR_KEYS[body.error] ??
+        (status === 503 ? PORTFOLIO_ERROR_KEYS.UPSTREAM_UNAVAILABLE : null))
+  error.status = status
+  // Only a throttled provider can plausibly succeed on a retry — same
+  // reasoning as RETRYABLE_ERROR_KEYS above.
+  error.retryable = error.code === PORTFOLIO_ERROR_KEYS.UPSTREAM_UNAVAILABLE
+  return error
 }
 
 // Per-ticker VaR backtest (Kupiec / Christoffersen), computed live.

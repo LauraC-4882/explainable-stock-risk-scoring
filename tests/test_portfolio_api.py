@@ -81,7 +81,24 @@ def test_rejects_wrong_position_counts_and_duplicates():
     assert client.post("/api/portfolio/risk", json=negative).status_code == 422
 
 
-def test_unfetchable_ticker_is_a_404_not_a_500():
+def test_an_unfetchable_ticker_is_a_typed_error_not_an_unhandled_crash():
+    """Rewritten when the endpoint moved onto the five-code taxonomy.
+
+    It used to assert a 404 whose `detail` contained the ticker. Both halves
+    encoded the behaviour that move deliberately removed:
+
+    * every fetch failure became 404 TICKER_NOT_FOUND, so a throttled provider
+      was indistinguishable from a misspelled symbol. An unrecognised exception
+      now classifies exactly as it does on /api/score/ — CALCULATION_FAILED,
+      500 — because unrecognised means unanticipated, and a euphemism would
+      hide a bug (see errors.classify_scoring_error);
+    * the ticker was interpolated into the prose. It is a structured field now,
+      so no exception text is ever adjacent to it.
+
+    What the original test was really protecting survives and is asserted
+    below: this must not be an unhandled crash. It carries a code, a vetted
+    message, and no traceback.
+    """
     def fail(self, ticker, period="2y", **kwargs):
         raise RuntimeError("upstream down")
 
@@ -90,5 +107,10 @@ def test_unfetchable_ticker_is_a_404_not_a_500():
             "/api/portfolio/risk",
             json={"positions": [{"ticker": "AAA", "weight": 1}, {"ticker": "BBB", "weight": 1}]},
         )
-    assert res.status_code == 404
-    assert "AAA" in res.json()["detail"]
+
+    body = res.json()
+    assert res.status_code == 500
+    assert body["error"] == "CALCULATION_FAILED"
+    assert body["ticker"] == "AAA"
+    assert "upstream down" not in res.text
+    assert "Traceback" not in res.text
