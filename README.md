@@ -734,6 +734,16 @@ What that run shows, stably enough to state in words:
   keeping: repairing an unconditional quantile says nothing about *when*
   breaches arrive. It is also the evidence that no test was quietly dropped to
   make the table look better.
+- **"Passed Kupiec" is weaker evidence than it sounds at this sample size.**
+  With n ~ 430 per snapshot, the test detects a true breach rate of 6% — a
+  fifth above the 5% claim — less than one time in five, and misses a 7% rate
+  more often than it catches it. A pass rules out a gross coverage miss; it
+  does not establish that coverage is right. Power curves, the decision-rule
+  check, and the alternatives Kupiec is structurally blind to (a fatter tail at
+  unchanged coverage, and clustering — zero power against both, at any n) are
+  in `docs_internal/KUPIEC_POWER_ANALYSIS.md`, produced by
+  `scripts/kupiec_power.py`. That analysis is also why this suite runs four
+  tests rather than one: each is blind to what the others measure.
 - **Z2 still flags a mild ES understatement.** The severity ratio (mean breach
   return ÷ mean predicted ES) is now near 1.0, against ~1.26 under the old
   estimator — which is the measurement that separates "ES is genuinely too
