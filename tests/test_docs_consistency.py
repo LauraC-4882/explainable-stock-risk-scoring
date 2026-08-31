@@ -311,24 +311,40 @@ def _tracked_files() -> list[str]:
 
 
 def _control_char_offenders(path: str) -> list[str]:
-    """`path:line:col 0xNN` for every disallowed byte; [] for a binary file.
+    """`path:line:col 0xNN` for every disallowed character; [] for a binary file.
 
-    Binary is decided by the presence of a NUL byte and nothing else. A suffix
-    allowlist would need maintaining, and the first file type nobody remembered
-    to add would be silently exempt — which is the failure mode this file exists
-    to remove.
+    A file counts as binary only when it BOTH contains a NUL byte AND fails to
+    decode as UTF-8. Requiring only the NUL left the check with one structural
+    blind spot, and it was the worst one available: NUL is itself a C0 control
+    character, so the single byte most likely to be written into a source file
+    by an escaping accident was also the byte that switched the check off. A
+    valid UTF-8 file carrying one stray NUL was reported as clean.
+
+    Still no suffix allowlist. An allowlist needs maintaining, and the first
+    file type nobody remembers to add becomes silently exempt.
+
+    Offsets are counted over the decoded text, so a column is a character
+    rather than a byte and points where an editor puts the cursor.
     """
     from pathlib import Path
 
     data = Path(path).read_bytes()
-    if b"\x00" in data:
-        return []
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        if b"\x00" in data:
+            return []
+        # Undecodable but NUL-free: not binary by the rule above, so it is
+        # still scanned. Undecodable runs become replacement characters, which
+        # are not control characters and so cannot manufacture a violation.
+        text = data.decode("utf-8", errors="replace")
 
     offenders, line, col = [], 1, 1
-    for byte in data:
-        if byte < 0x20 and byte not in ALLOWED_CONTROL:
-            offenders.append(f"{path}:{line}:{col} 0x{byte:02x}")
-        if byte == 0x0A:
+    for char in text:
+        point = ord(char)
+        if point < 0x20 and point not in ALLOWED_CONTROL:
+            offenders.append(f"{path}:{line}:{col} 0x{point:02x}")
+        if point == 0x0A:
             line, col = line + 1, 1
         else:
             col += 1
