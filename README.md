@@ -388,7 +388,8 @@ withdrawn. See `93b5871`; the reported VaR/ES is now `var_95_100d` /
 measurement artefact:
 
 - Kupiec goes from rejecting on **every** ticker under the old estimator to
-  rejecting on **at most one** — coverage is no longer the problem.
+  rejecting on **one of six** — `301189_SZ` (breach rate 7.48%, p = 0.028).
+  Coverage is no longer the problem, but it is not clean either.
 - **AAPL still fails Christoffersen independence.** Breaches cluster. The fix
   did not paper over this and no test was dropped to make the table look
   better; a repaired unconditional quantile has nothing to say about *when*
@@ -725,10 +726,18 @@ findings are what this document stands behind.
 
 What that run shows, stably enough to state in words:
 
-- **Coverage is no longer the finding.** Under the old `var_95_21d` estimator —
-  now retained only as a scoring feature — Kupiec rejected on every ticker;
-  under the reported `var_95_100d` it rejects on at most one, and the pooled
-  rate sits near 5%.
+- **Coverage is no longer the finding.** Under the old 21-day estimator — now
+  retained only as a scoring feature — Kupiec rejected on every ticker; under
+  the reported `var_95_100d` it rejects on **one of six**, `301189_SZ`, and the
+  pooled rate sits near 5%.
+
+  That one rejection appeared when the realised-loss series was corrected to
+  the same return convention the VaR line is estimated from. The comparison
+  previously read realised losses from simple returns while the forecast came
+  from log returns; the two differ by `r - log(1+r)`, always in the direction
+  that understates a loss, so breaches were undercounted and `301189_SZ` passed
+  at 0 of 6. The corrected pairing is 5 of 6 passing. Nothing about the market
+  changed — the earlier number was measuring the mismatch.
 - **Breaches still cluster, and AAPL still fails Christoffersen independence.**
   This is the finding the fix did **not** dissolve, and it is the one worth
   keeping: repairing an unconditional quantile says nothing about *when*

@@ -9,7 +9,10 @@ path where a computed number becomes an outward claim:
 2. `validate_tail.py` picks its ticker set by globbing `snapshots/`, so the
    "9 tickers, 4,613 ticker-days" the README once quoted was a directory state,
    not a declared sample (open — see SESSION_LEDGER.md);
-3. that same script grades a log-return VaR line against `pct_return` (open).
+3. that same script graded a log-return VaR line against `pct_return`
+   (resolved — the realised-loss series now reads `log_return`, the same
+   convention the forecast is estimated from; `301189_SZ` turns from pass
+   to reject as a result, and the README says so).
 
 Each one produced a precise-looking figure whose inputs were undefined. This
 file guards the documentation half: the retracted numbers and the retracted

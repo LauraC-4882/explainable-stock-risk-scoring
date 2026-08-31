@@ -56,15 +56,46 @@ def _load_live(tickers: list[str]) -> dict[str, pd.DataFrame]:
     return frames
 
 
-def _prepare(raw: pd.DataFrame) -> pd.DataFrame:
+# The return convention every column in a tail comparison must share.
+#
+# `var_95_100d` / `cvar_95_100d` are rolling quantiles of `log_return`
+# (features/risk_metrics.py binds `r = df["log_return"]`), so the realised loss
+# they are graded against has to be the same column. It was `pct_return` — a
+# simple return — which made every comparison an implicit convention
+# conversion: r_simple > r_log always, so realised losses were systematically
+# understated and breaches undercounted.
+#
+# Declared as a constant, and carried on the returned frame, so the pairing is
+# a fact the code states rather than one a reader has to reconstruct by
+# following `var_95_100d` back into RiskMetrics.
+RETURN_CONVENTION = "log_return"
+
+# The columns whose convention must agree. Both sides are derived from
+# RETURN_CONVENTION; nothing else in this comparison is convention-bearing.
+_FORECAST_COLUMNS = ("var_95_100d", "cvar_95_100d")
+
+
+def _prepare(raw: pd.DataFrame, return_column: str = RETURN_CONVENTION) -> pd.DataFrame:
     """Compute the risk metrics whose tail calibration is under test.
 
     Grades `var_95_100d`/`cvar_95_100d` — the pair the scorecard reports — NOT
-    the 21-day `var_95_21d` features this used to read. The 21-day series is a
-    second-order-statistic estimator that breaches 2/22 = 9.09% by construction
-    at any tail thickness (see the comment block in features/risk_metrics.py);
-    testing it against a 5% target measured the estimator's window, not the
-    market's tails, and every ticker failed for the same arithmetic reason.
+    the 21-day features this used to read. That series is a second-order-statistic
+    estimator that breaches 2/22 = 9.09% by construction at any tail thickness
+    (see the comment block in features/risk_metrics.py); testing it against a 5%
+    target measured the estimator's window, not the market's tails, and every
+    ticker failed for the same arithmetic reason.
+
+    **Both sides of the comparison come from one return convention.** The
+    forecast columns are rolling quantiles of `log_return`, so the realised loss
+    is read from `log_return` too. Reading it from `pct_return`, as this did,
+    graded a log-derived line against simple returns: the two differ by
+    r - log(1+r) ~ r^2/2, always in the direction that understates a loss, so
+    breaches were undercounted. The convention is recorded on the returned
+    frame (`frame.attrs["return_convention"]`) so a caller can assert the
+    pairing instead of inferring it.
+
+    `return_column` is a parameter only so tests can construct a deliberately
+    mismatched frame and prove the guard fires. Production has one convention.
 
     Note the one-day shift below: the VaR on day t is computed from returns up
     to and including day t, so comparing it against day t's OWN return would be
@@ -73,10 +104,31 @@ def _prepare(raw: pd.DataFrame) -> pd.DataFrame:
     """
     df = RiskMetrics().compute(DataPreprocessor().process(raw))
     out = pd.DataFrame(index=df.index)
-    out["return"] = df["pct_return"]
-    out["var"] = df["var_95_100d"].shift(1)
-    out["es"] = df["cvar_95_100d"].shift(1)
-    return out.dropna()
+    out["return"] = df[return_column]
+    out["var"] = df[_FORECAST_COLUMNS[0]].shift(1)
+    out["es"] = df[_FORECAST_COLUMNS[1]].shift(1)
+    out = out.dropna()
+    out.attrs["return_convention"] = return_column
+    out.attrs["forecast_convention"] = RETURN_CONVENTION
+    return out
+
+
+def _assert_conventions_agree(prepared: pd.DataFrame, ticker: str) -> None:
+    """Refuse to grade a forecast against a differently-derived loss series.
+
+    Cheap, and it fires on the exact mistake this file shipped with: the
+    mismatch was invisible because both columns came from the same frame and
+    both looked like returns.
+    """
+    realised = prepared.attrs.get("return_convention")
+    forecast = prepared.attrs.get("forecast_convention")
+    if realised != forecast:
+        raise ValueError(
+            f"{ticker}: realised losses come from {realised!r} but the VaR/ES "
+            f"line is derived from {forecast!r}. Grading one convention against "
+            "another silently mis-counts breaches — the two differ by "
+            "r - log(1+r), always in the direction that understates a loss."
+        )
 
 
 def main() -> int:
@@ -100,9 +152,13 @@ def main() -> int:
     for ticker, raw in frames.items():
         try:
             prepared = _prepare(raw)
+            # Not inside the try/except's forgiveness: a convention mismatch is
+            # a defect in this file, not bad input, and skipping the ticker
+            # would hide it behind a warning among many.
         except Exception as exc:
             logger.warning(f"Skipping {ticker}: {exc}")
             continue
+        _assert_conventions_agree(prepared, ticker)
         if len(prepared) < 100:
             logger.warning(f"Skipping {ticker}: only {len(prepared)} usable rows")
             continue
