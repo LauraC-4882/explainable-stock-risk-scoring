@@ -118,6 +118,15 @@ _login_tracker = FailedLoginTracker(
 # Auth stays expensive on purpose: bcrypt burns CPU by design, so an unthrottled
 # login endpoint is a cheap way to exhaust a small instance, and it's the
 # endpoint worth making brute-force costly at.
+# A portfolio request costs one history fetch per holding, so its price is the
+# cap on holdings, not a number that happens to equal it today. Billing the
+# actual count is not available here: the limiter runs as middleware, before the
+# body is parsed, and reading it there would consume the stream the endpoint
+# needs. Pricing at the cap therefore over-charges a two-name book slightly and
+# never under-charges a full one, which is the safe direction for a limiter.
+MAX_PORTFOLIO_POSITIONS = 5
+MIN_PORTFOLIO_POSITIONS = 2
+
 _DEFAULT_COST = 1.0
 _ENDPOINT_COSTS: tuple[tuple[str, float], ...] = (
     ("/api/score/", 2.0),
@@ -125,7 +134,10 @@ _ENDPOINT_COSTS: tuple[tuple[str, float], ...] = (
     ("/api/auth/register", 8.0),
     ("/api/auth/login", 8.0),
     ("/api/search", 2.0),
-    ("/api/portfolio", 5.0),  # fans out up to 5 history fetches
+    # Derived, not a literal: raising the cap raises the price with it. The two
+    # used to be independent 5s, so a wider book would have been served at the
+    # old price.
+    ("/api/portfolio", float(MAX_PORTFOLIO_POSITIONS)),
     ("/health", 0.0),
     ("/metrics", 0.0),
 )
@@ -2029,34 +2041,64 @@ def portfolio_risk(payload: PortfolioRequest):
       derives them from these numbers with localized copy, avoiding another
       english-only-string leak (the audited stress-narrative problem).
     """
+    # Request-shape checks stay plain 422s, deliberately. They describe a
+    # malformed REQUEST, which is the same category as the validation errors
+    # FastAPI itself returns for a bad body — not a scoring outcome, so none of
+    # the five ScoreErrorCodes fits without stretching its meaning. Their text
+    # is a fixed literal and carries no exception detail.
     positions = payload.positions
-    if not 2 <= len(positions) <= 5:
-        raise HTTPException(status_code=422, detail="Provide between 2 and 5 positions")
+    if not MIN_PORTFOLIO_POSITIONS <= len(positions) <= MAX_PORTFOLIO_POSITIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Provide between {MIN_PORTFOLIO_POSITIONS} and "
+                f"{MAX_PORTFOLIO_POSITIONS} positions"
+            ),
+        )
     tickers = [pos.ticker.upper().strip() for pos in positions]
     if len(set(tickers)) != len(tickers):
         raise HTTPException(status_code=422, detail="Duplicate tickers in portfolio")
     if any(pos.weight <= 0 for pos in positions):
         raise HTTPException(status_code=422, detail="Weights must be positive")
 
+    from ..data.quality import check_history_scorable
     from ..portfolio.aggregate import Position as _Position
     from ..portfolio.aggregate import compute_portfolio_risk as _compute
 
     returns = {}
     for ticker in tickers:
-        try:
+        # One holding at a time through the same funnel /api/score uses, so a
+        # throttled provider, an unknown symbol and a delisted name stop being
+        # one undifferentiated 404 and become the code each of them already has
+        # elsewhere in this API. The response names the offending holding in its
+        # `ticker` field; `str(exc)` goes to the log and nowhere else.
+        with _scoring_errors(ticker, "Portfolio"):
             raw = scorer.fetcher.fetch_history(ticker, period="2y")
-            returns[ticker] = scorer.preprocessor.process(raw)["log_return"]
-        except Exception as exc:
-            logger.warning(f"portfolio: history fetch failed for {ticker}: {exc}")
-            raise HTTPException(
-                status_code=404, detail=f"No usable history for {ticker}"
-            ) from exc
+            processed = scorer.preprocessor.process(raw)
+            # Cold start is a whole-portfolio failure, not a dropped holding. A
+            # covariance matrix is a joint estimate: omitting a name does not
+            # produce this book minus one, it produces a different book whose
+            # weights no longer sum to what was asked about.
+            check_history_scorable(processed, ticker)
+            returns[ticker] = processed["log_return"]
 
     book = [_Position(t, pos.weight) for t, pos in zip(tickers, positions)]
     try:
         risk = _compute(returns, book)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        # compute_portfolio_risk raises ValueError for exactly one reachable
+        # condition here — no overlapping history across the book — since the
+        # positive-weight check above already rules out its other one. It is a
+        # property of the COMBINATION rather than of any single holding, so the
+        # response carries no ticker and the frontend renders the
+        # portfolio-level copy for that case.
+        logger.info(f"portfolio: no usable overlap for {tickers} [{exc}]")
+        raise ScoringHTTPError(ScoreErrorCode.INSUFFICIENT_DATA) from exc
+    except Exception as exc:
+        # A singular covariance or any other numerical failure: we do not know
+        # what happened, so the user is told nothing and the traceback is kept.
+        logger.exception(f"portfolio: computation failed for {tickers}: {exc}")
+        raise ScoringHTTPError(ScoreErrorCode.CALCULATION_FAILED) from exc
 
     from dataclasses import asdict as _asdict
 

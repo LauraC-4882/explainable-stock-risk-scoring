@@ -79,7 +79,11 @@ export default function PortfolioPanel() {
       setData(result)
     } catch (err) {
       setData(null)
-      setError(err.message)
+      // Keep the whole error, not just its text: `code` is the i18n key and
+      // `ticker` names the holding, so the message re-renders in the new
+      // language if the user switches while it is on screen — the same
+      // treatment StockCard gives a scoring error.
+      setError(err)
     } finally {
       setBusy(false)
     }
@@ -179,7 +183,7 @@ export default function PortfolioPanel() {
 
           {error && (
             <p role="alert" className="text-xs text-down">
-              {error}
+              {error.code ? t(error.code, { ticker: error.ticker ?? '' }) : error.message}
             </p>
           )}
 

@@ -876,7 +876,15 @@
     "contributionNote": "Euler allocation: the shares sum to 100% of portfolio risk, so this is a true decomposition — not a set of loosely related numbers.",
     "flagPosition": "{ticker} contributes {pct}% of portfolio risk — well above its fair share.",
     "flagEffectiveN": "This book behaves like roughly {value} independent positions — diversification is thinner than the holding count suggests.",
-    "disclaimer": "Descriptive statistics from historical co-movement. Nothing here forecasts, and nothing here recommends a position."
+    "disclaimer": "Descriptive statistics from historical co-movement. Nothing here forecasts, and nothing here recommends a position.",
+    "error": {
+      "tickerNotFound": "{ticker} was not found — check the symbol and its exchange suffix.",
+      "insufficientData": "{ticker} does not have enough trading history to include. A holding needs at least 60 trading days before it can be measured against the rest of the book.",
+      "upstreamUnavailable": "Market data is temporarily unavailable — the data provider is limiting requests from this server. Nothing is wrong with these holdings; try again in a few minutes.",
+      "calculationFailed": "Portfolio risk could not be computed for these holdings.",
+      "delisted": "{ticker} may be suspended or delisted — no recent trading data.",
+      "noOverlap": "These holdings have no trading days in common, so how they move together cannot be measured. This usually means their listing histories do not overlap."
+    }
   },
   "backtest": {
     "toggle": "VaR backtest (does the 95% line hold?)",
