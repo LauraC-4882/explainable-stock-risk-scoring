@@ -205,7 +205,15 @@ def test_the_published_composite_at_t_is_invariant(ticker, k, where, exact):
     # observed for k = 2^n. So the realistic-k assertion is: composite and
     # every category within ONE display-rounding step — any larger move is a
     # real leak, not tie dust. Recorded in audit row A1.i.
-    assert abs(a["composite_score"] - b["composite_score"]) <= 0.1, (
+    def steps(x: float, y: float) -> int:
+        # Distance in 0.1 display steps, computed in integers because the
+        # naive abs(55.5 - 55.4) <= 0.1 fails in float (the difference is
+        # 0.10000000000000142) — the tolerance itself got bitten by the same
+        # dust it exists to tolerate. Found by CI, kept as a comment because
+        # it is the whole caveat in miniature.
+        return abs(round(x * 10) - round(y * 10))
+
+    assert steps(a["composite_score"], b["composite_score"]) <= 1, (
         f"{ticker} k={k} T={where}: composite moved beyond tie-dust: "
         f"{a['composite_score']} vs {b['composite_score']}"
     )
@@ -216,7 +224,7 @@ def test_the_published_composite_at_t_is_invariant(ticker, k, where, exact):
             if x is None or y is None:
                 assert x == y, f"{cat}.{field}: {x!r} vs {y!r}"
             else:
-                assert abs(x - y) <= 0.1, f"{cat}.{field}: {x} vs {y} (beyond one rounding step)"
+                assert steps(x, y) <= 1, f"{cat}.{field}: {x} vs {y} (beyond one rounding step)"
 
 
 @pytest.mark.parametrize("ticker", TICKERS)
