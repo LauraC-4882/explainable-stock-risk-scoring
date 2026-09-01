@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -178,12 +179,53 @@ def test_christoffersen_does_see_the_order_kupiec_ignores():
 # ── the document quotes the script ───────────────────────────────────────────
 
 
+def test_the_documents_sample_sizes_match_the_current_snapshots():
+    """The document's `n` column must be today's data, not the day it was written.
+
+    This is the check the first version of this file was missing, and the miss
+    is instructive: power was recomputed from the *document's own* n, so when a
+    daily snapshot refresh moved n from 429 to 428 the quoted power (0.169) and
+    the recomputed power (0.169, from 429) still agreed. The table was
+    internally consistent and externally stale, and every test stayed green.
+
+    A guard anchored to a document's self-consistency verifies nothing about the
+    world. Anchor it to the world.
+    """
+    module = _module()
+    text = _DOC.read_text(encoding="utf-8")
+
+    actual = {}
+    for path in module.tracked_snapshots():
+        ticker = path.name.replace("_2y_1d.parquet", "")
+        actual[ticker] = module.usable_n(pd.read_parquet(path))
+
+    row = re.compile(r"^\|\s*(?:\*\*)?([A-Z0-9_]+)(?:\*\*)?\s*\|\s*(\d+)\s*\|", re.M)
+    quoted = {
+        m.group(1): int(m.group(2))
+        for m in row.finditer(text)
+        if m.group(1) != "POOLED"
+    }
+
+    assert quoted, "no per-snapshot rows parsed from the document"
+    for ticker, n in quoted.items():
+        assert ticker in actual, f"document quotes {ticker}, which is not a tracked snapshot"
+        assert n == actual[ticker], (
+            f"{ticker}: document says n={n}, the snapshots now give n={actual[ticker]}. "
+            "Re-run scripts/kupiec_power.py and update the table."
+        )
+
+
 def test_every_power_figure_in_the_document_is_reproducible():
     """No figure in the analysis may be hand-typed.
 
     Parses the per-snapshot table and recomputes each cell. A number that drifts
     from the script — because the estimator window moved, or because someone
     edited the prose — fails here rather than being quietly wrong.
+
+    Note this recomputes from the document's own `n`, so it catches a mistyped
+    power value but NOT a stale sample size; that is
+    test_the_documents_sample_sizes_match_the_current_snapshots' job. The two
+    together are what bind the table to reality.
     """
     module = _module()
     text = _DOC.read_text(encoding="utf-8")
