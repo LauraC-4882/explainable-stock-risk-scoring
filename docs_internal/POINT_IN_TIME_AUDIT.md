@@ -39,6 +39,15 @@ feature columns × 3 tickers × 4 tamper cases. The tamper provably reaches the
 t-row: the level columns in the same run move by exactly k (A1.ii), so the
 invariance is not a tamper that missed.
 
+One bounded caveat, found by cross-platform CI rather than local runs: the
+invariance is exact in exact arithmetic and bit-exact for k = 2^n, but a
+realistic k leaves 1e-16 float dust, and where a current value exactly ties
+a historical one, the percentile's `<=` can flip — moving one category's
+rounded display by at most a single 0.1 step (observed once: 000001.SZ
+volatility 55.5 vs 55.4, composite identical at 59.6, Linux float paths
+only). The realistic-k assertion therefore allows exactly one
+display-rounding step; anything larger is a leak, not tie dust.
+
 ### A1.ii — level-class quantities: confirmed-leak, with a precise boundary
 
 `dollar_volume_21d` and `amihud_illiq_21d`

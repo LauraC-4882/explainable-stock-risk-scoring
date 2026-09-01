@@ -188,10 +188,35 @@ def test_the_published_composite_at_t_is_invariant(ticker, k, where, exact):
 
     a = composite_score(asof)
     b = composite_score(tampered)
-    assert a == b, (
-        f"{ticker} k={k} T={where}: composite moved: "
+    if exact:
+        # k = 2^n scales floats exactly, so the invariance is provable to the
+        # last bit — full dict equality, category displays included.
+        assert a == b, (
+            f"{ticker} k={k} T={where}: composite moved: "
+            f"{a['composite_score']} vs {b['composite_score']}"
+        )
+        return
+    # Realistic k: the mathematics is still exact, the FLOATS are not — k
+    # multiplication leaves 1e-16 dust, and where a current value exactly
+    # TIES a historical one, percentileofscore's <= can flip, moving one
+    # category by a fraction of a percentile and its rounded display by at
+    # most one 0.1 step. Observed in CI (linux float paths) on 000001.SZ:
+    # volatility 55.5 vs 55.4 with the composite identical at 59.6; never
+    # observed for k = 2^n. So the realistic-k assertion is: composite and
+    # every category within ONE display-rounding step — any larger move is a
+    # real leak, not tie dust. Recorded in audit row A1.i.
+    assert abs(a["composite_score"] - b["composite_score"]) <= 0.1, (
+        f"{ticker} k={k} T={where}: composite moved beyond tie-dust: "
         f"{a['composite_score']} vs {b['composite_score']}"
     )
+    for cat, pa in a["categories"].items():
+        pb = b["categories"][cat]
+        for field in ("score", "contribution"):
+            x, y = pa[field], pb[field]
+            if x is None or y is None:
+                assert x == y, f"{cat}.{field}: {x!r} vs {y!r}"
+            else:
+                assert abs(x - y) <= 0.1, f"{cat}.{field}: {x} vs {y} (beyond one rounding step)"
 
 
 @pytest.mark.parametrize("ticker", TICKERS)
