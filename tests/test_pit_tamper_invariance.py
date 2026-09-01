@@ -40,11 +40,14 @@ Two claims, both mathematical and both asserted per element:
   mode the font gate had.
 
 A corollary this file PROVES rather than assumes (recorded in the audit): the
-own-history percentile composite — the published score — is invariant even in
-its liquidity category, because at any t <= T the entire visible window is
-scaled by the same k and percentile ranks are scale-free. The level-class
-damage is therefore confined to cross-stock aggregation and absolute displays,
-not to the own-history composite.
+own-history percentile composite is invariant even in its liquidity category,
+because at any t <= T the entire visible window is scaled by the same k and
+percentile ranks are scale-free. Scope, deliberately narrow: the composite is
+the 85% leg of the published headline, NOT the headline itself — the 15% ML
+leg consumes atr_14, a price level, and carries the leak (audit row A1.iii).
+The level-class damage is therefore confined to cross-stock aggregation,
+absolute displays, and the ML leg — never read this docstring as "the
+published score is unaffected".
 
 Inputs are tracked snapshots only — offline and deterministic.
 """

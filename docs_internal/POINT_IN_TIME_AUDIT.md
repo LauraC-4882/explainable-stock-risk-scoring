@@ -49,10 +49,16 @@ exact equalities in `test_level_features_scale_by_exactly_k`; if that test
 goes red the leak has been fixed and this row must be updated with it).
 **Status: confirmed-leak.**
 
-**The narrowing, stated with its premise.** The published own-history
+**The narrowing, stated with its premise — and its scope.** The own-history
 composite is invariant to this leak — including its liquidity category —
 because at any t ≤ T the entire visible window carries the same k and
 percentile ranks are scale-free. Twelve composite-invariance cases prove it.
+**The narrowing's scope ends at the composite. It does NOT extend to the
+published headline**, because the headline is not the composite: it is
+0.85 × composite + 0.15 × the ML leg, and the ML leg contains the premise
+violation (A1.iii below). "The published score is unaffected" would be a
+misreading of this section; the accurate statement is "the 85% composite
+leg is proven invariant; the 15% ML leg carries a confirmed leak."
 The premise this rests on: **a level quantity's scale-invariance holds only
 while it is compared exclusively against other levels from the same window;
 the moment it meets any constant (a hardcoded floor, a training-time scaler
@@ -88,9 +94,13 @@ recorded not asserted — it depends on the artefact): atr_14 importance
 0.073 (4th–5th of 18); under the tamper atr_14 is the only changed feature;
 at k = 0.97 the raw XGBoost probability did not move (no split crossed for
 the probed rows), at **k = 0.5 it moved by −2.7e-2**; the isotonic
-calibration plateau absorbed both for the probed rows — plateaus have edges,
-so that is luck, not a guarantee. **Status: confirmed-leak** (structural;
-magnitude row-dependent). Pinned structurally by
+calibration plateau absorbed both for the probed rows. That absorption must
+not be read as "currently negligible": the accurate reading is **"currently
+absorbed, by accident, by an unstable structure"**. Isotonic plateau
+boundaries are a data-driven artefact of the calibration slice — any retrain
+moves them, and the masking can vanish with no code change at all.
+**Status: confirmed-leak** (structural; magnitude row-dependent and
+retrain-dependent). Pinned structurally by
 `test_atr_the_one_level_feature_in_the_ml_set_scales_by_k`.
 Not fixed here: removing/normalising atr_14 changes the trained artefact and
 every published ML metric — a retrain decision, not an audit's.
