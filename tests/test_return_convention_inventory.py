@@ -159,16 +159,30 @@ def test_alpha_grid_volume_ratio_is_not_a_price_return():
 # ── consumers: which column each published path actually reads ───────────────
 
 
-def test_the_tail_suite_grades_log_forecasts_against_simple_returns():
-    """Conflict 1, pinned at the line that creates it.
+def test_the_tail_suite_grades_one_convention_against_itself():
+    """Conflict 1 — **resolved**, and now pinned in the resolved state.
 
-    validate_tail.py builds its realised-loss series from pct_return (simple)
-    while the var/es columns it compares against derive from log_return. The
-    audit records this; this test makes the next change to either side visible.
+    This assertion previously recorded the defect: validate_tail.py read
+    realised losses from pct_return while grading them against a log_return
+    forecast. It was written as an inventory pin, deliberately describing what
+    was true at the time.
+
+    It went red the moment both changes landed on main — the audit that
+    recorded the mismatch and the fix that removed it were on separate branches,
+    so neither PR's CI saw the other. That is worth keeping in view: a test
+    asserting a *defect still exists* becomes a failing test the moment someone
+    fixes it, and if the two live on sibling branches nothing catches the
+    collision until they meet on main.
+
+    The pin is kept rather than deleted, inverted to the post-fix fact, so the
+    inventory still has a row here and a regression would still be caught.
     """
     source = (_REPO / "scripts" / "validate_tail.py").read_text(encoding="utf-8")
-    assert 'out["return"] = df["pct_return"]' in source
-    assert 'out["var"] = df["var_95_100d"].shift(1)' in source
+    assert 'out["return"] = df[return_column]' in source
+    assert 'RETURN_CONVENTION = "log_return"' in source
+    assert 'out["var"] = df[_FORECAST_COLUMNS[0]].shift(1)' in source
+    # The defect must not come back by any spelling.
+    assert 'out["return"] = df["pct_return"]' not in source
 
 
 def test_the_backtest_endpoint_reads_log_returns():
