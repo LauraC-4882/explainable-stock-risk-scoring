@@ -18,13 +18,13 @@ warm-up and the one-day forecast shift.
 
 | ticker | n | 6% | 7% | 8% | 9% | 10% |
 |---|---|---|---|---|---|---|
-| 000001_SZ | 428 | **0.166** | 0.449 | 0.743 | 0.916 | 0.980 |
+| 000001_SZ | 429 | **0.169** | 0.454 | 0.747 | 0.918 | 0.981 |
 | 301189_SZ | 428 | **0.166** | 0.449 | 0.743 | 0.916 | 0.980 |
-| 510300_SS | 428 | **0.166** | 0.449 | 0.743 | 0.916 | 0.980 |
-| 600519_SS | 428 | **0.166** | 0.449 | 0.743 | 0.916 | 0.980 |
-| 601318_SS | 428 | **0.166** | 0.449 | 0.743 | 0.916 | 0.980 |
+| 510300_SS | 429 | **0.169** | 0.454 | 0.747 | 0.918 | 0.981 |
+| 600519_SS | 429 | **0.169** | 0.454 | 0.747 | 0.918 | 0.981 |
+| 601318_SS | 429 | **0.169** | 0.454 | 0.747 | 0.918 | 0.981 |
 | AAPL | 478 | **0.178** | 0.487 | 0.785 | 0.940 | 0.988 |
-| **POOLED — upper bound** | 2618 | 0.612 | 0.990 | 1.000 | 1.000 | 1.000 |
+| **POOLED — upper bound** | 2621 | 0.618 | 0.991 | 1.000 | 1.000 | 1.000 |
 
 ### The 6% column is the finding
 
@@ -44,14 +44,14 @@ fires (power 0.45–0.49). Reasonable power arrives only around 8% (0.74–0.79)
 
 ### Why the pooled row is an upper bound and nothing more
 
-Pooling reaches 0.61 at 6% and is essentially certain by 7%. That number is
+Pooling reaches 0.62 at 6% and is essentially certain by 7%. That number is
 **not** attainable in practice, and it is labelled as a bound rather than a
 result.
 
 Kupiec's binomial likelihood assumes independent observations. The panel is four
 A-shares, a CSI 300 ETF, and one US name — the A-shares and the ETF that tracks
 their index share market days and move together, so breaches co-occur rather
-than arriving independently. Treating 2,618 correlated observations as 2,618
+than arriving independently. Treating 2,621 correlated observations as 2,621
 independent trials overstates the effective sample size and therefore the power.
 
 The size of the overstatement is not estimated here: doing so honestly requires
@@ -60,13 +60,18 @@ outside this analysis. What can be said without that work is the direction —
 the true pooled power lies somewhere between the single-snapshot figures and the
 row above, and closer to the former than the pooled n suggests.
 
-> **These figures move with the daily snapshot refresh.** `n` fell from 429 to
-> 428 on one such refresh while this was being written, taking the 6% power
-> from 0.169 to 0.166. The conclusions are unaffected — that is the point of
-> quoting a column rather than a single number — but the table is a snapshot of
-> a moving input, and
-> `test_the_documents_sample_sizes_match_the_current_snapshots` fails when it
-> goes stale.
+> **These figures move with the daily snapshot refresh**, and have already moved
+> twice while this was being written: 429 -> 428 -> 429, taking the 6% power
+> from 0.169 to 0.166 and back. The conclusions are untouched by that — which is
+> the reason for quoting a column rather than a single number.
+>
+> The guard on this table therefore checks the *claim*, not the digits:
+> `test_the_power_claims_hold_at_the_current_sample_sizes` recomputes from the
+> snapshots and asserts what the prose actually says (every snapshot under 0.20
+> at 6%, under 0.50 at 7%, the ordering, the quoted n within a tolerance). An
+> exact-equality guard was tried first and had to be replaced — it went red on an
+> unrelated PR because a scheduled job had moved a digit, which trains people to
+> update numbers without reading them.
 
 ### Decision rule
 
