@@ -179,17 +179,28 @@ def test_christoffersen_does_see_the_order_kupiec_ignores():
 # ── the document quotes the script ───────────────────────────────────────────
 
 
-def test_the_documents_sample_sizes_match_the_current_snapshots():
-    """The document's `n` column must be today's data, not the day it was written.
+def test_the_power_claims_hold_at_the_current_sample_sizes():
+    """The document's *claims* must survive the daily snapshot refresh.
 
-    This is the check the first version of this file was missing, and the miss
-    is instructive: power was recomputed from the *document's own* n, so when a
-    daily snapshot refresh moved n from 429 to 428 the quoted power (0.169) and
-    the recomputed power (0.169, from 429) still agreed. The table was
-    internally consistent and externally stale, and every test stayed green.
+    An earlier version of this guard asserted the quoted `n` equalled today's
+    `n` exactly. It was anchored to the right source — the snapshots, not the
+    prose — but to the wrong granularity: a scheduled `chore: daily snapshot
+    refresh` moves n by one every few days (observed 429 -> 428 -> 429 inside a
+    fortnight), so the guard went red on an unrelated PR because a digit had
+    drifted. A guard that fires on things nobody did teaches people to update
+    numbers without reading them, which is the opposite of what it is for.
 
-    A guard anchored to a document's self-consistency verifies nothing about the
-    world. Anchor it to the world.
+    So it now checks what the document actually asserts, each recomputed from
+    the current snapshots:
+
+      * every snapshot below 0.20 at a true rate of 6% — the headline;
+      * every snapshot below 0.50 at 7% — "misses more often than it fires";
+      * power rising with the size of the miss;
+      * the quoted n close enough that the table is not describing a different
+        dataset (tolerance, not equality).
+
+    A real change — a different estimator window, a different sample — breaks
+    these. A Tuesday does not.
     """
     module = _module()
     text = _DOC.read_text(encoding="utf-8")
@@ -199,19 +210,39 @@ def test_the_documents_sample_sizes_match_the_current_snapshots():
         ticker = path.name.replace("_2y_1d.parquet", "")
         actual[ticker] = module.usable_n(pd.read_parquet(path))
 
+    assert actual, "no tracked snapshots found"
+
+    for ticker, n in actual.items():
+        mask = module.rejection_mask_chi2(n)
+        at_six = module.power(n, 0.06, mask)
+        at_seven = module.power(n, 0.07, mask)
+        assert at_six < 0.20, (
+            f"{ticker} (n={n}): power at 6% is {at_six:.3f}. The document's "
+            "headline claim — every snapshot below 0.20 — no longer holds and "
+            "the prose needs rewriting, not the table."
+        )
+        assert at_seven < 0.50, (
+            f"{ticker} (n={n}): power at 7% is {at_seven:.3f}, so the claim "
+            "that the test misses more often than it fires no longer holds."
+        )
+        assert at_six < at_seven
+
     row = re.compile(r"^\|\s*(?:\*\*)?([A-Z0-9_]+)(?:\*\*)?\s*\|\s*(\d+)\s*\|", re.M)
     quoted = {
         m.group(1): int(m.group(2))
         for m in row.finditer(text)
         if m.group(1) != "POOLED"
     }
-
     assert quoted, "no per-snapshot rows parsed from the document"
+
     for ticker, n in quoted.items():
-        assert ticker in actual, f"document quotes {ticker}, which is not a tracked snapshot"
-        assert n == actual[ticker], (
-            f"{ticker}: document says n={n}, the snapshots now give n={actual[ticker]}. "
-            "Re-run scripts/kupiec_power.py and update the table."
+        assert ticker in actual, f"document quotes {ticker}, not a tracked snapshot"
+        # Tolerance, not equality: a handful of sessions is refresh drift, a
+        # large gap means the table describes a different dataset.
+        assert abs(n - actual[ticker]) <= 5, (
+            f"{ticker}: document says n={n}, snapshots give n={actual[ticker]}. "
+            "That is too far apart to be refresh drift — re-run "
+            "scripts/kupiec_power.py."
         )
 
 
