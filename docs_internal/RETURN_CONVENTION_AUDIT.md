@@ -22,7 +22,7 @@ Parkinson estimators) are **not** price-to-return conversions and are excluded.
 | file:line | expression | simple / log | price column | missing days | consumed by |
 |---|---|---|---|---|---|
 | `data/preprocessor.py:93` | log of close over previous close | **log** | `close` (adjusted — see below) | non-sessions dropped upstream by `drop_non_sessions`; first row NaN then dropped | the canonical `log_return` column: `RiskMetrics` (all vol/tail/drawdown metrics), `VolatilityModel` (GJR-GARCH), `har_volatility`, the scorer beta leg, the backtest endpoint |
-| `data/preprocessor.py:94` | `close.pct_change()` | **simple** | `close` | same rows as above | `scripts/validate_tail.py:76` only, plus two test references. No production consumer |
+| `data/preprocessor.py:94` | `close.pct_change()` | **simple** | `close` | same rows as above | at audit time `scripts/validate_tail.py` only, plus two test references; no consumer at all since `fc58109`. No production consumer |
 | `data/preprocessor.py:64` | log of close over previous close | **log** | `close` | computed before the dropna, inside `_remove_price_outliers` | outlier detection only; local to the function and discarded |
 | `models/feature_sets.py:91` | log of close over previous close | **log** | `close` | recomputed locally; relies on the frame already being preprocessed | drawdown-event labels for the XGBoost model |
 | `features/alpha_grid.py:61` | close over previous close minus one | **simple** | `close` | inherits the preprocessed frame | the K-bar `alpha_*` columns, screened by `factor_screen.py` |
@@ -37,7 +37,7 @@ Parkinson estimators) are **not** price-to-return conversions and are excluded.
 | `api/app.py:1942` | reads `log_return` | **log** | — | inherits preprocessor | backtest endpoint realised-loss series |
 | `api/app.py:2048` | reads `log_return` | **log** | — | inherits preprocessor | portfolio aggregation |
 | `models/volatility.py:57,91` | reads `log_return` | **log** | — | `.dropna()` | GJR-GARCH fit; rolling realised vol |
-| `scripts/validate_tail.py:76` | reads `pct_return` | **simple** | — | dropna after aligning with the shifted forecast | the tail-test suite realised-loss series |
+| `scripts/validate_tail.py:174` | reads `log_return` (read `pct_return` at audit time; resolved at `fc58109`) | **log** | — | dropna after aligning with the shifted forecast | the tail-test suite realised-loss series |
 
 ### Adjustment: a column, not a line
 
@@ -87,13 +87,16 @@ matches group 1 exactly, but the rows reaching it differ.
 
 Two.
 
-1. **The tail-test suite grades a log-return forecast against simple returns.**
-   `validate_tail.py:76` takes the realised loss from `pct_return` (simple),
-   while the forecast columns it is compared against are derived from
-   `log_return` (log). Both come from the same `DataPreprocessor` frame, so
-   this is a convention mismatch inside one comparison, not a data mismatch.
-   Already noted as open in the `tests/test_docs_consistency.py` header. The
-   published tail figures rest on this pairing.
+1. **The tail-test suite graded a log-return forecast against simple returns.
+   Resolved at `fc58109`.** At audit time `validate_tail.py` took the realised
+   loss from `pct_return` (simple), while the forecast columns it is compared
+   against are derived from `log_return` (log). Both come from the same
+   `DataPreprocessor` frame, so this was a convention mismatch inside one
+   comparison, not a data mismatch, and the published tail figures rested on
+   it. Since `fc58109` the realised loss reads `log_return` and a mismatched
+   pairing is refused (`tests/test_tail_return_convention.py`); `301189_SZ`
+   moved from Kupiec pass to reject as a result. The inventory pin below was
+   inverted at `61fdee8` to guard the fix instead of the defect.
 
 2. **The same nominal close carries different adjustment conventions across
    markets.** A CN ticker's returns come from `qfq` prices, a US ticker's from
@@ -108,8 +111,9 @@ Two.
 - `preprocessor.py:64` and `validate_score.py:107`: log returns computed inside
   outlier filters. Local variables, discarded after use.
 - `preprocessor.py:94` reached through the scoring path: written into every
-  scored frame but read by no production code. Its only reader is
-  `validate_tail.py`, which is conflict 1; through every other path it is inert.
+  scored frame but read by no production code. Its only reader was
+  `validate_tail.py` (conflict 1, resolved at `fc58109`); it now has no reader
+  at all, which `test_pct_return_has_no_consumers` pins.
 - `validate_score.py:138`: written and never read by that script's backtest.
 - `alpha_grid.py:61` (simple) against group 1 (log): the `alpha_*` columns are a
   candidate grid screened by `factor_screen.py`; none currently carries weight
