@@ -7,11 +7,28 @@ name: Refresh data snapshots
 # deploy's own egress IP — the chronic condition documented in README
 # "Deployment". GitHub runners are only intermittently throttled, so over a
 # few days every ticker converges to fresh.
+#
+# The commit this job pushes is never observed by ci.yml: it is pushed with
+# GITHUB_TOKEN (which does not trigger `push` workflows) and it touches only
+# `snapshots/**` (which ci.yml ignores anyway). So this job is the only thing
+# that can notice when a refresh moves a number a document cites — hence the
+# consistency gate at the end, run AFTER the push so the data still lands and
+# the run itself goes red at the moment the drift does. The daily canary
+# (canary.yml) covers whatever else a refresh might break.
 
 on:
   schedule:
     - cron: "45 21 * * 1-5" # ~after US market close, weekdays
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      skip_fetch:
+        description: >-
+          Skip the Yahoo fetch and the commit; only run the consistency gate
+          against the snapshots already on this ref. For verifying the gate
+          itself — a real refresh never sets this.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -21,6 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the gate includes test_docs_consistency's commit-hash
+          # reachability assertion, which self-skips (announced) on a shallow
+          # clone. Same setting as ci.yml, for the same reason.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,12 +50,16 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e .
+        run: pip install -e ".[dev]" # [dev] for pytest — the gate below
 
+      # `inputs` is empty on a schedule event, so `!inputs.skip_fetch` is true
+      # there and the fetch always runs on the cron.
       - name: Refresh snapshots (rate-limit tolerant)
+        if: ${{ !inputs.skip_fetch }}
         run: python scripts/refresh_snapshots.py
 
       - name: Commit changed snapshots
+        if: ${{ !inputs.skip_fetch }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -44,3 +70,13 @@ jobs:
             git commit -m "chore: daily snapshot refresh"
             git push
           fi
+
+      # The known trigger. tests/test_kupiec_power.py binds the sample sizes
+      # quoted in docs_internal/KUPIEC_POWER_ANALYSIS.md to the tracked
+      # snapshots (±5 sessions of refresh drift allowed, more is a different
+      # dataset); tests/test_docs_consistency.py holds the rest of the
+      # docs-vs-repo assertions. Runs after the push on purpose: the refresh
+      # is still worth having when a document is stale, and a red run here is
+      # the observation that was missing.
+      - name: Docs / sample-size consistency gate
+        run: pytest tests/test_kupiec_power.py tests/test_docs_consistency.py -v --tb=short
