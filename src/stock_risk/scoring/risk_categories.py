@@ -50,6 +50,19 @@ _METRIC_SPECS: dict[str, list[tuple[str, int, float]]] = {
     ],
 }
 
+def metric_category(column: str) -> Optional[str]:
+    """The risk category that scores *column*, or None if none does.
+
+    The one place that answers "which category is this metric in" — so a
+    consumer grouping something else by category (the ML explanation's SHAP
+    values, say) uses this table rather than a second copy of it.
+    """
+    for category, specs in _METRIC_SPECS.items():
+        if any(col == column for col, _, _ in specs):
+            return category
+    return None
+
+
 CATEGORY_WEIGHTS: dict[str, float] = {
     "volatility": 0.25,
     "tail": 0.25,

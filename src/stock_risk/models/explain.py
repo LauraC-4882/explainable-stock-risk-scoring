@@ -22,6 +22,36 @@ def _sigmoid(x: float) -> float:
     return 1.0 / (1.0 + np.exp(-x))
 
 
+# Which of the five percentile-composite risk categories each ML feature
+# belongs to, by the same membership table risk_categories.py scores with —
+# so "how much of the ML signal came from tail risk" is answered with the
+# product's own definition of tail risk. The ColumnTransformer groups
+# (momentum / volatility / quality) are a preprocessing convenience and do
+# not correspond to those categories: `volatility__max_drawdown_63d` is a
+# drawdown feature that happens to be scaled with the volatility branch.
+# Features in no category (RSI, Sharpe, ...) are kept under "other" rather
+# than dropped, so the six sums stay additive to the total shift.
+OTHER_CATEGORY = "other"
+
+
+def _feature_category(feature_name: str) -> str:
+    from ..scoring.risk_categories import metric_category  # pandas/scipy only
+
+    _, _, column = feature_name.rpartition("__")
+    return metric_category(column) or OTHER_CATEGORY
+
+
+def category_contributions(contributions: list[dict]) -> dict[str, float]:
+    """Per-risk-category sums of `shap_contribution` (log-odds units)."""
+    from ..scoring.risk_categories import CATEGORY_WEIGHTS
+
+    totals = {category: 0.0 for category in CATEGORY_WEIGHTS}
+    totals[OTHER_CATEGORY] = 0.0
+    for item in contributions:
+        totals[_feature_category(item["feature"])] += float(item["shap_contribution"])
+    return totals
+
+
 def explain_prediction(
     model: DownsideRiskModel, df: pd.DataFrame, top_n: int = 5
 ) -> Optional[dict]:
@@ -81,6 +111,10 @@ def explain_prediction(
         # numpy.float64, float32 isn't a subclass of Python's float).
         "predicted_probability": float(_sigmoid(base_value + float(values.sum()))),
         "top_features": contributions[:top_n],
+        # Summed over EVERY feature (not just top_n), so the six values are a
+        # complete, additive decomposition of the log-odds shift — the
+        # per-feature list above is a display truncation, this is not.
+        "category_contributions": category_contributions(contributions),
         "note": (
             "shap_contribution is in log-odds units (additive: base_probability's "
             "log-odds plus every feature's shap_contribution equals predicted_probability's "

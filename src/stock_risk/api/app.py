@@ -59,6 +59,19 @@ from ..security import (
 )
 from .errors import ERROR_SPECS, ScoringHTTPError, scoring_error_handler
 from .schemas import ScoreResponse
+from .signal import (
+    CACHE_CONTROL,
+    SignalBatchResponse,
+    SignalResponse,
+    build_signal,
+    cached_signal,
+    enforce_signal_rate_limit,
+    parse_batch_tickers,
+    require_signal_api_key,
+    resolve_model_version,
+    store_signal,
+    utc_today,
+)
 
 app = FastAPI(
     title="Stock Risk Scoring API",
@@ -83,7 +96,9 @@ app.add_middleware(
     allow_origins=settings.cors_origins_list,
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    # X-Api-Key is the public signal API's optional credential (api/signal.py);
+    # listing it here only lets an *allowlisted* origin send it from a browser.
+    allow_headers=["Authorization", "Content-Type", "X-Api-Key"],
     # Lets the frontend read the silently-refreshed token (see refresh_token
     # middleware below) — a response header is invisible to JS unless exposed.
     expose_headers=["X-Refreshed-Token", "X-RateLimit-Remaining", "Retry-After"],
@@ -140,6 +155,10 @@ _ENDPOINT_COSTS: tuple[tuple[str, float], ...] = (
     ("/api/portfolio", float(MAX_PORTFOLIO_POSITIONS)),
     ("/health", 0.0),
     ("/metrics", 0.0),
+    # Not free: exempt from THIS bucket because it has its own, stricter one
+    # (60/min per IP, see api/signal.py). Charging it here as well would make
+    # the effective limit the tighter of two settings nobody set together.
+    ("/api/v1/signal", 0.0),
 )
 
 _RATE_LIMIT_EXEMPT_PREFIXES = ("/assets", "/static")
@@ -273,6 +292,15 @@ monitor = ModelMonitor(settings.monitoring_log_dir)
 _score_cache: SingleFlightCache = SingleFlightCache(
     fresh_ttl=settings.score_cache_fresh_seconds,
     stale_ttl=settings.score_cache_stale_seconds,
+)
+
+# Identifier the public signal API reports for the ML leg. Fixed at deploy
+# time, so resolved once here rather than per request — see
+# signal.resolve_model_version for the preference order.
+_SIGNAL_MODEL_VERSION = resolve_model_version(
+    scorer._dr_model,
+    model_dir=Path(settings.model_dir),
+    repo_root=Path(__file__).resolve().parents[3],
 )
 
 init_db()
@@ -574,6 +602,86 @@ def api_outcomes(ticker: str):
     with _scoring_errors(ticker, "Outcomes"):
         rows = scorer.score_timeseries(ticker.upper(), period="2y")
         return compute_outcome_distribution(rows)
+
+
+# ── Public signal API (v1) ────────────────────────────────────────────────────
+# Read-only integration surface for sibling apps. Everything analytical is the
+# scoring path above, reused verbatim through _score_ticker; api/signal.py
+# owns the contract, the key check, the per-IP bucket and the daily snapshot.
+
+
+def _signal_for(ticker: str, session: Session) -> dict:
+    """Today's signal for *ticker*: the stored daily snapshot if there is one,
+    else computed live through the same funnel /api/score uses, then stored.
+
+    Mock mode skips the snapshot table entirely: the fixture is the answer, and
+    the screenshot harness runs on whatever database happens to be configured.
+    """
+    if MOCK_MODE:
+        return build_signal(_score_ticker(ticker, "2y"), model_version=_SIGNAL_MODEL_VERSION)
+
+    today = utc_today()
+    cached = cached_signal(session, ticker, today)
+    if cached is not None:
+        return cached
+
+    payload = build_signal(_score_ticker(ticker, "2y"), model_version=_SIGNAL_MODEL_VERSION)
+    # Same "never fail the request" contract as _record_score_snapshot: a
+    # cache that cannot be written costs the next caller a recomputation, not
+    # this caller their answer.
+    try:
+        store_signal(session, payload, today)
+    except Exception as exc:
+        logger.exception(f"Signal snapshot failed for {ticker} (request still served): {exc}")
+    return payload
+
+
+@app.get(
+    "/api/v1/signal",
+    response_model=SignalBatchResponse,
+    tags=["signal"],
+    dependencies=[Depends(enforce_signal_rate_limit), Depends(require_signal_api_key)],
+)
+def api_signal_batch(
+    response: Response,
+    tickers: str = Query(..., description="Comma-separated symbols, at most 20"),
+    session: Session = Depends(get_session),
+):
+    """Signals for up to 20 tickers in one request.
+
+    One HTTP call, one process, one loaded model: each ticker goes through the
+    same cache-first path as the single route, so a batch of already-scored
+    names is served without an upstream fetch. A ticker that fails does not
+    fail the batch; it appears under `errors` with its taxonomy code and the
+    rest are returned. The response is only marked cacheable when every ticker
+    succeeded — an hour-long cache of a transient 503 would be a real outage.
+    """
+    results: list[dict] = []
+    errors: list[dict] = []
+    for ticker in parse_batch_tickers(tickers):
+        try:
+            results.append(_signal_for(ticker, session))
+        except ScoringHTTPError as exc:
+            errors.append({"ticker": ticker, "code": exc.code.value})
+    response.headers["Cache-Control"] = CACHE_CONTROL if not errors else "no-store"
+    return {"results": results, "errors": errors}
+
+
+@app.get(
+    "/api/v1/signal/{ticker}",
+    response_model=SignalResponse,
+    tags=["signal"],
+    dependencies=[Depends(enforce_signal_rate_limit), Depends(require_signal_api_key)],
+)
+def api_signal(ticker: str, response: Response, session: Session = Depends(get_session)):
+    """The public signal for one ticker.
+
+    Errors are the same five-code taxonomy as /api/score/{ticker} and carry
+    the same flat body; see api/errors.py.
+    """
+    payload = _signal_for(ticker.strip().upper(), session)
+    response.headers["Cache-Control"] = CACHE_CONTROL
+    return payload
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
