@@ -10,6 +10,65 @@ The point of writing them down is that a finding deferred without a record is a
 finding lost. The point of deferring them at all is that a documentation change
 and an interface change do not belong in one pull request.
 
+An entry whose fix has since landed keeps its text as written and gains a
+**Status** line naming the commit and the test that pins the fix. Nothing is
+marked fixed on the strength of a commit alone.
+
+---
+
+## 0. A write in the `pit2` worktree was reverted, and no record names by whom
+
+**Class** Shared mutable state — the same family as entry 7 (a branch ref
+moved under a working tree) and the 2026-08-28 concurrent clobber of the notes
+ledger. Recorded as an *observed instance*, dated from reflogs, file
+timestamps and commit times. The cause was not determined and is not guessed
+at here.
+
+**The two worktrees** `riscore-worktrees/pit2` (branch
+`fix/conflict1-pin-reconciliation`) and `riscore-worktrees/fix-migration`
+(branch `verify/alpha-roc-mutation`, later `main`). Both hang off the one
+shared `.git`, so every reflog below is visible from either.
+
+**Timeline** (local time, UTC-7; the right-hand column is where each row was
+read from)
+
+| when | what | source |
+|---|---|---|
+| 2026-09-02 18:01:02 | `origin/main` fast-forwards to `b44678a`, the rebase-merged batch of PRs that left main red: 829 passed, 1 failed, the failure being the conflict-1 inventory pin | `refs/remotes/origin/main` reflog |
+| 2026-09-02 18:01:58 | fix-migration checks out `verify/alpha-roc-mutation` at `b44678a` | `worktrees/fix-migration/HEAD` reflog |
+| 2026-09-02 18:02:18 | pit2 checks out `origin/main` (`b44678a`). Every tracked file in pit2 carries this mtime, and none carries a later one | pit2 `HEAD` reflog; `ls --time-style=full-iso` over `git ls-files` |
+| 2026-09-02 18:05:41 | pit2 records its baseline, `baseline_b44678a.log`: 1 failed / 829 passed | ignored log, mtime and content |
+| 2026-09-02 18:06:08 | pit2 creates `fix/conflict1-pin-reconciliation` from `b44678a` and rewrites its index. The branch never receives a commit | branch reflog; `worktrees/pit2/index` mtime |
+| 2026-09-11 20:55:48 | fix-migration commits the pin inversion on `verify/alpha-roc-mutation`; pushed four seconds later | `worktrees/fix-migration/HEAD` reflog; `refs/remotes/origin/verify/alpha-roc-mutation` reflog |
+| 2026-09-11 20:59:02 | pit2 runs the full suite, `recon_pytest.log`: **still 1 failed / 829 passed, the same test**. The tree pit2 measured did not contain the inversion | ignored log, mtime and content |
+| 2026-09-11 20:59:20 to 21:00:37 | pit2 runs vitest, `recon_vitest.log`: 176 passed | ignored log |
+| 2026-09-11 22:09:00 | the inversion reaches main as `61fdee8` (#45, squash) | commit time |
+
+**What the worktree shows now** pit2 is clean, its branch has zero commits
+beyond `b44678a`, no tracked file has an mtime later than the 18:02:18
+checkout, no stash was taken from it, and no dangling commit in the shared
+object store is dated inside the window (the newest is 2026-08-31 21:46:07).
+A filesystem search for anything in pit2 modified after 18:07 on the 2nd
+returns only ignored run artefacts: the two `recon_*.log` files, a ruff cache
+entry and `logs/monitoring/AAPL.jsonl`, all written by the 20:59 run itself.
+The reported write left nothing that git or the filesystem retains. That
+absence is the observation worth keeping: **a write to a worktree on a shared
+checkout can be undone with no record for at least nine days** (18:06:08 on
+the 2nd to 20:59:02 on the 11th), and it was noticed only because the same
+work was committed from a different worktree and pit2's own run disagreed
+with it.
+
+**Not concluded here** who or what reverted it, or whether it was a checkout,
+a stash, a tool, or an edit that never reached disk. The evidence is
+consistent with more than one of those, and this record does not choose.
+
+**What it adds to entry 7's rule** "Confirm `HEAD` and the tree agree before
+reading the count" has a blind spot for a complete revert: the tree agrees
+with `HEAD` *because* the work is gone. The mitigation that does not depend
+on anyone noticing is the one the notes ledger already states — coordinate
+through git refs (commit and push early), never through the state of a
+worktree.
+
 ---
 
 ## 1. `validate_tail.py` selects its sample by globbing a directory
@@ -45,6 +104,14 @@ the filesystem.
 **Deferred because** it changes the script's interface, and mixing that with the
 documentation rewrite would make both harder to review.
 
+**Status (2026-09-28)** Fixed at `1736ddd`: the sample is declared in
+`snapshots/validation_manifest.txt`, a listed file missing from disk raises,
+and a missing manifest raises rather than falling back to the glob.
+Verification:
+`tests/test_validation_manifest.py::test_the_sample_comes_from_the_manifest_not_the_directory`,
+with `test_a_missing_manifest_is_fatal_rather_than_falling_back` and
+`test_the_loader_does_not_select_by_globbing` as the counter-examples.
+
 ---
 
 ## 2. `validate_tail.py` grades a log-return VaR line against percentage returns
@@ -76,6 +143,13 @@ line, plus a test that the two conventions are not silently mixed.
 
 **Deferred because** it is a behaviour change to a script whose output gates CI,
 and it needs its own test and review rather than riding along with prose edits.
+
+**Status (2026-09-28)** Fixed at `fc58109`: the realised-loss series reads
+`log_return`, the convention the forecast was estimated from, and a mismatched
+pairing is refused. Verification:
+`tests/test_tail_return_convention.py::test_realised_losses_use_the_forecast_convention`
+and `::test_a_mismatched_pairing_is_refused`. The inventory pin that recorded
+the defect was inverted at `61fdee8` so it now guards the fix.
 
 ---
 
@@ -279,6 +353,45 @@ has no false-positive surface, and it would have caught this instance and the
 by the same mechanism — a string-rewriting step where an escape sequence was
 interpreted one layer earlier than intended — so the class is worth a check
 even though each instance looks like a one-off.
+
+## 9. Test-count baselines: vitest 171 to 176, and the 764-era pytest list
+
+**Vitest, observed** 171 was measured in the pit2 worktree at `2f232b2`
+(notes ledger, 2026-08-31: "unchanged, no frontend diff"). 176 was measured at
+`61fdee8` (the #45 squash) and again in this round at `a67eb22`, this change's
+base: 20 files, 176 passed. Between the two measurements exactly one vitest
+file changed on main:
+
+| file | commit | when | change |
+|---|---|---|---|
+| `ui/web/src/i18n/locales/locales.test.js` | `677cb52` (additive-gates batch), reformatted by `e155f30` | 2026-09-02 17:59:44 | +90 lines: the five zh residual-English gate tests |
+
+`git diff --stat 2f232b2 61fdee8` over `ui/web/**/*.test.*` lists that file
+and nothing else, and `git diff 61fdee8 a67eb22 -- ui/web/` is empty. The
+delta is +5, the locale-gate tests, exactly as the notes ledger predicted
+before the batch landed ("176 passed (= 171 + 5, prediction hit)").
+
+**A correction to how this round was briefed** The brief attributed the delta
+to "the file list that arrived via the #45 squash (AlertSettings.test.jsx,
+GovernancePanel.test.jsx, ...)". Git does not support that: `61fdee8` touches
+`docs_internal/KUPIEC_POWER_ANALYSIS.md`, `tests/test_kupiec_power.py` and
+`tests/test_return_convention_inventory.py`, and no file under `ui/`. The two
+named test files were added by `b7786ce` on 2026-08-13, eighteen days before
+the 171 measurement, so they were already inside it. Recorded as briefed, then
+contradicted, rather than adjusted to fit.
+
+**The 764-era pytest collected list: closed as unrecoverable** "764 passed,
+0 failed as of 2026-08-11" exists only in the uncommitted `CLAUDE.md` of the
+main checkout; the tracked copy on main still says 610 as of 2026-08-07. No
+`--collect-only` output was archived beside either number, the venv and
+working tree that produced them have moved on, and the commits since have
+added and reshaped test modules, so the list of ids behind 764 cannot be
+rebuilt from anything this repository holds. Closed, not deferred. The rule
+that stops a repeat is the one `.baselines/` now enforces: a count is a
+baseline only when the collected list it summarises is archived next to it
+under the sha that produced it.
+
+---
 
 ## Methodology conclusions (candidates for the model card)
 
