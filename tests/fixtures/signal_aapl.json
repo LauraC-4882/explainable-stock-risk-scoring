@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "ticker": "AAPL",
+  "market": "US",
+  "as_of": "2025-09-17",
+  "computed_at": "2026-09-26T21:00:00Z",
+  "score": 66,
+  "regime": "elevated",
+  "factors": {
+    "volatility": "79.00",
+    "tail_risk": "67.30",
+    "drawdown": "94.60",
+    "market_sensitivity": "50.00",
+    "liquidity": "83.20"
+  },
+  "shap": {
+    "volatility": "-2.7490",
+    "tail_risk": "-0.5782",
+    "drawdown": "0.2351",
+    "market_sensitivity": "0.0000",
+    "liquidity": "0.0000",
+    "other": "-2.3902"
+  },
+  "ml_drawdown_prob_20d": "0.0760",
+  "model_version": "test-model",
+  "history_days": 599
+}

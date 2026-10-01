@@ -97,6 +97,19 @@ class Settings(BaseSettings):
     rate_limit_user_burst: float = 240.0
     rate_limit_enabled: bool = True
 
+    # ── Public signal API (GET /api/v1/signal) ───────────────────────────────
+    # A read-only integration surface for sibling apps. Unset (the default)
+    # the endpoint is open; set SIGNAL_API_KEYS to a comma-separated list and
+    # every request must carry one of them in `X-Api-Key`. Compared with
+    # hmac.compare_digest, never `==`. See api/signal.py.
+    signal_api_keys: str | None = None
+    # Sustained allowance per client IP, per minute, on the signal routes.
+    # Separate from the general token bucket above: those buckets are sized
+    # for a browser page load (tens of tokens in a few seconds) and would be
+    # far too generous for an unauthenticated machine-to-machine surface.
+    # One batch request counts once, however many tickers it carries.
+    signal_rate_limit_per_minute: int = 60
+
     # Failed-login lockout, keyed by email (see FailedLoginTracker).
     login_failure_threshold: int = 5
     login_lockout_seconds: float = 900.0
@@ -115,6 +128,14 @@ class Settings(BaseSettings):
     # Re-issue a token when it's within this long of expiring, so an active
     # session never gets logged out mid-use by the shorter lifetime above.
     access_token_refresh_within_minutes: int = 60 * 2
+
+    @property
+    def signal_api_key_list(self) -> list[str]:
+        """Parsed SIGNAL_API_KEYS. Empty means the signal endpoint is open —
+        so, as with CORS, a trailing comma cannot become an empty-string key
+        that `compare_digest("", "")` would happily accept."""
+        raw = self.signal_api_keys or ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
 
     @property
     def cors_origins_list(self) -> list[str]:

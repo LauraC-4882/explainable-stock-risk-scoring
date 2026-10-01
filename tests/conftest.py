@@ -118,6 +118,7 @@ def reset_security_state():
     test that opted into limiting can't leave a drained bucket behind.
     """
     from stock_risk.api import app as app_module
+    from stock_risk.api import signal as signal_module
     from stock_risk.config import settings
 
     def _clear():
@@ -125,6 +126,7 @@ def reset_security_state():
         app_module._user_limiter.reset()
         app_module._login_tracker.reset()
         app_module._score_cache.clear()
+        signal_module.signal_limiter().reset()
 
     original = settings.rate_limit_enabled
     settings.rate_limit_enabled = False
