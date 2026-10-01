@@ -217,6 +217,43 @@ def test_shap_sums_are_the_full_decomposition_not_the_top_five():
     assert top_five != pytest.approx(total_shift, abs=1e-3)
 
 
+# The structural zeros, pinned. `shap.market_sensitivity` and `shap.liquidity`
+# are "0.0000" on every response because no ML feature belongs to either
+# category; this is the map that makes it so. Built from the deployed model's
+# own feature names through the same lookup explain.py sums with, so mapping a
+# new feature (or adding a beta/liquidity input to the model) fails here and
+# forces the README and docstring statements to be revisited.
+_EXPECTED_FEATURE_CATEGORIES = {
+    "volatility": {"vol_21d", "vol_63d"},
+    "tail": {"var_95_21d", "cvar_95_21d", "skew_63d", "kurt_63d"},
+    "drawdown": {"max_drawdown_63d"},
+    "sensitivity": set(),
+    "liquidity": set(),
+    "other": {
+        "rsi_14", "dist_ema_20", "dist_ema_50", "bb_pct", "volume_ratio", "atr_14",
+        "vol_regime_change", "vol_of_vol_20", "drawdown_acceleration", "skew_momentum",
+        "sharpe_63d", "sortino_63d",
+    },
+}
+
+
+def test_shap_category_map_is_exactly_the_documented_one():
+    from stock_risk.models import explain
+
+    model = app_module.scorer._dr_model
+    assert model is not None and model.pipeline is not None, "committed artefact not loaded"
+    feature_names = list(model.pipeline.named_steps["preprocessor"].get_feature_names_out())
+    assert len(feature_names) == 19
+
+    actual = {category: set() for category in _EXPECTED_FEATURE_CATEGORIES}
+    for name in feature_names:
+        _, _, column = name.rpartition("__")
+        actual[explain._feature_category(name)].add(column)
+
+    assert actual == _EXPECTED_FEATURE_CATEGORIES
+    assert actual["sensitivity"] == actual["liquidity"] == set()
+
+
 def test_model_version_resolution(tmp_path):
     assert resolve_model_version(None, model_dir=tmp_path, repo_root=tmp_path) == "unavailable"
     assert (

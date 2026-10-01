@@ -116,7 +116,10 @@ class SignalResponse(BaseModel):
     Every non-integer number is a string with a fixed number of decimals:
     `factors` two (percentiles, 0-100), `shap` four (log-odds contributions),
     `ml_drawdown_prob_20d` four (a probability, 0-1). `score` and
-    `history_days` are integers.
+    `history_days` are integers. `shap.market_sensitivity` and
+    `shap.liquidity` are always "0.0000" because no ML feature is mapped to
+    those categories; the six `shap` values remain an additive decomposition
+    of the model's log-odds shift.
     """
 
     schema_version: str
