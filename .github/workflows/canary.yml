@@ -1,0 +1,161 @@
+name: Main health canary
+
+# An observer of main that is independent of what changed.
+#
+# ci.yml runs on push to main with `paths-ignore: snapshots/**`, and the daily
+# `chore: daily snapshot refresh` commits are pushed with GITHUB_TOKEN, which
+# never triggers a `push` workflow in the first place. So a refresh commit
+# landing on main produces no CI run under either rule. Between b44678a
+# (2026-09-03, red) and 61fdee8 (2026-09-12, the fix) every commit on main was
+# a snapshot refresh: eight days red, zero observations.
+#
+# This workflow closes the *unknown-trigger* half of that hole. It runs the full
+# suite against main once a day regardless of what moved, and on demand against
+# any ref, so "main is green" is measured rather than inferred from the last
+# PR build. The known trigger (a refresh that invalidates a documented number)
+# is gated inside refresh-snapshot.yml itself, at the moment it lands.
+#
+# Deliberately NOT a change to ci.yml's paths-ignore: dropping it would re-run
+# CI on every non-bot snapshot commit (cost) without adding an observer that is
+# independent of the push path. A trigger nobody has thought of yet would still
+# leave main unobserved; a daily run does not care what the trigger was.
+#
+# The steps mirror ci.yml's two jobs, self-contained rather than via
+# workflow_call so a red canary has exactly one file to read. If ci.yml grows a
+# gate, add it here in the same PR. The `schedule` trigger only fires from the
+# default branch, so it is live once this file is on main; `workflow_dispatch`
+# works from any branch that carries the file, which is how it is verified
+# before merge (dispatch with the branch as --ref and the sha under test as the
+# `ref` input).
+
+run-name: "Canary: ${{ inputs.ref || 'main' }} (${{ github.event_name }})"
+
+on:
+  schedule:
+    - cron: "15 7 * * *" # 07:15 UTC daily — after the 21:45 UTC weekday refresh has landed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA, branch or tag to test (default: main)"
+        required: false
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # The single source of the ref under test. `inputs` is empty on a schedule
+  # event, so the fallback is what makes the cron leg test main rather than
+  # the empty string. Both checkouts read this, never `inputs.ref` directly.
+  CANARY_REF: ${{ inputs.ref || 'main' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANARY_REF }}
+          # Full history, same reason as ci.yml: test_docs_consistency's
+          # commit-hash reachability assertion self-skips on a shallow clone.
+          fetch-depth: 0
+
+      # The run must say what it tested. `ref` may be a moving branch name, so
+      # the resolved sha goes into the run summary where it survives.
+      - name: Record the commit under test
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "canary: requested ref '$CANARY_REF' resolved to $sha (trigger: ${{ github.event_name }})"
+          {
+            echo "## Main health canary"
+            echo ""
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| requested ref | \`$CANARY_REF\` |"
+            echo "| resolved sha | \`$sha\` |"
+            echo "| trigger | ${{ github.event_name }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # Same ordering as ci.yml: tests/test_static_fonts.py needs ui/web/dist
+      # to exist, and with CI=true its skip guard is disabled.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/web/package-lock.json
+
+      - name: Build frontend (needed by test_static_fonts.py)
+        working-directory: ui/web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Lint
+        run: ruff check src/ tests/ alembic/
+
+      - name: Test
+        run: pytest tests/ -v --tb=short
+
+      - name: Migration round trip (upgrade -> downgrade -> upgrade)
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/canary_migrations.db
+        run: |
+          python -m alembic upgrade head
+          python -m alembic current
+          python -m alembic downgrade base
+          python -m alembic upgrade head
+
+      - name: Tail-risk validation suite
+        run: python scripts/validate_tail.py
+
+      - name: Backup + restore drill
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/canary_migrations.db
+        run: |
+          python scripts/backup_db.py create
+          python scripts/backup_db.py list
+          python scripts/backup_db.py drill
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANARY_REF }}
+
+      - name: Record the commit under test
+        run: |
+          echo "canary: requested ref '$CANARY_REF' resolved to $(git rev-parse HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit + component tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
