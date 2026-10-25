@@ -8,7 +8,9 @@ path where a computed number becomes an outward claim:
    the docs read as evidence of fat tails (fixed, `93b5871`);
 2. `validate_tail.py` picks its ticker set by globbing `snapshots/`, so the
    "9 tickers, 4,613 ticker-days" the README once quoted was a directory state,
-   not a declared sample (open — see SESSION_LEDGER.md);
+   not a declared sample (fixed, `1736ddd` — the sample is read from
+   snapshots/validation_manifest.txt; pinned by tests/test_validation_manifest.py
+   ::test_the_sample_comes_from_the_manifest_not_the_directory);
 3. that same script graded a log-return VaR line against `pct_return`
    (resolved — the realised-loss series now reads `log_return`, the same
    convention the forecast is estimated from; `301189_SZ` turns from pass
