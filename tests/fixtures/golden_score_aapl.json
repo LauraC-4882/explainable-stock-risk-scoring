@@ -10,6 +10,7 @@
       "sale_count": 3
     }
   },
+  "as_of": "2025-09-17",
   "beta": 1.2,
   "cvar_95": -0.027,
   "fundamentals": {
@@ -25,6 +26,7 @@
     "vol_1d": 0.0175,
     "vol_30d": 0.096
   },
+  "history_days": 599,
   "implied_volatility": 0.31,
   "indicators": {
     "atr_14": 2.3061,
@@ -41,6 +43,14 @@
   "ml_drawdown_explanation": {
     "base_probability": 0.5968810684830773,
     "calibrated_probability": 0.07599999755620956,
+    "category_contributions": {
+      "drawdown": 0.2350877821445465,
+      "liquidity": 0.0,
+      "other": -2.3901753667742014,
+      "sensitivity": 0.0,
+      "tail": -0.5782008916139603,
+      "volatility": -2.74904003739357
+    },
     "note": "shap_contribution is in log-odds units (additive: base_probability's log-odds plus every feature's shap_contribution equals predicted_probability's log-odds). Positive values push the 20-day severe-drawdown probability up; negative values push it down. Only the top_n largest-magnitude features are listed. predicted_probability is the raw (pre-calibration) model's output that this SHAP breakdown explains — calibrated_probability is what model.predict() actually serves; isotonic calibration has no per-feature attribution of its own.",
     "predicted_probability": 0.0061212909002562816,
     "top_features": [

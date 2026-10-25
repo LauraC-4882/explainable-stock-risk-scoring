@@ -39,6 +39,10 @@ def _fake_scorecard(ticker: str = "AAPL") -> dict:
     return {
         "ticker": ticker,
         "timestamp": "2026-07-17T00:00:00Z",
+        # Defaulted on ScoreResponse (pre-existing cached responses have no
+        # bar date) and therefore filled in on the way out — spelled out
+        # because the assertion below is byte-for-byte.
+        "as_of": None,
         "risk_score": 42.0,
         "risk_label": "MODERATE",
         "risk_note": "test note",

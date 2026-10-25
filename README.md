@@ -542,6 +542,8 @@ No paid data vendor required — all via yfinance:
 | GET | `/api/watchlist` | Current user's saved tickers |
 | POST | `/api/watchlist` | Save a ticker (`{ticker, market, notes?}`) |
 | DELETE | `/api/watchlist/{item_id}` | Remove a saved ticker |
+| GET | `/api/v1/signal/{ticker}` | Public, versioned signal for one ticker (see "Public signal API") |
+| GET | `/api/v1/signal?tickers=A,B,C` | The same, for up to 20 tickers in one request |
 
 ### Example Response
 
@@ -616,6 +618,121 @@ No paid data vendor required — all via yfinance:
   }
 }
 ```
+
+## Public signal API
+
+A read-only, versioned HTTP surface for sibling apps — built for Portfolio
+Lab, usable by anything that speaks JSON. It is the **only** integration
+surface: nothing under `src/stock_risk/` is a library for another service to
+import, and nothing here is computed differently from what the web UI shows.
+Every number is lifted from the same `RiskScorer.score()` result the score
+card renders, through the same cache-first path as `/api/score/{ticker}`, and
+then reshaped (`api/signal.py`).
+
+| Method | Endpoint | Returns |
+|---|---|---|
+| GET | `/api/v1/signal/{ticker}` | One `SignalResponse` |
+| GET | `/api/v1/signal?tickers=JPM,MS,SPY,TSLA` | `{"results": [SignalResponse, ...], "errors": [{"ticker", "code"}, ...]}` — at most 20 tickers, one HTTP call, one process, no cold start per ticker |
+
+**Access.** No user account and no session token. If `SIGNAL_API_KEYS` is
+set (comma-separated), every request must carry one of those keys in an
+`X-Api-Key` header or it gets a `401`; unset, the endpoint is open. Keys are
+compared in constant time, and the `401` body says the same thing whether the
+header was missing or wrong. The route is also allowed 60 requests per minute
+per client IP (`SIGNAL_RATE_LIMIT_PER_MINUTE`); a batch counts once, however
+many tickers it carries. Over the limit you get a `429` with a `Retry-After`
+header. `X-Forwarded-For` is honoured only with `TRUST_PROXY_HEADERS=1`, same
+as the rest of the API.
+
+**Caching.** One computation per ticker per UTC day. The first request for a
+ticker computes the signal live and stores the whole body in the
+`signalsnapshot` table; every later request that day is served from that row
+verbatim, so two consumers asking an hour apart see byte-identical answers.
+Successful responses carry `Cache-Control: max-age=3600` (an hour, not a day,
+so an intermediary's copy cannot straddle the day boundary). A batch that
+contains any error is sent with `no-store`: a transient `503` for one ticker
+must not be cached for an hour by a proxy.
+
+**Response**, `schema_version` `"1.0"`. Numbers are strings with fixed
+decimals so two services never disagree on a float's last bit; `score` and
+`history_days` are integers by contract.
+
+```json
+{
+  "schema_version": "1.0",
+  "ticker": "JPM",
+  "market": "US",
+  "as_of": "2026-09-26",
+  "computed_at": "2026-09-26T21:00:00Z",
+  "score": 42,
+  "regime": "calm",
+  "factors": {
+    "volatility": "38.10",
+    "tail_risk": "44.70",
+    "drawdown": "51.20",
+    "market_sensitivity": "50.00",
+    "liquidity": "22.90"
+  },
+  "shap": {
+    "volatility": "-0.4120",
+    "tail_risk": "-0.0913",
+    "drawdown": "0.0377",
+    "market_sensitivity": "0.0000",
+    "liquidity": "0.0000",
+    "other": "-0.2210"
+  },
+  "ml_drawdown_prob_20d": "0.0760",
+  "model_version": "sha256:e72045907caa",
+  "history_days": 500
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `as_of` | Trading date of the last daily bar the score is computed from. Distinct from `computed_at`: a signal served on a Sunday is Friday's bar. |
+| `computed_at` | When the underlying score was computed (UTC, ISO-8601). A cached answer keeps its original time. |
+| `score` | The fused risk score, 0–100, rounded to an integer. Same number as `risk_score` on the score card. |
+| `regime` | `"calm"`, `"elevated"` or `"panic"` — the VIX-threshold market-regime state that chose the category weights. `null` when no reading exists (the VIX is a US instrument, so every non-US ticker is `null`). |
+| `factors` | The five category percentiles **within this stock's own history**, two decimals. `null` for a category that could not be scored. Public names map to the score card's `risk_breakdown` keys: `tail_risk` ← `tail`, `market_sensitivity` ← `sensitivity`. |
+| `shap` | Per-category sums of the ML leg's SHAP contributions in log-odds units, four decimals, summed over **every** feature (the score card lists only the five largest). The six values add up to the model's total shift from its base rate; `other` holds features outside the five categories (momentum, Sharpe/Sortino). `market_sensitivity` and `liquidity` are always `"0.0000"`: no ML feature is mapped to either category (the model has no beta or liquidity input), so their sums are structurally zero, not measured zeros — the six values still form the complete additive decomposition of the log-odds shift. `null` when the ML leg is off. |
+| `ml_drawdown_prob_20d` | The calibrated model probability, 0–1 with four decimals, that the stock's maximum drawdown exceeds 10% within the next 20 trading days. The score card shows the same quantity ×100. `null` when the ML leg is off. |
+| `model_version` | Identifies the ML artefact answering: the governance registry's champion version when one is recorded, else `sha256:` + the artefact's content hash, else `unavailable` when no model is loaded (then `shap` and `ml_drawdown_prob_20d` are `null` too). |
+| `history_days` | Sessions the percentile ranking was computed over. |
+
+The VaR backtest (`/api/score/{ticker}/backtest`) is deliberately not part of
+this payload.
+
+**Errors.** The same five-code taxonomy as `/api/score/{ticker}`, with the
+same flat body (`api/errors.py`) and never any exception text:
+
+```json
+{"error": "INSUFFICIENT_DATA", "message": "...", "detail": "...", "ticker": "NEWIPO", "status": 422}
+```
+
+| Status | `error` | When |
+|---|---|---|
+| 404 | `TICKER_NOT_FOUND` | The symbol resolves on no exchange we can reach. |
+| 422 | `INSUFFICIENT_DATA` | Fewer than 60 trading days of history — a recent listing. Not retryable; it needs time to pass. |
+| 422 | `DELISTED` | History exists but stops well before today. |
+| 503 | `UPSTREAM_UNAVAILABLE` | Every price source failed and no snapshot could stand in. The one code worth retrying. |
+| 500 | `CALCULATION_FAILED` | We had data and could not turn it into a trustworthy number; the traceback is in the server log. |
+
+In the batch form a failing ticker does not fail the request: it is listed
+under `errors` as `{"ticker": "NEWIPO", "code": "INSUFFICIENT_DATA"}` and the
+rest come back under `results`. Request-shape problems (no tickers, more than
+20) are plain `422`s with a `detail` string and no `error` code, the same as
+FastAPI's own validation errors. A `422` in a single-ticker response therefore
+carries an `error` code; a `422` for a malformed batch query does not.
+
+**What the numbers mean — and do not.** Every factor, and the score built from
+them, is a percentile of *this stock against its own history*. A 70 on one
+stock and a 30 on another says nothing about which is riskier in absolute
+terms (see "Scores are not comparable across stocks"); ranking a portfolio by
+this score is exactly the comparison it cannot support. The payload carries
+measurements and a model probability and nothing else — no direction, no
+target, no suggested action. It is not investment advice, and a consumer that
+renders it to people should say so next to the number, as this product's own
+UI does.
 
 ## Web Frontend (React + Tailwind)
 

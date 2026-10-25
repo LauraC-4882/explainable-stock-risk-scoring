@@ -65,6 +65,9 @@ class MLDrawdownExplanation(BaseModel):
     predicted_probability: float
     calibrated_probability: Optional[float] = None
     top_features: list[MLExplanationFeature]
+    # Defaulted: explanations cached before the per-category sums existed
+    # still validate.
+    category_contributions: Optional[dict[str, float]] = None
     note: str
 
 
@@ -140,6 +143,9 @@ class Fundamentals(BaseModel):
 class ScoreResponse(BaseModel):
     ticker: str
     timestamp: str
+    # Trading date of the last bar scored (YYYY-MM-DD). Optional so responses
+    # cached before it existed still validate.
+    as_of: Optional[str] = None
     risk_score: float
     risk_label: str
     risk_note: str

@@ -319,6 +319,14 @@ class RiskScorer:
             # .replace keeps the ISO string's trailing "Z" format instead of
             # "+00:00" so API consumers see no change.
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            # The trading date of the last bar the score is computed from —
+            # distinct from `timestamp` (when it was computed). A score served
+            # on a Sunday is a Friday score, and a consumer aligning it with
+            # its own daily data needs the bar date, not the wall clock.
+            "as_of": df.index[-1].strftime("%Y-%m-%d"),
+            # Sessions in the frame every percentile above is ranked within —
+            # the ranking baseline's actual length, not the requested period.
+            "history_days": int(len(df)),
             "risk_score": round(composite_score, 1),
             "risk_label": _label(composite_score),
             "risk_note": _risk_note(benchmark_ticker, ml_share),

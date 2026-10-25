@@ -151,3 +151,37 @@ class ScoreSnapshot(SQLModel, table=True):
     risk_label: str
     captured_on: date = Field(default_factory=_utc_today, index=True)
     captured_at: datetime = Field(default_factory=_utc_now)
+
+
+class SignalSnapshot(SQLModel, table=True):
+    """One serialised public-signal payload per ticker per UTC day — the daily
+    cache behind GET /api/v1/signal (see api/signal.py).
+
+    A separate table from ScoreSnapshot rather than a column on it: that table
+    is the watchlist board's history and holds one number per day, while this
+    holds a whole versioned payload for an external consumer, and the two are
+    written by different paths. `as_of` (the trading date of the last bar the
+    score is based on) is stored alongside `captured_on` (the UTC day it was
+    computed) because they differ across weekends and holidays and a consumer
+    aligns on the former.
+
+    A row captured today is served as-is; the score is computed from daily
+    bars, so recomputing it within the same day cannot produce a different
+    `as_of`. Rows are never read back after their day: the next day's request
+    computes and upserts a fresh one.
+    """
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "captured_on", name="uq_signal_snapshot_ticker_day"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ticker: str = Field(index=True)
+    market: str
+    as_of: date
+    schema_version: str
+    # The full SignalResponse body as JSON text — served verbatim, so a cached
+    # answer is byte-for-byte the answer the live computation gave.
+    payload: str
+    captured_on: date = Field(default_factory=_utc_today, index=True)
+    computed_at: datetime = Field(default_factory=_utc_now)
